@@ -1,0 +1,73 @@
+type: custom:ha-homelab-map
+line_radius: 6
+vlans: {LAN: "#6c9cda", IoT: "#66b771", NoT: "#d6995c"}
+items:
+  - type: rack
+    id: rack
+    at: [40, 20]
+    units: 6
+    items:
+      - {type: badge, id: rack_temp, at: [20, -8], entity: sensor.rack_temperature, icon: "mdi:thermometer", show_border: true, size: 10}
+      - {type: badge, id: rack_hum, at: [86, -8], entity: sensor.rack_humidity, icon: "mdi:water-percent", show_border: true, size: 10}
+      - type: rackdevice
+        id: router
+        u: 2
+        items:
+          - {type: badge, id: router_cpu, at: [250, 9], entity: sensor.router_cpu, icon: "mdi:cpu-64-bit", size: 10}
+      - {type: rackdevice, id: server, u: 3, units: 2}
+      - {type: rackdevice, id: ups, u: 5, units: 2}
+      - {type: device, id: poe, at: [150, 11], size: [10, 30]}
+  - type: device
+    id: ap
+    at: [480, 20]
+    size: [160, 60]
+    items:
+      - {type: badge, id: ap_clients, at: [8, 8], entity: sensor.ap_clients, icon: "mdi:account", units: none, size: 10}
+      - {type: badge, id: ap_temp, at: [8, 40], entity: sensor.ap_temperature, icon: none, decimals: 1, size: 10}
+  - {type: device, id: nas, at: [480, 130], size: [160, 60]}
+  - type: endpoint
+    id: tv
+    at: [700, 35]
+    items:
+      - {type: chip, id: tv_logo, at: [4, 4], size: 24, image: /local/ha-homelab-map/logos/android.svg}
+  - {type: endpoint, id: camera, at: [700, 145], icon: "mdi:cctv"}
+  - {type: badge, id: wan_speed, at: [440, 210], entity: sensor.wan_download, icon: "mdi:download", units: Mb/s, show_border: true}
+datalines:
+  - id: router-ap
+    start_device: router
+    start_edge: right
+    end_device: ap
+    end_edge: left
+    points: [[420, 77], [420, 50]]
+    vlans: [LAN, IoT, NoT]
+    flow: dominant
+    status: binary_sensor.ap_link
+    rx: sensor.ap_rx
+    tx: sensor.ap_tx
+  - id: router-nas
+    start_device: router
+    start_edge: right
+    start_point: 80
+    end_device: nas
+    end_edge: left
+    points: [[400, 83], [400, 160]]
+    vlans: [LAN]
+    flow: forward
+    status: binary_sensor.nas_link
+  - {id: ap-tv, start_device: ap, start_edge: right, end_device: tv, end_edge: left, flow: forward}
+  - id: nas-camera
+    start_device: nas
+    start_edge: right
+    start_point: 30
+    end_device: camera
+    end_edge: left
+    points: [[670, 148], [690, 161]]
+    flow: reverse
+powerlines:
+  - id: ups-server
+    start_device: ups
+    start_edge: left
+    end_device: server
+    end_edge: left
+    points: [[52, 205], [52, 140]]
+    flow: forward

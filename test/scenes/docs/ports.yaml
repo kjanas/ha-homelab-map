@@ -1,0 +1,43 @@
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: switch
+    at: [0, 0]
+    size: [150, 44]
+    items:
+      - {type: label, id: switch_name, at: [8, 6], text: Switch, size: 11, bold: true}
+      - type: ports
+        id: switch_ports
+        at: [8, 24]
+        size: 12
+        items:
+          - {type: port, id: p1, at: [0, 0], entity: sensor.switch_p1_rate}
+          - {type: port, id: p2, at: [16, 0], entity: sensor.switch_p2_rate}
+          - {type: port, id: p3, at: [32, 0], entity: sensor.switch_p3_rate}
+          - {type: port, id: p4, at: [48, 0], entity: sensor.switch_p4_rate}
+          - {type: port, id: p5, at: [64, 0], entity: binary_sensor.switch_p5_connection}
+  - type: device
+    id: nvr
+    at: [190, 0]
+    size: [110, 44]
+    items:
+      - {type: label, id: nvr_name, at: [8, 6], text: NVR, size: 11, bold: true}
+      - type: ports
+        id: cameras
+        at: [8, 24]
+        size: 12
+        icon: "mdi:cctv"
+        states: {recording: active, online: warn, offline: fault, empty: inactive}
+        items:
+          - {type: port, id: cam1, at: [0, 0], entity: sensor.nvr_camera_1}
+          - {type: port, id: cam2, at: [16, 0], entity: sensor.nvr_camera_2}
+          - {type: port, id: cam3, at: [32, 0], entity: sensor.nvr_camera_3}
+          - {type: port, id: cam4, at: [48, 0], entity: sensor.nvr_camera_4}
+  - type: device
+    id: printer
+    at: [30, 100]
+    size: [80, 26]
+    items:
+      - {type: label, id: printer_name, at: [8, 7], text: Printer, size: 10}
+datalines:
+  - {id: p4-printer, start_port: p4, start_edge: bottom, end_device: printer, end_edge: top, end_point: 40}

@@ -1,0 +1,13 @@
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: server
+    at: [0, 0]
+    size: [180, 40]
+    items:
+      - {type: chip, id: ha, at: [8, 12], size: 18, icon: "mdi:docker", status_entity: binary_sensor.ha_running}
+      - {type: chip, id: grafana, at: [36, 12], size: 18, image: /local/ha-homelab-map/logos/grafana.svg, status_entity: binary_sensor.grafana_running, update_entity: binary_sensor.grafana_update}
+      - {type: chip, id: mosquitto, at: [64, 12], size: 18, image: /local/ha-homelab-map/logos/mosquitto.svg, status_entity: binary_sensor.mqtt_running}
+      - {type: chip, id: redis, at: [92, 12], size: 18, image: /local/ha-homelab-map/logos/redis.svg, update_entity: binary_sensor.redis_update}
+      - {type: chip, id: nginx, at: [120, 12], size: 18, image: /local/ha-homelab-map/logos/nginx.svg, url: "https://example.com"}
+      - {type: chip, id: both, at: [148, 12], size: 18, image: /local/ha-homelab-map/logos/postgres.svg, status_entity: binary_sensor.pg_running, update_entity: binary_sensor.pg_update}

@@ -1,0 +1,3 @@
+{"sensor.switch_p1_rate": "1Gbps", "sensor.switch_p2_rate": "100Mbps", "sensor.switch_p3_rate": "down", "sensor.switch_p4_rate": "down",
+ "binary_sensor.switch_p5_connection": {"state": "off", "attributes": {"enabled": false, "status": "no-link", "rate": "unknown"}},
+ "sensor.nvr_camera_1": "recording", "sensor.nvr_camera_2": "online", "sensor.nvr_camera_3": "offline", "sensor.nvr_camera_4": "empty"}

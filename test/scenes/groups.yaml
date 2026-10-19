@@ -1,0 +1,15 @@
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: server
+    at: [0, 0]
+    size: [200, 70]
+    items:
+      - type: group
+        id: containers
+        at: [8, 22]
+        items:
+          - {type: chip, id: c1, at: [0, 0], size: 18, icon: "mdi:docker", status_entity: binary_sensor.c1}
+          - {type: chip, id: c2, at: [24, 0], size: 18, image: /local/ha-homelab-map/logos/grafana.svg, update_entity: binary_sensor.c2_update}
+          - {type: chip, id: c3, at: [48, 0], size: 18, image: /local/ha-homelab-map/logos/redis.svg}
+      - {type: badge, id: count, at: [150, 52], entity: sensor.running, icon: "mdi:docker", size: 10, toggle: containers}

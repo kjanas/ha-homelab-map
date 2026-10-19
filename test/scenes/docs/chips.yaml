@@ -1,0 +1,15 @@
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: server
+    at: [0, 0]
+    size: [250, 40]
+    items:
+      - {type: chip, id: running, at: [10, 11], size: 18, image: /local/ha-homelab-map/logos/home-assistant.svg, status_entity: sensor.ha_state}
+      - {type: chip, id: stopped, at: [40, 11], size: 18, image: /local/ha-homelab-map/logos/mosquitto.svg, status_entity: sensor.mqtt_state}
+      - {type: chip, id: update, at: [70, 11], size: 18, image: /local/ha-homelab-map/logos/grafana.svg, status_entity: sensor.grafana_state, update_entity: binary_sensor.grafana_update}
+      - {type: chip, id: both, at: [100, 11], size: 18, image: /local/ha-homelab-map/logos/postgres.svg, status_entity: sensor.pg_state, update_entity: binary_sensor.pg_update}
+      - {type: chip, id: link, at: [130, 11], size: 18, image: /local/ha-homelab-map/logos/nginx.svg, url: "https://example.com"}
+      - {type: chip, id: icon, at: [160, 11], size: 18, icon: "mdi:docker"}
+      - {type: chip, id: helper, at: [190, 11], size: 18, image: /local/ha-homelab-map/logos/redis.svg, small_image: /local/ha-homelab-map/logos/immich.svg, status_entity: sensor.immich_redis_state}
+      - {type: chip, id: os, at: [220, 11], size: 18, image: /local/ha-homelab-map/logos/debian.svg, small_entity: sensor.os_updates, update_entity: sensor.os_updates}

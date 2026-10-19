@@ -1,0 +1,13 @@
+type: custom:ha-homelab-map
+animation_toggle: true
+items:
+  - type: device
+    id: server
+    at: [0, 0]
+    size: [150, 40]
+    items:
+      - {type: chip, id: immich, at: [8, 11], size: 18, image: /local/ha-homelab-map/logos/immich.svg, status_entity: binary_sensor.immich_running}
+      - {type: chip, id: immich_redis, at: [34, 11], size: 18, image: /local/ha-homelab-map/logos/redis.svg, small_image: /local/ha-homelab-map/logos/immich.svg, status_entity: binary_sensor.immich_redis_running}
+      - {type: chip, id: immich_postgres, at: [60, 11], size: 18, image: /local/ha-homelab-map/logos/postgres.svg, small_image: /local/ha-homelab-map/logos/immich.svg, update_entity: binary_sensor.immich_postgres_update}
+      - {type: chip, id: paperless_tika, at: [86, 11], size: 18, image: /local/ha-homelab-map/logos/tika.png, small_image: /local/ha-homelab-map/logos/paperless-ngx.svg, status_entity: binary_sensor.tika_running}
+      - {type: chip, id: tunnel, at: [112, 11], size: 18, image: /local/ha-homelab-map/logos/cloudflared.svg, small_image: /local/ha-homelab-map/logos/nginx.svg}

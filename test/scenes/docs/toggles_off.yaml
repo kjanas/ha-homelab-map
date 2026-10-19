@@ -1,0 +1,16 @@
+type: custom:ha-homelab-map
+vlans: {LAN: "#6c9cda", IoT: "#66b771", NoT: "#d6995c"}
+vlan_toggle: true
+power_toggle: true
+animation_toggle: true
+debug_toggle: true
+items:
+  - {type: device, id: router, at: [0, 0], size: [100, 160]}
+  - {type: device, id: nas, at: [250, 0], size: [100, 40]}
+  - {type: device, id: ap, at: [250, 120], size: [100, 40]}
+  - {type: device, id: ups, at: [0, 200], size: [100, 40]}
+datalines:
+  - {id: iot, start_device: router, start_edge: right, start_point: 12.5, end_device: nas, end_edge: left, flow: forward, vlans: [IoT]}
+  - {id: trunk, start_device: router, start_edge: right, start_point: 87.5, end_device: ap, end_edge: left, flow: forward, vlans: [LAN, IoT, NoT]}
+powerlines:
+  - {id: ups-router, start_device: ups, start_edge: top, end_device: router, end_edge: bottom, flow: forward}

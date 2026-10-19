@@ -1,0 +1,8 @@
+{"binary_sensor.router_online": "on", "binary_sensor.nas_online": "on",
+ "sensor.router_cpu": {"state": "7", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.router_temperature": {"state": "41.5", "attributes": {"unit_of_measurement": "°C"}},
+ "sensor.nas_cpu": {"state": "18", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.nas_disk_used": {"state": "87", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.nas_os_updates": "3",
+ "sensor.router_ether2_tx": {"state": "84.2", "attributes": {"unit_of_measurement": "Mbit/s"}},
+ "sensor.router_ether2_rx": {"state": "3.1", "attributes": {"unit_of_measurement": "Mbit/s"}}}

@@ -1,0 +1,11 @@
+type: custom:ha-homelab-map
+vlans: {LAN: "#6c9cda"}
+items:
+  - {type: device, id: router, at: [0, 0], size: [100, 160]}
+  - {type: device, id: nas, at: [250, 0], size: [100, 40]}
+  - {type: device, id: printer, at: [250, 60], size: [100, 40]}
+  - {type: device, id: ap, at: [250, 120], size: [100, 40]}
+datalines:
+  - {id: sensor-on, start_device: router, start_edge: right, start_point: 12.5, end_device: nas, end_edge: left, vlans: [LAN], flow: forward, status: binary_sensor.nas_link}
+  - {id: sensor-off, start_device: router, start_edge: right, end_device: printer, end_edge: left, vlans: [LAN], flow: forward, status: binary_sensor.printer_link}
+  - {id: planned, start_device: router, start_edge: right, start_point: 87.5, end_device: ap, end_edge: left, vlans: [LAN], flow: forward, status: inactive}

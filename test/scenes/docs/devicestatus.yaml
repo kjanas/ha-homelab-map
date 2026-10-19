@@ -1,0 +1,27 @@
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: nas
+    at: [0, 0]
+    size: [120, 36]
+    status_entity: binary_sensor.nas_online
+    items:
+      - {type: label, id: nas_name, at: [8, 6], text: NAS, size: 11, bold: true}
+      - {type: label, id: nas_state, at: [8, 21], text: online – ok, size: 8, color: secondary}
+  - type: device
+    id: ups
+    at: [140, 0]
+    size: [120, 36]
+    status_entity: sensor.ups_status
+    status_map: {LB: down, OB: warn, OL: ok}
+    items:
+      - {type: label, id: ups_name, at: [8, 6], text: UPS, size: 11, bold: true}
+      - {type: label, id: ups_state, at: [8, 21], text: OB DISCHRG – warn, size: 8, color: secondary}
+  - type: device
+    id: printer
+    at: [280, 0]
+    size: [120, 36]
+    status_entity: binary_sensor.printer_online
+    items:
+      - {type: label, id: printer_name, at: [8, 6], text: Printer, size: 11, bold: true}
+      - {type: label, id: printer_state, at: [8, 21], text: off – down, size: 8, color: secondary}

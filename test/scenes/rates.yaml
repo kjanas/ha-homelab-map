@@ -1,0 +1,15 @@
+type: custom:ha-homelab-map
+vlans: {LAN: "#6c9cda"}
+items:
+  - {type: device, id: a, at: [0, 0], size: [80, 40]}
+  - {type: device, id: b, at: [300, 0], size: [80, 40]}
+  - {type: device, id: c, at: [0, 80], size: [80, 40]}
+  - {type: device, id: d, at: [300, 80], size: [80, 40]}
+  - {type: device, id: e, at: [0, 160], size: [80, 40]}
+  - {type: device, id: f, at: [300, 160], size: [80, 40]}
+  - {type: endpoint, id: g, at: [440, 140], icon: "mdi:cctv"}
+datalines:
+  - {id: start-middle, start_device: a, start_edge: right, end_device: b, end_edge: left, vlans: [LAN], flow: dominant, rx: sensor.rx, tx: sensor.tx, rates_at: start}
+  - {id: end-above, start_device: c, start_edge: right, end_device: d, end_edge: left, vlans: [LAN], flow: forward, rx: sensor.rx, tx: sensor.tx, rates_at: end, rates_placement: above}
+  - {id: pct-below, start_device: e, start_edge: right, end_device: f, end_edge: left, vlans: [LAN], flow: forward, rx: sensor.rx, tx: sensor.tx, rates_at: 50, rates_placement: below}
+  - {id: vertical, start_device: g, start_edge: top, end_device: b, end_edge: right, points: [[456, 20]], vlans: [LAN], flow: forward, rx: sensor.rx, tx: sensor.tx, rates_at: start, rates_size: 7}

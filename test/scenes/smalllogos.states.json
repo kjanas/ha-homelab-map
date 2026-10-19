@@ -1,0 +1,1 @@
+{"binary_sensor.immich_running":"on","binary_sensor.immich_redis_running":"on","binary_sensor.immich_postgres_update":"on","binary_sensor.tika_running":"off"}

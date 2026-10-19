@@ -1,0 +1,15 @@
+type: custom:ha-homelab-map
+items:
+  - type: rack
+    id: rack
+    at: [20, 0]
+    units: 3
+    items:
+      - {type: fanpanel, id: rack_fans, u: 1, units: 2, count: 4, entity: sensor.rack_temperature, range: [27, 35]}
+      - type: rackdevice
+        id: server
+        u: 3
+        items:
+          - {type: label, id: server_name, at: [8, 8], text: Server, size: 11, bold: true}
+  - {type: fan, id: case_fan, at: [400, 20], size: 40, entity: sensor.case_fan_rpm, range: [0, 3000], thresholds: [{below: 500, color: red}]}
+  - {type: fan, id: cpu_fan, at: [460, 20], size: 40, entity: sensor.cpu_fan_rpm, range: [0, 3000], thresholds: [{below: 500, color: red}]}

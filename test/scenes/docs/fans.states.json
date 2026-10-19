@@ -1,0 +1,3 @@
+{"sensor.rack_temperature": {"state": "30.4", "attributes": {"unit_of_measurement": "°C"}},
+ "sensor.case_fan_rpm": {"state": "1850", "attributes": {"unit_of_measurement": "rpm"}},
+ "sensor.cpu_fan_rpm": {"state": "0", "attributes": {"unit_of_measurement": "rpm"}}}

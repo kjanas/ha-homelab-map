@@ -1,0 +1,13 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+items:
+  - type: device
+    id: server
+    at: [0, 0]
+    size: [300, 30]
+    items:
+      - {type: badge, id: cpu, at: [6, 6.5], entity: sensor.cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+      - {type: badge, id: ram, at: [52, 6.5], entity: sensor.ram, icon: "mdi:memory", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+      - {type: badge, id: disk, at: [98, 6.5], entity: sensor.disk, icon: "mdi:harddisk", size: 10, show_border: true, thresholds: [{above: 85, color: orange}, {above: 95, color: red}]}
+      - {type: badge, id: battery, at: [144, 6.5], entity: sensor.battery, icon: "mdi:battery", size: 10, show_border: true, thresholds: [{below: 50, color: orange}, {below: 20, color: red}]}
+      - {type: badge, id: temp, at: [190, 6.5], entity: sensor.temp, icon: "mdi:thermometer", decimals: 1, size: 10, show_border: true, thresholds: [{above: 70, color: orange}, {above: 85, color: red}]}

@@ -1,0 +1,11 @@
+type: custom:ha-homelab-map
+debug: true
+items:
+  - type: device
+    id: nas
+    at: [50, 30]
+    size: [200, 80]
+    items:
+      - {type: label, id: nas_name, at: [10, 10], text: "at: [10, 10]", size: 10}
+      - {type: label, id: corner, at: [140, 60], text: "at: [140, 60]", size: 10}
+      - {type: badge, id: nas_temp, at: [-20, -10], entity: sensor.nas_temperature, icon: "mdi:thermometer", show_border: true}

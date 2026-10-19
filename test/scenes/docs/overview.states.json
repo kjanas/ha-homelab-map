@@ -1,0 +1,8 @@
+{"sensor.rack_temperature": {"state": "26.6", "attributes": {"unit_of_measurement": "°C"}},
+ "binary_sensor.router_online": "on", "update.router_firmware": "on",
+ "sensor.router_cpu": {"state": "7", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.router_temperature": {"state": "41.5", "attributes": {"unit_of_measurement": "°C"}},
+ "binary_sensor.server_online": "on", "sensor.ha_state": "running", "sensor.grafana_state": "running", "binary_sensor.grafana_update": "on", "sensor.mqtt_state": "exited", "sensor.redis_state": "running",
+ "sensor.server_cpu": {"state": "23", "attributes": {"unit_of_measurement": "%"}}, "sensor.server_containers": "4",
+ "binary_sensor.ap_online": "on", "sensor.ap_clients": {"state": "12", "attributes": {"unit_of_measurement": "clients"}},
+ "sensor.ap_tx": {"state": "5400", "attributes": {"unit_of_measurement": "kB/s"}}, "sensor.ap_rx": {"state": "380", "attributes": {"unit_of_measurement": "kB/s"}}}

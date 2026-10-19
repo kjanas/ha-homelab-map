@@ -1,0 +1,28 @@
+type: custom:ha-homelab-map
+vlans: {WAN: "#2d4abe", LAN: "#6c9cda"}
+items:
+  - type: device
+    id: ont
+    at: [20, 90]
+    size: [200, 30]
+  - type: device
+    id: router
+    at: [260, 90]
+    size: [120, 30]
+datalines:
+  - id: ont-internet
+    start_device: ont
+    start_edge: top
+    start_point: 20
+    points: [[60, 20]]
+    vlans: [WAN]
+    flow: dominant
+    rx: sensor.wan_rx
+    tx: sensor.wan_tx
+    rates_at: 30
+  - id: router-cloud
+    start_device: router
+    start_edge: top
+    points: [[320, 50], [400, 50], [400, 10]]
+    vlans: [WAN, LAN]
+    flow: forward

@@ -1,0 +1,142 @@
+{
+ "binary_sensor.router_online": "on",
+ "binary_sensor.server_online": "on",
+ "binary_sensor.ap_online": "on",
+ "binary_sensor.tv_online": "on",
+ "sensor.rack_temperature": {
+  "state": "29.6",
+  "attributes": {
+   "unit_of_measurement": "°C"
+  }
+ },
+ "sensor.router_cpu": {
+  "state": "4",
+  "attributes": {
+   "unit_of_measurement": "%"
+  }
+ },
+ "sensor.router_temperature": {
+  "state": "38.0",
+  "attributes": {
+   "unit_of_measurement": "°C"
+  }
+ },
+ "sensor.server_cpu": {
+  "state": "23",
+  "attributes": {
+   "unit_of_measurement": "%"
+  }
+ },
+ "sensor.server_ram": {
+  "state": "57",
+  "attributes": {
+   "unit_of_measurement": "%"
+  }
+ },
+ "sensor.server_os_updates": "4",
+ "sensor.server_containers": "5",
+ "sensor.ha_state": "running",
+ "sensor.grafana_state": "running",
+ "binary_sensor.grafana_update": "on",
+ "sensor.mqtt_state": "running",
+ "sensor.nodered_state": "exited",
+ "sensor.influxdb_state": "running",
+ "sensor.tank_used": {
+  "state": "41",
+  "attributes": {
+   "unit_of_measurement": "%"
+  }
+ },
+ "sensor.tank_state": "ONLINE",
+ "sensor.sdb_temperature": {
+  "state": "40",
+  "attributes": {
+   "unit_of_measurement": "°C"
+  }
+ },
+ "binary_sensor.sdb_health": "on",
+ "sensor.sdc_temperature": {
+  "state": "42",
+  "attributes": {
+   "unit_of_measurement": "°C"
+  }
+ },
+ "binary_sensor.sdc_health": "on",
+ "sensor.sda_temperature": {
+  "state": "37",
+  "attributes": {
+   "unit_of_measurement": "°C"
+  }
+ },
+ "binary_sensor.sda_health": "on",
+ "sensor.server_cpu_temperature": {
+  "state": "51.0",
+  "attributes": {
+   "unit_of_measurement": "°C"
+  }
+ },
+ "sensor.ups_status": "OL",
+ "sensor.ups_battery": {
+  "state": "100",
+  "attributes": {
+   "unit_of_measurement": "%"
+  }
+ },
+ "sensor.ups_load": {
+  "state": "18",
+  "attributes": {
+   "unit_of_measurement": "%"
+  }
+ },
+ "sensor.ups_input_voltage": {
+  "state": "231.4",
+  "attributes": {
+   "unit_of_measurement": "V"
+  }
+ },
+ "sensor.ups_output_voltage": {
+  "state": "230.1",
+  "attributes": {
+   "unit_of_measurement": "V"
+  }
+ },
+ "sensor.ap_clients": "14",
+ "sensor.ap_cpu": {
+  "state": "3",
+  "attributes": {
+   "unit_of_measurement": "%"
+  }
+ },
+ "sensor.router_ether8_rx": {
+  "state": "1.8",
+  "attributes": {
+   "unit_of_measurement": "Mbit/s"
+  }
+ },
+ "sensor.router_ether8_tx": {
+  "state": "36.5",
+  "attributes": {
+   "unit_of_measurement": "Mbit/s"
+  }
+ },
+ "sensor.router_ether2_tx": {
+  "state": "5.2",
+  "attributes": {
+   "unit_of_measurement": "Mbit/s"
+  }
+ },
+ "sensor.router_ether2_rx": {
+  "state": "61.0",
+  "attributes": {
+   "unit_of_measurement": "Mbit/s"
+  }
+ },
+ "sensor.router_ether1_rate": "1Gbps",
+ "sensor.router_ether2_rate": "1Gbps",
+ "sensor.router_ether3_rate": "down",
+ "sensor.router_ether4_rate": "down",
+ "sensor.router_ether5_rate": "down",
+ "sensor.router_ether6_rate": "down",
+ "sensor.router_ether7_rate": "100Mbps",
+ "sensor.router_ether8_rate": "1Gbps"
+}

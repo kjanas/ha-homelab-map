@@ -1,0 +1,35 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+vlans: {LAN: "#6c9cda"}
+items:
+  - type: device
+    id: router
+    at: [0, 0]
+    size: [180, 50]
+    status_entity: binary_sensor.router_online
+    items:
+      - {type: chip, id: router_logo, at: [6, 5], image: /local/ha-homelab-map/logos/mikrotik.svg}
+      - {type: label, id: router_name, at: [28, 6], text: Router, size: 12, bold: true}
+      - {type: badge, id: router_cpu, at: [6, 28], entity: sensor.router_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+      - {type: badge, id: router_temp, at: [54, 28], entity: sensor.router_temperature, icon: "mdi:thermometer", decimals: 1, size: 10, show_border: true, thresholds: [{above: 70, color: orange}, {above: 85, color: red}]}
+  - type: device
+    id: nas
+    at: [300, 0]
+    size: [180, 50]
+    status_entity: binary_sensor.nas_online
+    items:
+      - {type: chip, id: nas_logo, at: [6, 5], image: /local/ha-homelab-map/logos/debian.svg, small_entity: sensor.nas_os_updates, update_entity: sensor.nas_os_updates}
+      - {type: label, id: nas_name, at: [28, 6], text: NAS, size: 12, bold: true}
+      - {type: badge, id: nas_cpu, at: [6, 28], entity: sensor.nas_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true}
+      - {type: badge, id: nas_disk, at: [54, 28], entity: sensor.nas_disk_used, icon: "mdi:harddisk", size: 10, show_border: true, thresholds: [{above: 85, color: orange}, {above: 95, color: red}]}
+datalines:
+  - id: router-nas
+    start_device: router
+    start_edge: right
+    end_device: nas
+    end_edge: left
+    vlans: [LAN]
+    flow: dominant
+    rx: sensor.router_ether2_tx
+    tx: sensor.router_ether2_rx
+    rates_at: start

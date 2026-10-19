@@ -1,0 +1,1 @@
+{"sensor.ha_state": "running", "sensor.mqtt_state": "exited", "sensor.grafana_state": "running", "binary_sensor.grafana_update": "on", "sensor.pg_state": "exited", "binary_sensor.pg_update": "on", "sensor.immich_redis_state": "running", "sensor.os_updates": "5"}

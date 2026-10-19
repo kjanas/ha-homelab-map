@@ -1,0 +1,116 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+vlans: {LAN: "#6c9cda", IoT: "#66b771", NoT: "#d6995c"}
+animation_toggle: true
+items:
+  - type: rack
+    id: rack
+    at: [40, 20]
+    units: 9
+    items:
+      - {type: badge, id: rack_temp, at: [22, -7], entity: sensor.rack_temperature, icon: "mdi:thermometer", decimals: 1, size: 8, show_border: true, thresholds: [{above: 35, color: orange}, {above: 45, color: red}]}
+      - {type: fanpanel, id: rack_fans, u: 1, units: 2, count: 4, entity: sensor.rack_temperature, range: [27, 35]}
+      - type: rackdevice
+        id: router
+        u: 3
+        units: 2
+        status_entity: binary_sensor.router_online
+        items:
+          - {type: chip, id: router_logo, at: [5, 4], image: /local/ha-homelab-map/logos/mikrotik.svg}
+          - {type: label, id: router_name, at: [26, 6], text: Router, size: 12, bold: true}
+          - type: ports
+            id: router_ports
+            at: [150, 5]
+            items:
+              - {type: port, id: e1, at: [0, 0], entity: sensor.router_ether1_rate}
+              - {type: port, id: e2, at: [16, 0], entity: sensor.router_ether2_rate}
+              - {type: port, id: e3, at: [32, 0], entity: sensor.router_ether3_rate}
+              - {type: port, id: e4, at: [48, 0], entity: sensor.router_ether4_rate}
+              - {type: port, id: e5, at: [64, 0], entity: sensor.router_ether5_rate}
+              - {type: port, id: e6, at: [80, 0], entity: sensor.router_ether6_rate}
+              - {type: port, id: e7, at: [96, 0], entity: sensor.router_ether7_rate}
+              - {type: port, id: e8, at: [112, 0], entity: sensor.router_ether8_rate}
+          - {type: led, id: router_lan, at: [10, 50], size: [18, 3], vlan: LAN, caption: LAN}
+          - {type: led, id: router_iot, at: [32, 50], size: [18, 3], vlan: IoT, caption: IoT}
+          - {type: led, id: router_not, at: [54, 50], size: [18, 3], vlan: NoT, caption: NoT}
+          - {type: badge, id: router_cpu, at: [189, 41.5], entity: sensor.router_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+          - {type: badge, id: router_temp, at: [238, 41.5], entity: sensor.router_temperature, icon: "mdi:thermometer", decimals: 1, size: 10, show_border: true, thresholds: [{above: 70, color: orange}, {above: 85, color: red}]}
+      - type: rackdevice
+        id: server
+        u: 5
+        units: 3
+        status_entity: binary_sensor.server_online
+        items:
+          - {type: chip, id: server_logo, at: [5, 4], image: /local/ha-homelab-map/logos/debian.svg, small_entity: sensor.server_os_updates, update_entity: sensor.server_os_updates}
+          - {type: label, id: server_name, at: [26, 6], text: Server, size: 12, bold: true}
+          - {type: badge, id: server_cpu, at: [207, 3], entity: sensor.server_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+          - {type: badge, id: server_ram, at: [256, 3], entity: sensor.server_ram, icon: "mdi:memory", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+          - type: group
+            id: containers
+            at: [10, 26]
+            items:
+              - {type: chip, id: c_ha, at: [0, 0], size: 18, image: /local/ha-homelab-map/logos/home-assistant.svg, status_entity: sensor.ha_state}
+              - {type: chip, id: c_grafana, at: [22, 0], size: 18, image: /local/ha-homelab-map/logos/grafana.svg, status_entity: sensor.grafana_state, update_entity: binary_sensor.grafana_update}
+              - {type: chip, id: c_mqtt, at: [44, 0], size: 18, image: /local/ha-homelab-map/logos/mosquitto.svg, status_entity: sensor.mqtt_state}
+              - {type: chip, id: c_nodered, at: [66, 0], size: 18, image: /local/ha-homelab-map/logos/node-red.svg, status_entity: sensor.nodered_state}
+              - {type: chip, id: c_influx, at: [88, 0], size: 18, image: /local/ha-homelab-map/logos/influxdb.svg, status_entity: sensor.influxdb_state}
+          - {type: badge, id: server_containers, at: [10, 50], entity: sensor.server_containers, icon: "mdi:docker", size: 10, show_border: true, toggle: containers}
+          - type: pool
+            id: tank
+            at: [140, 26]
+            size: [66, 48]
+            label: TANK
+            usage_entity: sensor.tank_used
+            status_entity: sensor.tank_state
+            status_map: {ONLINE: ok, DEGRADED: warn, FAULTED: down}
+            thresholds: [{above: 85, color: orange}, {above: 95, color: red}]
+            items:
+              - {type: hdd, id: tank_1, at: [4, 4], temperature: sensor.sdb_temperature, status_entity: binary_sensor.sdb_health, thresholds: [{above: 50, color: orange}, {above: 60, color: red}]}
+              - {type: hdd, id: tank_2, at: [35, 4], temperature: sensor.sdc_temperature, status_entity: binary_sensor.sdc_health, thresholds: [{above: 50, color: orange}, {above: 60, color: red}]}
+          - {type: ssd, id: server_system, at: [212, 30], temperature: sensor.sda_temperature, status_entity: binary_sensor.sda_health}
+          - {type: badge, id: server_temp, at: [238, 74], entity: sensor.server_cpu_temperature, icon: "mdi:thermometer", decimals: 1, size: 10, show_border: true, thresholds: [{above: 70, color: orange}, {above: 85, color: red}]}
+      - type: rackdevice
+        id: ups
+        u: 8
+        units: 2
+        status_entity: sensor.ups_status
+        status_map: {LB: down, OB: warn, OL: ok}
+        items:
+          - {type: label, id: ups_name, at: [8, 6], text: UPS, size: 12, bold: true}
+          - {type: badge, id: ups_battery, at: [207, 3], entity: sensor.ups_battery, icon: "mdi:battery", size: 10, show_border: true, thresholds: [{below: 50, color: orange}, {below: 20, color: red}]}
+          - {type: badge, id: ups_load, at: [256, 3], entity: sensor.ups_load, icon: "mdi:gauge", size: 10, show_border: true, thresholds: [{above: 70, color: orange}, {above: 90, color: red}]}
+          - {type: badge, id: ups_input, at: [171, 41.5], entity: sensor.ups_input_voltage, icon: "mdi:power-plug", decimals: 1, size: 10, show_border: true}
+          - {type: badge, id: ups_output, at: [238, 41.5], entity: sensor.ups_output_voltage, icon: "mdi:sine-wave", decimals: 1, size: 10, show_border: true}
+  - type: device
+    id: ap
+    at: [440, 40]
+    size: [170, 50]
+    status_entity: binary_sensor.ap_online
+    items:
+      - {type: chip, id: ap_logo, at: [6, 5], image: /local/ha-homelab-map/logos/mikrotik.svg}
+      - {type: label, id: ap_name, at: [28, 6], text: Access point, size: 12, bold: true}
+      - {type: badge, id: ap_clients, at: [8, 28], entity: sensor.ap_clients, icon: "mdi:account", units: none, size: 10, show_border: true}
+      - {type: badge, id: ap_cpu, at: [45, 28], entity: sensor.ap_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true}
+  - type: endpoint
+    id: tv
+    at: [660, 49]
+    items:
+      - {type: chip, id: tv_logo, at: [4, 4], size: 24, image: /local/ha-homelab-map/logos/android.svg, status_entity: binary_sensor.tv_online}
+datalines:
+  - id: router-ap
+    start_port: e8
+    start_edge: top
+    end_device: ap
+    end_edge: left
+    points: [[329, 65]]
+    vlans: [LAN, IoT, NoT]
+    flow: dominant
+    rx: sensor.router_ether8_rx
+    tx: sensor.router_ether8_tx
+    rates_at: end
+    rates_placement: above
+  - {id: ap-tv, start_device: ap, start_edge: right, end_device: tv, end_edge: left, vlans: [IoT], flow: forward, status: binary_sensor.tv_online}
+  - {id: server-router, start_device: server, start_edge: right, end_device: router, end_edge: right, points: [[390, 206], [390, 126]], vlans: [LAN], flow: dominant, rx: sensor.router_ether2_tx, tx: sensor.router_ether2_rx}
+powerlines:
+  - {id: ups-server, start_device: ups, start_edge: left, start_point: 11.3, end_device: server, end_edge: left, end_point: 70.2, points: [[20, 262], [20, 225]], flow: forward}
+  - {id: ups-router, start_device: ups, start_edge: left, start_point: 67.7, end_device: router, end_edge: left, end_point: 54.8, points: [[12, 297], [12, 129]], flow: forward}

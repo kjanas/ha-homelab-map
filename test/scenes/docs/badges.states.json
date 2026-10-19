@@ -1,0 +1,2 @@
+{"sensor.cpu": {"state": "23", "attributes": {"unit_of_measurement": "%"}}, "sensor.temp": {"state": "41.4", "attributes": {"unit_of_measurement": "°C"}},
+ "sensor.clients": {"state": "12", "attributes": {"unit_of_measurement": "clients"}}, "sensor.speed": {"state": "929.4", "attributes": {"unit_of_measurement": "Mbit/s"}}}

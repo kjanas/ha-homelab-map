@@ -1,0 +1,108 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+vlans: {WAN: "#2d4abe", LAN: "#6c9cda", IoT: "#66b771"}
+items:
+  - {type: label, id: title, at: [56, 40], text: Home network, size: 14, bold: true}
+  - type: device
+    id: ont
+    at: [0, 100]
+    size: [160, 34]
+    items:
+      - {type: chip, id: ont_logo, at: [6, 9], image: /local/ha-homelab-map/logos/huawei.svg}
+      - {type: label, id: ont_name, at: [28, 10], text: Fibre ONT, size: 12, bold: true}
+  - type: device
+    id: router
+    at: [0, 190]
+    size: [230, 64]
+    status_entity: binary_sensor.router_online
+    items:
+      - {type: chip, id: router_logo, at: [6, 5], image: /local/ha-homelab-map/logos/mikrotik.svg}
+      - {type: label, id: router_name, at: [28, 6], text: Router, size: 12, bold: true}
+      - type: ports
+        id: router_ports
+        at: [120, 6]
+        items:
+          - {type: port, id: r1, at: [0, 0], entity: sensor.router_sfp_rate}
+          - {type: port, id: r2, at: [16, 0], entity: sensor.router_ether2_rate}
+          - {type: port, id: r3, at: [32, 0], entity: sensor.router_ether3_rate}
+          - {type: port, id: r4, at: [48, 0], entity: sensor.router_ether4_rate}
+          - {type: port, id: r5, at: [64, 0], entity: sensor.router_ether5_rate}
+      - {type: led, id: router_lan, at: [10, 54], size: [18, 3], vlan: LAN, caption: LAN}
+      - {type: led, id: router_iot, at: [32, 54], size: [18, 3], vlan: IoT, caption: IoT}
+      - {type: badge, id: router_cpu, at: [114, 41.5], entity: sensor.router_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+      - {type: badge, id: router_temp, at: [163, 41.5], entity: sensor.router_temperature, icon: "mdi:thermometer", decimals: 1, size: 10, show_border: true, thresholds: [{above: 70, color: orange}, {above: 85, color: red}]}
+  - type: device
+    id: switch
+    at: [320, 190]
+    size: [190, 64]
+    items:
+      - {type: chip, id: switch_logo, at: [6, 5], image: /local/ha-homelab-map/logos/mikrotik.svg}
+      - {type: label, id: switch_name, at: [28, 6], text: Switch, size: 12, bold: true}
+      - type: ports
+        id: switch_ports
+        at: [100, 6]
+        items:
+          - {type: port, id: s1, at: [0, 0], entity: sensor.switch_ether1_rate}
+          - {type: port, id: s2, at: [16, 0], entity: sensor.switch_ether2_rate}
+          - {type: port, id: s3, at: [32, 0], entity: sensor.switch_ether3_rate, speed: 100Mbps}
+          - {type: port, id: s4, at: [48, 0], entity: sensor.switch_ether4_rate}
+          - {type: port, id: s5, at: [64, 0], entity: sensor.switch_ether5_rate}
+      - {type: led, id: switch_lan, at: [10, 54], size: [18, 3], vlan: LAN, caption: LAN}
+      - {type: led, id: switch_iot, at: [32, 54], size: [18, 3], vlan: IoT, caption: IoT}
+  - type: device
+    id: nas
+    at: [600, 190]
+    size: [190, 88]
+    status_entity: binary_sensor.nas_online
+    items:
+      - {type: chip, id: nas_logo, at: [6, 5], image: /local/ha-homelab-map/logos/debian.svg, small_entity: sensor.nas_os_updates, update_entity: sensor.nas_os_updates}
+      - {type: label, id: nas_name, at: [28, 6], text: NAS, size: 12, bold: true}
+      - type: pool
+        id: tank
+        at: [8, 28]
+        size: [66, 48]
+        label: TANK
+        usage_entity: sensor.tank_used
+        status_entity: sensor.tank_state
+        status_map: {ONLINE: ok, DEGRADED: warn, FAULTED: down}
+        thresholds: [{above: 85, color: orange}, {above: 95, color: red}]
+        items:
+          - {type: hdd, id: tank_1, at: [4, 4], temperature: sensor.sda_temperature, status_entity: binary_sensor.sda_health, thresholds: [{above: 50, color: orange}, {above: 60, color: red}]}
+          - {type: hdd, id: tank_2, at: [35, 4], temperature: sensor.sdb_temperature, status_entity: binary_sensor.sdb_health, thresholds: [{above: 50, color: orange}, {above: 60, color: red}]}
+      - {type: ssd, id: nas_system, at: [84, 32], temperature: sensor.nvme_temperature, status_entity: binary_sensor.nvme_health}
+      - {type: badge, id: nas_cpu, at: [124, 32], entity: sensor.nas_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true, thresholds: [{above: 80, color: orange}, {above: 90, color: red}]}
+      - {type: badge, id: nas_temp, at: [124, 54], entity: sensor.nas_cpu_temperature, icon: "mdi:thermometer", decimals: 1, size: 10, show_border: true, thresholds: [{above: 70, color: orange}, {above: 85, color: red}]}
+  - type: endpoint
+    id: tv
+    at: [442, 320]
+    items:
+      - {type: chip, id: tv_logo, at: [4, 4], size: 24, image: /local/ha-homelab-map/logos/android.svg, status_entity: binary_sensor.tv_online}
+  - type: device
+    id: ups
+    at: [0, 300]
+    size: [160, 40]
+    status_entity: sensor.ups_status
+    status_map: {LB: down, OB: warn, OL: ok}
+    items:
+      - {type: label, id: ups_name, at: [8, 13], text: UPS, size: 12, bold: true}
+      - {type: badge, id: ups_battery, at: [111, 11.5], entity: sensor.ups_battery, icon: "mdi:battery", size: 10, show_border: true, thresholds: [{below: 50, color: orange}, {below: 20, color: red}]}
+datalines:
+  - {id: internet, start_device: ont, start_edge: top, start_point: 20, points: [[32, -200]], vlans: [WAN], flow: dominant, rx: sensor.router_sfp_rx, tx: sensor.router_sfp_tx}
+  - {id: ont-router, start_device: ont, start_edge: bottom, start_point: 20, end_port: r1, end_edge: top, points: [[32, 165], [126, 165]], vlans: [WAN], flow: dominant, rx: sensor.router_sfp_rx, tx: sensor.router_sfp_tx}
+  - id: router-switch
+    start_port: r2
+    start_edge: top
+    end_port: s1
+    end_edge: top
+    points: [[142, 175], [426, 175]]
+    vlans: [LAN, IoT]
+    flow: dominant
+    rx: sensor.router_ether2_tx
+    tx: sensor.router_ether2_rx
+    rates_at: 50
+    rates_placement: above
+  - {id: switch-nas, start_device: switch, start_edge: right, end_device: nas, end_edge: left, points: [[555, 222], [555, 240]], vlans: [LAN], flow: dominant, rx: sensor.switch_ether2_tx, tx: sensor.switch_ether2_rx}
+  - {id: switch-tv, start_device: switch, start_edge: bottom, start_point: 72.6, end_device: tv, end_edge: top, vlans: [IoT], flow: forward, status: binary_sensor.tv_online}
+powerlines:
+  - {id: ups-router, start_device: ups, start_edge: top, end_device: router, end_edge: bottom, end_point: 34.8, flow: forward}
+  - {id: ups-switch, start_device: ups, start_edge: right, end_device: switch, end_edge: bottom, end_point: 10.5, points: [[340, 320]], flow: forward}

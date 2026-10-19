@@ -1,0 +1,13 @@
+type: custom:ha-homelab-map
+debug: true
+items:
+  - type: rack
+    id: rack
+    at: [0, 0]
+    units: 6
+    items:
+      - {type: rackdevice, id: patch, u: 1}
+      - {type: rackdevice, id: router, u: 2, units: 2}
+      - {type: rackdevice, id: ups, u: 5, units: 2}
+      - {type: device, id: poe, at: [150, 108], size: [10, 30]}
+      - {type: badge, id: rack_temp, at: [22, -8], entity: sensor.rack_temperature, icon: "mdi:thermometer", decimals: 1, size: 10, show_border: true}

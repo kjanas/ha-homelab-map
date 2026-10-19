@@ -1,0 +1,18 @@
+type: custom:ha-homelab-map
+vlans: {WAN: "#2d4abe"}
+items:
+  - {type: label, id: note, at: [60, 0], text: the cable fades out at the edge of the map, size: 8, color: secondary}
+  - type: device
+    id: ont
+    at: [0, 80]
+    size: [160, 30]
+    items:
+      - {type: label, id: ont_name, at: [8, 9], text: Fibre ONT, size: 11, bold: true}
+datalines:
+  - id: internet
+    start_device: ont
+    start_edge: top
+    start_point: 20
+    points: [[32, -200]]
+    vlans: [WAN]
+    flow: forward

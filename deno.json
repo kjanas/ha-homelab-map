@@ -1,0 +1,10 @@
+{
+  "fmt": {
+    "lineWidth": 160,
+    "include": ["dist/ha-homelab-map.js", "test/*.js"]
+  },
+  "lint": {
+    "include": ["dist/ha-homelab-map.js"],
+    "rules": { "exclude": ["no-window", "no-window-prefix"] }
+  }
+}

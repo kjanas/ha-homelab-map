@@ -1,0 +1,15 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+items:
+  - type: device
+    id: server
+    at: [0, 0]
+    size: [380, 70]
+    items:
+      - {type: badge, id: cpu, at: [10, 10], entity: sensor.cpu, icon: "mdi:cpu-64-bit"}
+      - {type: badge, id: temp, at: [80, 10], entity: sensor.temp, icon: "mdi:thermometer", decimals: 1}
+      - {type: badge, id: clients, at: [170, 10], entity: sensor.clients, icon: "mdi:account", units: none}
+      - {type: badge, id: speed, at: [240, 10], entity: sensor.speed, icon: "mdi:download", units: Mb/s}
+      - {type: badge, id: big, at: [10, 36], entity: sensor.temp, icon: "mdi:thermometer", size: 12, show_border: true}
+      - {type: badge, id: plain, at: [130, 40], entity: sensor.cpu, icon: none, size: 10}
+      - {type: badge, id: missing, at: [200, 40], entity: sensor.gone, icon: "mdi:gauge", size: 10}

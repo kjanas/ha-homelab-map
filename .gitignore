@@ -1,0 +1,8 @@
+.env
+*.bak*
+__pycache__/
+out/
+.DS_Store
+# personal map and deploy scripts – not part of the published card
+config/
+tools/

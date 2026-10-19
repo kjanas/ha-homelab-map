@@ -1,0 +1,13 @@
+type: custom:ha-homelab-map
+items:
+  - type: rack
+    id: rack
+    at: [0, 0]
+    units: 4
+    items:
+      - {type: rackdevice, id: server, u: 1, units: 2}
+      - {type: rackdevice, id: ups, u: 3, units: 2}
+  - {type: device, id: switch, at: [420, 10], size: [120, 40]}
+powerlines:
+  - {id: ups-server, start_device: ups, start_edge: left, end_device: server, end_edge: left, points: [[12, 106], [12, 42]], flow: forward}
+  - {id: ups-switch, start_device: ups, start_edge: right, end_device: switch, end_edge: bottom, points: [[480, 106]], flow: forward}

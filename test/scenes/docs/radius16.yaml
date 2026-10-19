@@ -1,0 +1,22 @@
+type: custom:ha-homelab-map
+debug: true
+line_radius: 16
+items:
+  - {type: device, id: router, at: [0, 0], size: [100, 160]}
+  - {type: device, id: ap1, at: [250, 0], size: [100, 40]}
+  - {type: device, id: ap2, at: [250, 60], size: [100, 40]}
+  - {type: device, id: ap3, at: [250, 120], size: [100, 40]}
+datalines:
+  - id: corners
+    start_device: router
+    start_edge: right
+    end_device: ap2
+    end_edge: left
+    points: [[140, 80], [140, 115], [215, 115], [215, 80]]
+  - id: diagonal
+    start_device: router
+    start_edge: right
+    start_point: 87.5
+    end_device: ap3
+    end_edge: left
+    points: [[130, 140], [190, 160], [220, 140]]

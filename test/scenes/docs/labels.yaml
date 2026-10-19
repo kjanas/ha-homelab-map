@@ -1,0 +1,20 @@
+type: custom:ha-homelab-map
+vlans: {LAN: "#6c9cda", IoT: "#66b771"}
+items:
+  - type: device
+    id: router
+    at: [0, 0]
+    size: [200, 60]
+    items:
+      - {type: label, id: router_name, at: [8, 6], text: Router, size: 12, bold: true}
+      - {type: label, id: legend_lan, at: [10, 38], text: LAN, size: 8, color: secondary}
+      - {type: label, id: legend_iot, at: [34, 38], text: IoT, size: 8, color: secondary}
+      - {type: led, id: lan, at: [10, 48], size: [18, 3], vlan: LAN}
+      - {type: led, id: iot, at: [32, 48], size: [18, 3], vlan: IoT}
+      - {type: label, id: warn, at: [130, 6], text: maintenance, color: "#d26066"}
+  - type: device
+    id: poe
+    at: [220, 0]
+    size: [10, 60]
+    items:
+      - {type: label, id: poe_text, at: [1, 6], text: PoE injector, size: 7, vertical: true}

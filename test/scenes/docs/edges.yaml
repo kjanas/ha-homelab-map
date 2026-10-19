@@ -1,0 +1,15 @@
+type: custom:ha-homelab-map
+debug: true
+items:
+  - {type: device, id: switch, at: [100, 70], size: [200, 60]}
+  - {type: endpoint, id: a, at: [84, 0], icon: "mdi:cctv"}
+  - {type: endpoint, id: b, at: [184, 0], icon: "mdi:cctv"}
+  - {type: endpoint, id: c, at: [284, 0], icon: "mdi:cctv"}
+  - {type: endpoint, id: d, at: [0, 84], icon: "mdi:cctv"}
+  - {type: endpoint, id: e, at: [368, 84], icon: "mdi:cctv"}
+datalines:
+  - {id: top-0, start_device: switch, start_edge: top, start_point: 0, end_device: a, end_edge: bottom}
+  - {id: top-50, start_device: switch, start_edge: top, end_device: b, end_edge: bottom}
+  - {id: top-100, start_device: switch, start_edge: top, start_point: 100, end_device: c, end_edge: bottom}
+  - {id: left, start_device: switch, start_edge: left, end_device: d, end_edge: right}
+  - {id: right, start_device: switch, start_edge: right, end_device: e, end_edge: left}

@@ -1,0 +1,48 @@
+# Examples
+
+Three complete setups, from small to large. Copy one, replace the entity ids with your own, and move things around with the **Debug** switch on. Every option is explained in [Configuration](configuration.md).
+
+- [Starter: two devices and a cable](#starter-two-devices-and-a-cable)
+- [Home network: devices on a desk](#home-network-devices-on-a-desk)
+- [Rack: router, server and UPS in a 9U cabinet](#rack-router-server-and-ups-in-a-9u-cabinet)
+
+Logos are images you put in `config/www/` – here in `config/www/ha-homelab-map/logos/`. No logos are shipped with the card, so the screenshots show a letter in their place. Good sources are [dashboard-icons](https://github.com/homarr-labs/dashboard-icons) and [Simple Icons](https://simpleicons.org).
+
+## Starter: two devices and a cable
+
+A router and a NAS with a few values, joined by a LAN cable whose animation follows the traffic. The NAS logo shows 3 pending OS updates, and its disk usage is past the orange threshold.
+
+{{scene:example_starter}}
+
+What to notice:
+
+- `status_entity` on each device turns its frame red when the device is unreachable, and makes a click on it open that entity.
+- `rx` / `tx` are taken from the **router's** port, so they are swapped: what the router sends (`tx`) is what the NAS receives.
+- `rates_at: start` shows the current speed next to the router.
+
+## Home network: devices on a desk
+
+An ONT, a router, a switch, a NAS with a ZFS pool, a TV and a UPS – without a rack. Cables end on ports, the trunk carries two VLANs, and the cable at the top leaves for "the internet".
+
+{{scene:example_home}}
+
+What to notice:
+
+- **Ports**: `ont-router` and `router-switch` end on ports (`end_port: r1`, `start_port: r2`, `end_port: s1`), so those ports are expected to have a link and would turn red without one. `s3` expects 100 Mbps (`speed: 100Mbps`), so a 100 Mbps link is white, not orange.
+- **The internet cable** (`internet`) has no end device: its far point `[32, -200]` lies above the map, so it runs to the top edge and fades out.
+- **The UPS** uses a `status_map`: on battery (`OB`) its frame turns orange, low battery (`LB`) red.
+- **Power** comes from the UPS to the router and the switch as gold dots.
+
+## Rack: router, server and UPS in a 9U cabinet
+
+A 9U rack with a fan panel, a router with eight ports and a VLAN legend, a server with containers and a ZFS mirror, and a UPS feeding both. An access point and a TV are outside the rack.
+
+{{scene:example_rack}}
+
+What to notice:
+
+- **Rackdevices** are placed with `u` / `units` only; their content is relative to their top-left corner.
+- **The fan panel** at U1–2 spins faster as the rack temperature rises from 27 to 35 °C, and sits behind the cables.
+- **The container chips** are in a `group`, and the Docker count badge has `toggle: containers` – clicking it hides or shows them.
+- **Frames on badges** (`show_border: true`) and the right-aligned rows come from the same spacing rule: each row ends 8 px inside the device, 8 px between frames. With `font: JetBrains Mono` every character is 0.6 × the font size wide, so widths are easy to compute.
+- **The power cables** enter the rack between the unit numbers and are nested, so they never cross.

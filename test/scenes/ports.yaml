@@ -1,0 +1,28 @@
+type: custom:ha-homelab-map
+vlans: {LAN: "#6c9cda"}
+items:
+  - type: device
+    id: switch
+    at: [0, 60]
+    size: [200, 40]
+    items:
+      - type: ports
+        id: switch_ports
+        at: [100, 6]
+        size: 14
+        items:
+          - {type: port, id: ether1, at: [0, 0], entity: sensor.e1_rate}
+          - {type: port, id: ether2, at: [16, 0], entity: sensor.e2_rate}
+          - {type: port, id: ether3, at: [32, 0], entity: sensor.e3_rate}
+          - {type: port, id: ether4, at: [48, 0], entity: sensor.e4_rate, speed: 100Mbps}
+      - type: ports
+        id: cameras
+        at: [100, 24]
+        size: 12
+        icon: "mdi:cctv"
+        items:
+          - {type: port, id: cam1, at: [0, 0], entity: binary_sensor.cam1}
+          - {type: port, id: cam2, at: [16, 0], entity: binary_sensor.cam2}
+  - {type: endpoint, id: tv, at: [240, 0], icon: "mdi:cctv"}
+datalines:
+  - {id: tv-switch, start_device: tv, start_edge: left, end_port: ether4, end_edge: top, points: [[155, 16]], vlans: [LAN], flow: forward}

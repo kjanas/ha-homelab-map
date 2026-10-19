@@ -1,0 +1,6 @@
+type: custom:ha-homelab-map
+debug: true
+items:
+  - {type: device, id: router, at: [0, 0], size: [200, 60]}
+  - {type: device, id: nas, at: [250, 0], size: [150, 100]}
+  - {type: device, id: switch, at: [0, 100], size: [200, 40]}

@@ -1,0 +1,15 @@
+type: custom:ha-homelab-map
+vlans: {LAN: "#6c9cda", IoT: "#66b771", NoT: "#d6995c", CAM: "#aa92d3"}
+items:
+  - type: device
+    id: router
+    at: [0, 0]
+    size: [200, 40]
+    items:
+      - {type: led, id: lan, at: [10, 16], vlan: LAN}
+      - {type: led, id: iot, at: [16, 16], vlan: IoT, effect: blink}
+      - {type: led, id: not, at: [22, 16], vlan: NoT, effect: none}
+      - {type: led, id: cam, at: [28, 16], vlan: CAM, entity: binary_sensor.cam_vlan}
+      - {type: led, id: bar, at: [50, 24], size: [18, 3], vlan: LAN, caption: LAN}
+      - {type: led, id: bar2, at: [72, 24], size: [18, 3], vlan: IoT, caption: IoT}
+      - {type: led, id: power, at: [180, 16], size: [8, 8], color: "#43a047", effect: none}

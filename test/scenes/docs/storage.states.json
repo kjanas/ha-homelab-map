@@ -1,0 +1,4 @@
+{"sensor.tank_used": {"state": "62", "attributes": {"unit_of_measurement": "%"}}, "sensor.tank_state": "DEGRADED",
+ "sensor.sda_temperature": {"state": "41", "attributes": {"unit_of_measurement": "°C"}}, "binary_sensor.sda_health": "on",
+ "sensor.sdb_temperature": {"state": "53", "attributes": {"unit_of_measurement": "°C"}}, "binary_sensor.sdb_health": "off",
+ "sensor.nvme_temperature": {"state": "38", "attributes": {"unit_of_measurement": "°C"}}, "binary_sensor.nvme_health": "on"}

@@ -1,0 +1,5 @@
+{"sensor.cpu": {"state": "45", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.ram": {"state": "86", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.disk": {"state": "97", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.battery": {"state": "15", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.temp": {"state": "72.3", "attributes": {"unit_of_measurement": "°C"}}}

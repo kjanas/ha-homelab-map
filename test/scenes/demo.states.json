@@ -1,0 +1,7 @@
+{"binary_sensor.ap_link": "on", "sensor.ap_rx": {"state": "5.4", "attributes": {"unit_of_measurement": "MB/s"}}, "sensor.ap_tx": {"state": "3100", "attributes": {"unit_of_measurement": "kbit/s"}}, "binary_sensor.nas_link": "off",
+ "sensor.rack_temperature": {"state": "26.6", "attributes": {"unit_of_measurement": "°C", "friendly_name": "Rack temperature"}},
+ "sensor.rack_humidity": {"state": "43", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.router_cpu": {"state": "7", "attributes": {"unit_of_measurement": "%"}},
+ "sensor.ap_clients": {"state": "12", "attributes": {"unit_of_measurement": "clients"}},
+ "sensor.ap_temperature": {"state": "54.1234", "attributes": {"unit_of_measurement": "°C"}},
+ "sensor.wan_download": {"state": "929.4", "attributes": {"unit_of_measurement": "Mbit/s"}}}

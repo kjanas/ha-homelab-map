@@ -1,0 +1,22 @@
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: nas
+    at: [0, 0]
+    size: [190, 82]
+    items:
+      - {type: label, id: nas_name, at: [8, 6], text: NAS, size: 11, bold: true}
+      - type: pool
+        id: tank
+        at: [8, 22]
+        size: [66, 48]
+        label: TANK
+        usage_entity: sensor.tank_used
+        status_entity: sensor.tank_state
+        status_map: {ONLINE: ok, DEGRADED: warn, FAULTED: down}
+        thresholds: [{above: 85, color: orange}, {above: 95, color: red}]
+        items:
+          - {type: hdd, id: tank_1, at: [4, 4], temperature: sensor.sda_temperature, status_entity: binary_sensor.sda_health, thresholds: [{above: 50, color: orange}, {above: 60, color: red}]}
+          - {type: hdd, id: tank_2, at: [35, 4], temperature: sensor.sdb_temperature, status_entity: binary_sensor.sdb_health, thresholds: [{above: 50, color: orange}, {above: 60, color: red}]}
+      - {type: ssd, id: system, at: [84, 26], temperature: sensor.nvme_temperature, status_entity: binary_sensor.nvme_health}
+      - {type: bay, id: bay_4, at: [119, 26]}

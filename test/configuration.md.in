@@ -1,0 +1,561 @@
+# Configuration
+
+{{image:overview}}
+
+- [The basics](#the-basics)
+- [Card options](#card-options)
+- [Items](#items): [rack](#rack), [rackdevice](#rackdevice), [device](#device), [endpoint](#endpoint), [device status](#device-status), [badge](#badge), [thresholds](#thresholds), [chip](#chip), [led](#led), [label](#label), [group](#group), [ports and port](#ports-and-port), [pool, hdd, ssd, bay](#pool-hdd-ssd-bay), [fanpanel and fan](#fanpanel-and-fan)
+- [Lines](#lines): [where a line starts and ends](#where-a-line-starts-and-ends), [points](#points), [line_radius](#line_radius), [open ends](#open-ends)
+- [Datalines](#datalines): [vlans](#vlans), [flow](#flow), [status](#status), [rx and tx](#rx-and-tx), [rates](#rates)
+- [Powerlines](#powerlines)
+- [Switches](#switches)
+- [Font](#font)
+- [debug](#debug)
+- [Errors](#errors)
+
+Complete, ready-to-copy setups are in [Examples](examples.md).
+
+## The basics
+
+A map has three lists:
+
+- `items`: racks, devices, endpoints, and what is shown on them (badges, chips, LEDs, labels, groups, ports, disks, fans)
+- `datalines`: network cables
+- `powerlines`: power cables
+
+Everything is measured in **pixels**, `[x, y]` meaning *x px to the right, y px down*.
+
+- `at` is always the **top-left corner** of an item.
+- An item inside another item's `items` is placed **relative to its parent's top-left corner**. Negative values are allowed, e.g. to pin a badge on the edge of a rack.
+- Every item and every line has an `id`. Ids must be unique across the whole map.
+
+Some screenshots below have `debug: true` turned on, which draws the coordinate grid and outlines every item.
+
+## Card options
+
+```yaml
+type: custom:ha-homelab-map
+font: JetBrains Mono
+line_radius: 6
+vlans:
+  LAN: "#6c9cda"
+  IoT: "#66b771"
+scale: 1.5
+fit_viewport: false
+vlan_toggle: true
+power_toggle: true
+animation_toggle: true
+debug_toggle: true
+debug: false
+items: []
+datalines: []
+powerlines: []
+```
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `items` | **required** | See [Items](#items) |
+| `datalines` | | See [Datalines](#datalines) |
+| `powerlines` | | See [Powerlines](#powerlines) |
+| `vlans` | | Colour for each VLAN name, used by datalines and LEDs |
+| `font` | theme font | Font family for all text on the card – see [Font](#font) |
+| `line_radius` | `6` | Radius of every line corner, in px |
+| `scale` | `1` | Zoom of the whole map: `1.5` = 150 % |
+| `fit_viewport` | `false` | Make the map as tall as the browser window (below the card's top edge); `scale` is then ignored |
+| `vlan_toggle`, `power_toggle`, `animation_toggle`, `debug_toggle` | `false` | Show the **VLANs**, **Power**, **Animations** and **Debug** switches – see [Switches](#switches) |
+| `debug` | `false` | Show the [debug](#debug) overlay. With `debug_toggle`, the starting position of the switch |
+
+The map grows to fit everything you place; you never set its size.
+
+## Items
+
+| `type` | Is placed with | Size | Can contain (`items`) | Can be inside |
+| --- | --- | --- | --- | --- |
+| [`rack`](#rack) | `at` | from `units` | rackdevice, fanpanel, and everything a device can contain | the map |
+| [`rackdevice`](#rackdevice) | `u`, `units` | rack width | badge, chip, led, label, group, ports, pool, disks, fan | a rack |
+| [`device`](#device) | `at` | `size` | badge, chip, led, label, group, ports, pool, disks, fan | the map, a rack |
+| [`endpoint`](#endpoint) | `at` | 32 × 32 | chip, label | the map |
+| [`badge`](#badge), [`chip`](#chip), [`led`](#led), [`label`](#label) | `at` | own | – | the map, a rack, a device, a group (chip and label also an endpoint) |
+| [`group`](#group) | `at` | – | badge, chip, led, label, fan | the map, a rack, a device |
+| [`ports`](#ports-and-port) | `at` | – | port | the map, a rack, a device |
+| [`pool`](#pool-hdd-ssd-bay) | `at` | `size` | hdd, ssd, bay | the map, a rack, a device |
+| [`hdd`, `ssd`, `bay`](#pool-hdd-ssd-bay) | `at` | 27 × 36 | – | the map, a rack, a device, a pool |
+| [`fanpanel`](#fanpanel-and-fan) | `u`, `units` | rack width | – | a rack |
+| [`fan`](#fanpanel-and-fan) | `at` | `size` | – | the map, a rack, a device, a group |
+
+Racks, rackdevices, devices and endpoints are **devices**: lines connect to them (and to [ports](#ports-and-port)), and they have a frame with 2 px rounded corners.
+
+### Positions inside a parent
+
+{{scene:nesting}}
+
+The device `nas` is at `[50, 30]` on the map. Its labels are at `[10, 10]` and `[140, 60]` inside it, and the badge at `[-20, -10]` sticks out over its top-left corner.
+
+### `rack`
+
+A 19" cabinet: 347 px wide and 32 px per U, with a 10 px frame at the top and bottom. Unit numbers are drawn on the left, outside the rack.
+
+{{scene:rack}}
+
+| Option | Description |
+| --- | --- |
+| `at` | Top-left corner |
+| `units` | Height in U |
+| `items` | What is inside – rackdevices, a fanpanel, and anything else placed relative to the rack, such as the narrow `poe` device and the temperature badge above |
+
+### `rackdevice`
+
+A device that fills the rack from rail to rail. It goes in a rack's `items`.
+
+```yaml
+- {type: rackdevice, id: router, u: 2, units: 2}
+```
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `u` | **required** | First unit, counted from the top (U1 is the top) |
+| `units` | `1` | Height in U |
+| `status_entity`, `status_map` | | Colour the frame from an entity – see [device status](#device-status) |
+| `items` | | What is shown on it, relative to the rackdevice |
+
+A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours.
+
+### `device`
+
+A box with a size you choose, on the map or inside a rack.
+
+{{scene:coords}}
+
+| Option | Description |
+| --- | --- |
+| `at` | Top-left corner |
+| `size` | `[width, height]` |
+| `status_entity`, `status_map` | Colour the frame from an entity – see [device status](#device-status) |
+| `items` | What is shown on it, relative to the device |
+
+### `endpoint`
+
+A small 32 × 32 px box (1U × 1U) for something that is only connected, such as a TV, a console or a camera. It shows either an MDI icon or a chip.
+
+{{scene:endpoint}}
+
+| Option | Description |
+| --- | --- |
+| `at` | Top-left corner |
+| `icon` | Any [Material Design icon](https://pictogrammers.com/library/mdi/), e.g. `mdi:television` |
+| `items` | One or more [chips](#chip) (e.g. a logo with a status ring – here the TV is off), and optionally labels |
+
+Use either `icon` or a chip, not both.
+
+### Device status
+
+A `device` or `rackdevice` with `status_entity` gets an **orange** frame for a warning and a **red** frame when it is down. Clicking the device (outside its badges, chips and ports) opens the entity's dialog.
+
+{{scene:devicestatus}}
+
+| Option | Description |
+| --- | --- |
+| `status_entity` | Any entity. Without `status_map`, the device is down when the entity is `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or missing, and OK otherwise – so a CPU-load sensor means "reachable" |
+| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked (`OB DISCHRG` matches `OB`), the first listed key wins, and a state that is not listed is `warn` |
+
+### `badge`
+
+A live value of an entity, with an optional icon in front.
+
+{{scene:badges}}
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `entity` | **required** | The entity to show |
+| `icon` | **required** | An MDI icon such as `mdi:thermometer`, or `none` for no icon |
+| `units` | `true` | `true`: the entity's own unit. Your own text (`units: Mb/s`) replaces it. `none` hides it |
+| `decimals` | as Home Assistant shows it | Number of decimal places |
+| `size` | `8` | Font size in px |
+| `show_border` | `false` | Draw a frame around the badge (2 px padding) |
+| `toggle` | | A [group](#group) id – clicking the badge shows or hides that group |
+| `thresholds` | | Colour the icon and value when a limit is reached – see [thresholds](#thresholds) |
+
+- Clicking a badge opens the entity's dialog (unless it has `toggle`).
+- When the entity is unavailable or missing, the badge shows `—`.
+- **Fixed width.** For these units a badge reserves room for its widest value, so neighbours never collide when the value grows; the icon and value are centred in that room:
+
+  | Unit | Room reserved for |
+  | --- | --- |
+  | `%` | `100%` |
+  | `°C` | `99.9 °C` (with the badge's decimals) |
+  | `V` | `999.9 V` |
+  | `Mbps` | `999 Mbps` |
+  | `ms` | `999 ms` |
+  | `W` | `9999 W` |
+  | no unit | `99` |
+
+  With other units the value starts right after the icon and grows to the right.
+
+### Thresholds
+
+The one way the card flags a problem value: when a threshold is reached, the badge's icon and value take its colour. Pools ([fill](#pool-hdd-ssd-bay)), disks (temperature) and [fans](#fanpanel-and-fan) (rotor) use the same `thresholds`.
+
+{{scene:thresholds}}
+
+```yaml
+thresholds: [{above: 80, color: orange}, {above: 90, color: red}]   # CPU, RAM
+thresholds: [{below: 50, color: orange}, {below: 20, color: red}]   # battery
+```
+
+- Each entry has `above` or `below`, and a `color`: `red`, `orange`, `green` (your theme's error, warning and success colours), `yellow`, or any colour such as `"#e91e63"`.
+- *Reached* means equal or beyond: `above: 90` is reached at 90.
+- When several are reached, the **last** one in the list wins – list them from mild to severe. `above` and `below` can be mixed.
+- The entity's raw number is compared, in its own unit. Non-numeric and unavailable states are never coloured.
+- Don't put thresholds on values that are normally at their limit – an NVR disk is always about 100 % full.
+
+### `chip`
+
+A round logo, as for containers or device brands, with blinking status and update rings.
+
+{{scene:chips}}
+
+From left: running; stopped (red ring); running with an update (green ring); stopped *and* with an update (the ring alternates red and green); a link without rings; an MDI icon; a database with the small logo of the app it belongs to; an OS logo with the number of pending updates.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `icon` / `image` | one of the two | An MDI icon, or the path to an image |
+| `size` | `16` | Diameter in px |
+| `status_entity` | | A blinking **red** ring when this entity is not up. Up means `on`, `true`, `1`, `running`, `home` or `ok`; anything else, unavailable or missing is down |
+| `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count |
+| `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to |
+| `small_entity` | | A small number at the lower right, e.g. pending OS updates. Hidden at 0, `99+` above 99. Not together with `small_image` |
+| `url` | | Opened in a new tab on click |
+
+The screenshots in this documentation show a letter where your logo image would be – no logos are shipped with the card. Images under `config/www/` are available as `/local/…`; e.g. `config/www/ha-homelab-map/logos/grafana.svg` is `/local/ha-homelab-map/logos/grafana.svg`. With the **Animations** switch off, the rings stay lit (red wins over green).
+
+### `led`
+
+A small light, e.g. one per VLAN on a switch, that flickers like a port light.
+
+{{scene:leds}}
+
+From left: LAN flickering, IoT blinking, NoT steady, CAM dark (its entity is off), two wide bars with captions, a square green LED.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `vlan` / `color` | one of the two | A VLAN from the card's `vlans`, or any colour such as `"#43a047"` |
+| `size` | `[3, 8]` | `[width, height]` in px |
+| `effect` | `flicker` | `flicker` (random, like a busy port), `blink` (on/off once a second) or `none` (steady) |
+| `entity` | | When set, the LED is lit only while the entity is up (as for chips) and dark grey otherwise |
+| `caption` | | Text centred above the LED (8 px, secondary colour) – e.g. a VLAN legend. Only together with an explicit `size` |
+
+VLAN LEDs stop flickering and stay lit while the **VLANs** or **Animations** switch is off.
+
+### `label`
+
+Fixed text: device names, legends, notes.
+
+{{scene:labels}}
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `text` | **required** | The text |
+| `size` | `10` | Font size in px |
+| `bold` | `false` | Bold text |
+| `color` | `primary` | `primary` (main text colour), `secondary` (dimmer grey) or any colour such as `"#d26066"` |
+| `vertical` | `false` | Rotated to read bottom to top. `at` is still the top-left corner of the rotated text |
+
+### `group`
+
+An invisible container. Everything in it moves with its `at`, and a badge with `toggle` can show or hide it.
+
+{{scene:group}}
+
+```yaml
+- {type: badge, id: count, at: [150, 52], entity: sensor.running, icon: "mdi:docker", size: 10, toggle: containers}
+```
+
+Clicking the count hides the group; the count turns bold while the group is hidden:
+
+{{image:group_hidden}}
+
+| Option | Description |
+| --- | --- |
+| `at` | Top-left corner; the items inside are relative to it |
+| `items` | Badges, chips, LEDs, labels and fans |
+
+Groups start visible. Each browser remembers which groups it has hidden.
+
+### `ports` and `port`
+
+Network ports (or camera inputs) whose colour shows the link state. A `ports` container holds `port` items placed by hand, and a line can end on a port instead of a device.
+
+{{scene:ports}}
+
+Switch, from left: active at the expected speed; slower than expected (100 Mbps); no cable; no link although a cable ends here (fault); disabled. NVR: recording, online, offline, empty.
+
+| `ports` option | Default | Description |
+| --- | --- | --- |
+| `at` | | Top-left corner |
+| `size` | `12` | Icon size in px |
+| `speed` | `1Gbps` | Expected link speed – slower links are orange |
+| `icon` | `mdi:ethernet` | Icon of all ports, e.g. `mdi:cctv` for camera inputs |
+| `states` | | State → `active`, `warn`, `inactive`, `fault` or `disabled`, checked first and case-insensitive – e.g. NVR channels `{recording: active, online: warn, offline: fault, empty: inactive}` |
+| `items` | | `port` items |
+
+| `port` option | Description |
+| --- | --- |
+| `at` | Relative to its `ports` |
+| `entity` | The link entity (see below) |
+| `speed` | Overrides the container's expected speed for this port |
+
+| Colour | Means |
+| --- | --- |
+| white | active – link at the expected speed or faster |
+| orange | warn – slower, or half duplex while the other end could do full duplex |
+| dimmed | no link, and no cable on the map ends at this port |
+| **red** | fault – no link although a map line ends at this port (a cable is expected), or an SFP fault |
+| crossed out | the port is disabled |
+
+Port entities, best first:
+
+1. The MikroTik Router integration's `binary_sensor.<device>_<interface>_connection`: its `enabled`, `status`, `rate`, `full_duplex` and SFP attributes give all five states.
+2. A speed text (`1Gbps`, `2.5Gbps`, `100Mbps`, `10 Gbit/s`), or a bare number read in the entity's unit (Mbps without one).
+3. An on/off entity.
+
+Clicking a port opens its entity.
+
+### `pool`, `hdd`, `ssd`, `bay`
+
+Storage: disks and the pools (ZFS, RAID…) they belong to.
+
+{{scene:storage}}
+
+A `pool` is a container placed by hand around its disks:
+
+| `pool` option | Description |
+| --- | --- |
+| `at`, `size` | Top-left corner and `[width, height]` |
+| `label` | Text on a tag centred on the bottom edge (it sticks out 5 px below) |
+| `usage_entity` | % used – shown as a fill rising from the bottom. Click opens it |
+| `thresholds` | Colour of the fill – see [thresholds](#thresholds) |
+| `status_entity`, `status_map` | Outline colour, as for [devices](#device-status), e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}` |
+| `items` | `hdd`, `ssd` and `bay` |
+
+Disks are 27 × 36 px trays:
+
+| `hdd` / `ssd` option | Description |
+| --- | --- |
+| `at`, `size` | Top-left corner and `[width, height]` (default `[27, 36]`) |
+| `temperature` | Shown at the bottom (`41°`); click opens it |
+| `thresholds` | Colour of the temperature |
+| `status_entity`, `status_map` | The LED in the top-right corner: green OK, orange warn, red down. A down HDD stops spinning and gets a red outline |
+
+An `hdd` has a spinning platter (it stops with the **Animations** switch); an `ssd` shows a chip board. A `bay` (`at`, `size`) is an empty slot with a dashed outline.
+
+### `fanpanel` and `fan`
+
+A rack panel with fans, and single fans you can place anywhere.
+
+{{scene:fans}}
+
+```yaml
+- {type: fanpanel, id: rack_fans, u: 1, units: 2, count: 4, entity: sensor.rack_temperature, range: [27, 35]}
+- {type: fan, id: case_fan, at: [400, 20], size: 40, entity: sensor.case_fan_rpm, range: [0, 3000], thresholds: [{below: 500, color: red}]}
+```
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `u`, `units` (`fanpanel`) | units `2` | Position in the rack, like a rackdevice. The panel sits behind devices and cables |
+| `count` (`fanpanel`) | `4` | Fans, spread evenly |
+| `at`, `size` (`fan`) | size `24` | A square chassis with four screw holes |
+| `entity` | | Drives the speed |
+| `range` | `[0, 100]` | `[slow, fast]`: at or below `slow` the fan turns slowly, at or above `fast` quickly – a temperature (`[27, 35]`), a % or RPM (`[0, 3000]`) |
+| `thresholds` | | Colour of the rotor – you decide whether a stopped or slow fan is a fault |
+
+`on` = full speed, `0` or `off` = stopped, unavailable or no `entity` = slow. The rotors stop with the **Animations** switch.
+
+## Lines
+
+Datalines and powerlines share these options:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `id` | **required** | Unique, like item ids |
+| `start_device` / `start_port`, `end_device` / `end_port` | **required** | Each end: the id of a device (rack, rackdevice, device or endpoint) **or** of a port. A dataline may leave one end open – see [open ends](#open-ends) |
+| `start_edge`, `end_edge` | **required** | `top`, `right`, `bottom` or `left` – of the device, or of the port icon |
+| `start_point`, `end_point` | `50` | Where on that edge, in % – see below |
+| `points` | | `[x, y]` map points the line passes through, in order |
+| `flow` | static | Animation direction. Without `flow` the line does not move |
+
+Lines are drawn over devices.
+
+### Where a line starts and ends
+
+- `top` and `bottom` edges: `0` is the left corner, `100` the right corner.
+- `left` and `right` edges: `0` is the top corner, `100` the bottom corner.
+
+{{scene:edges}}
+
+### `points`
+
+Without `points`, a line goes straight from start to end. With them, it goes through each point in order. Segments can go in any direction, diagonals included.
+
+{{scene:points}}
+
+### `line_radius`
+
+Every corner at one of the `points` is rounded with the card's `line_radius`. Where a line touches a device, there is no rounding. The radius shrinks on segments too short for it.
+
+`line_radius: 0`
+
+{{image:radius0}}
+
+`line_radius: 6` (default)
+
+{{image:radius6}}
+
+`line_radius: 16`
+
+{{image:radius16}}
+
+### Open ends
+
+A dataline may leave **one** end unconnected: leave out that end's `*_device` / `*_port`. The last (or first) entry of `points` is then the open end, and the line – static line and animation alike – fades out along that last segment. Use it for the cable that leaves your ONT for "the internet".
+
+{{scene:openline}}
+
+- An open end needs at least one point; `*_edge` and `*_point` are not allowed on it. Powerlines can't have open ends.
+- The open end doesn't enlarge the map. If it lies outside the drawing area, the line is cut at the edge and fades out exactly there – a far-away point such as `[32, -200]` makes the cable run to the top of the map.
+
+## Datalines
+
+Network cables. On top of the [common options](#lines):
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `vlans` | | VLAN names – the colours of the moving dashes |
+| `flow` | static | `forward`, `reverse` or `dominant` |
+| `status` | `active` | `active`, `inactive` or a `binary_sensor` |
+| `rx`, `tx` | | Data-rate sensors |
+| `rates_at`, `rates_placement`, `rates_size` | | Show the current rates next to the line – see [rates](#rates) |
+
+### `vlans`
+
+Without `vlans`, a line animates as dots in your theme colour. With one VLAN, as dashes in that colour. With several (a trunk), the dashes cycle through all their colours.
+
+{{scene:vlans}}
+
+### `flow`
+
+| `flow` | The animation moves… |
+| --- | --- |
+| *(not set)* | – the line is static |
+| `forward` | from the start to the end |
+| `reverse` | from the end to the start |
+| `dominant` | towards the start when `rx` is larger than `tx`, otherwise towards the end. Needs `rx` and `tx` |
+
+### `status`
+
+| `status` | The line is… |
+| --- | --- |
+| `active` (default) | drawn and animated normally |
+| `inactive` | red and dashed, without animation – e.g. a planned or unplugged cable |
+| `binary_sensor.…` | normal while the sensor is `on`; red and dashed when it is `off`, unavailable or missing |
+
+{{scene:status}}
+
+### `rx` and `tx`
+
+Sensors with the current data rate. `rx` is what the **start** device receives, `tx` what it sends.
+
+- More traffic makes the animation faster. With no traffic, it stops.
+- With `flow: dominant`, the direction follows the bigger of the two.
+
+Interface counters are often measured on the other device: a router port reports what the *router* sends and receives. The access point at the other end receives what the router sends, so swap them:
+
+```yaml
+start_device: ap
+rx: sensor.router_ether2_tx
+tx: sensor.router_ether2_rx
+```
+
+The unit is read from each sensor and converted: `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, and the short forms `bps`, `kbps`, `Mbps`, `Gbps`. A sensor without a unit is read as kB/s.
+
+### Rates
+
+`rates_at` shows `↓ rx` and `↑ tx` next to the line, in bits per second (`k`, `M`, `G`). Clicking a value opens its sensor.
+
+{{scene:rates}}
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `rates_at` | | Turns the rates on. `start`: begins at the start point. `end`: ends at the end point. A number `0`–`100`: centred at that percentage of the line's length (corners included) |
+| `rates_placement` | `middle` | `middle`: rx above the line, tx below. `above` or `below`: both values on that side |
+| `rates_size` | `8` | Font size in px |
+
+- On a vertical stretch, the text is rotated; there "above" is the left side.
+- The two rows always start at the same left edge, so the arrows line up.
+- `rates_at` needs `rx` and/or `tx`; a line with only one shows only that value.
+
+## Powerlines
+
+Power cables, with the [common options](#lines). `flow` is `forward` or `reverse`; the animation is gold dots at a steady speed.
+
+{{scene:power}}
+
+## Switches
+
+`vlan_toggle`, `power_toggle`, `animation_toggle` and `debug_toggle` add switches in the top-left corner:
+
+| Switch | Off |
+| --- | --- |
+| **VLANs** | Datalines become static and dimmed; VLAN LEDs stop flickering |
+| **Power** | Powerlines become static and dimmed |
+| **Animations** | Everything stops moving – cables, LEDs, disks and fans – while keeping its colours; chip rings stay lit. Nothing is animated, so the card uses no CPU |
+| **Debug** | The [debug](#debug) overlay is hidden (on: shown) |
+
+{{image:toggles_on}}
+
+{{image:toggles_off}}
+
+Each browser remembers its own switch positions. VLANs, Power and Animations start on; Debug starts off (or on, with `debug: true`). The card also stops animating when it is scrolled out of view, when the browser tab is hidden, and when the system asks for reduced motion.
+
+## Font
+
+`font` sets the font family for all text on the card: labels, badges, rates, switches and the debug tooltip. If the browser can't get the font, the theme font is used.
+
+```yaml
+font: JetBrains Mono
+```
+
+[JetBrains Mono](https://www.jetbrains.com/lp/mono/) is bundled with the card (SIL Open Font License) and loaded from the card's own folder – nothing is fetched from the internet. Any other name works if that font is installed on the viewing device. A monospace font also makes badge widths exact, which helps when aligning rows.
+
+## `debug`
+
+`debug: true`, or the **Debug** switch, helps you place things:
+
+- a grid: thin lines every 10 px, stronger every 50 px, at map coordinates;
+- a dashed outline around every device, pool, disk and fan, a circle around every chip, and a dot at each badge's `at`;
+- in the browser, hovering shows the cursor position on the map and **inside** the device under it, and on a second line the id of the item under the cursor:
+
+  ```text
+  412, 260 · router: 361, 63
+  router_cpu
+  ```
+
+## Errors
+
+A mistake in the configuration shows an error that names the exact place, for example:
+
+```text
+ha-homelab-map: items[1].type: 'rackdevice' must be inside a rack's items
+ha-homelab-map: items[0].items[0].u: U11–U13 does not fit in the 12U rack 'rack'
+ha-homelab-map: items[1].name: unknown property – allowed: type, id, at, size, status_entity, status_map, items
+ha-homelab-map: items[0]: an endpoint needs either an mdi 'icon' or a chip in 'items'
+ha-homelab-map: items[0].items[0].icon: required – an mdi icon such as mdi:thermometer, or none
+ha-homelab-map: items[0].items[0].thresholds[0]: needs either 'above' or 'below'
+ha-homelab-map: items[0].items[0].toggle: 'containers' is not a group
+ha-homelab-map: items[0].items[0].caption: needs 'size' – captions are shown only on LEDs with an explicit size
+ha-homelab-map: datalines[0].end_edge: expected one of top, right, bottom, left
+ha-homelab-map: datalines[0].flow: 'dominant' needs both 'rx' and 'tx'
+ha-homelab-map: datalines[0].end_device: 'c' is not a device – lines connect devices and ports only
+ha-homelab-map: datalines[0].points: an open end needs at least one point – the last point is where the line fades out
+```
+
+`items[0].items[2]` is the third item inside the first item – counting starts at 0.

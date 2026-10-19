@@ -1,0 +1,14 @@
+type: custom:ha-homelab-map
+items:
+  - {type: endpoint, id: camera, at: [0, 0], icon: "mdi:cctv"}
+  - type: endpoint
+    id: tv
+    at: [60, 0]
+    items:
+      - {type: chip, id: tv_logo, at: [4, 4], size: 24, image: /local/ha-homelab-map/logos/android.svg, status_entity: binary_sensor.tv_online}
+  - type: endpoint
+    id: console
+    at: [120, 0]
+    items:
+      - {type: chip, id: console_logo, at: [4, 4], size: 24, image: /local/ha-homelab-map/logos/xbox.svg}
+      - {type: label, id: console_caption, at: [0, 36], text: Xbox, size: 8, color: secondary}

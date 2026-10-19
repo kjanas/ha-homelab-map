@@ -1,0 +1,1 @@
+{"binary_sensor.ha_running": "on", "binary_sensor.grafana_running": "on", "binary_sensor.grafana_update": "on", "binary_sensor.mqtt_running": "off", "binary_sensor.redis_update": "on", "binary_sensor.pg_running": "off", "binary_sensor.pg_update": "on"}
