@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.101.0 – alpha
+
+First full (non-pre-release) GitHub release, so HACS lists it without "Show beta versions". Same features as 0.100.0.
+
 ## 0.100.0 – first public alpha
 
 First public release. Everything is placed by hand with pixel coordinates.
