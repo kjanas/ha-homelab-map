@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.21";
+const VERSION = "0.101.22";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -389,6 +389,9 @@ const RATE_UNITS = {
   mbps: 125,
   "Gbit/s": 125000,
   gbps: 125000,
+  "kb/s": 1 / 8,
+  "Mb/s": 125,
+  "Gb/s": 125000,
   "B/s": 0.001,
   "kB/s": 1,
   "KB/s": 1,
@@ -399,10 +402,13 @@ const RATE_UNITS = {
   "GiB/s": 1073741.824,
 };
 
+const BIT_UNITS = Object.fromEntries(Object.entries(RATE_UNITS).filter(([unit]) => /bit\/s$|bps$|iB\/s$/.test(unit)).map(([unit, k]) => [unit.toLowerCase(), k]));
+
 const toKBps = (state) => {
   const value = toNumber(state);
-  const unit = state?.attributes?.unit_of_measurement;
-  return value * (own(RATE_UNITS, unit) ?? own(RATE_UNITS, String(unit).toLowerCase()) ?? 1);
+  const unit = String(state?.attributes?.unit_of_measurement ?? "").trim();
+  if (!unit) return value;
+  return value * (own(RATE_UNITS, unit) ?? (unit === unit.toLowerCase() ? own(BIT_UNITS, unit) : undefined) ?? NaN);
 };
 
 const formatRate = (kBps) => {

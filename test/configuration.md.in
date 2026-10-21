@@ -505,7 +505,7 @@ rx: sensor.router_ether2_tx
 tx: sensor.router_ether2_rx
 ```
 
-The unit is read from each sensor and converted: `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, and the short forms `bps`, `kbps`, `Mbps`, `Gbps`. A sensor without a unit is read as kB/s.
+The unit is read from each sensor and converted: `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, the short forms `bps`, `kbps`, `Mbps`, `Gbps` and `kb/s`, `Mb/s`, `Gb/s` for bits; bit units and `KiB/s`–`GiB/s` are also recognised in lower case (`mbit/s`, `mbps`). A sensor without a unit is read as kB/s; a sensor with any other unit shows `—`.
 
 ### Rates
 
