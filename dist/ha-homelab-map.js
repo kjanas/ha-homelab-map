@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.24";
+const VERSION = "0.101.25";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -190,6 +190,9 @@ const TEXTURES = Object.freeze({
   },
 });
 const BACKGROUNDS = ["none", "blueprint", "pegboard", "vignette"];
+const isCssColor = (value) =>
+  typeof value === "string" && /^[#\w(),.%\s/-]+$/.test(value.trim()) && !/^\s*url\(/i.test(value) &&
+  (typeof CSS === "undefined" || !CSS.supports || CSS.supports("color", value));
 const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
 const isImageUrl = (value) => typeof value === "string" && /^(\/(?!\/)|https?:\/\/)\S+$/i.test(value);
 const isLink = (value) => typeof value === "string" && /^\S+$/.test(value) && !/^(javascript|data|vbscript|file):/i.test(value);
@@ -572,7 +575,7 @@ const validateThresholds = (list, path) => {
     if ((t.above === undefined) === (t.below === undefined)) fail(at, "needs either 'above' or 'below'");
     const limit = t.above ?? t.below;
     if (!isNum(limit)) fail(`${at}.${t.above !== undefined ? "above" : "below"}`, "expected a number");
-    if (typeof t.color !== "string" || !t.color.trim()) fail(`${at}.color`, 'expected red, orange, yellow, green or a colour such as "#e91e63"');
+    if (!own(THRESHOLD_COLORS, t.color) && !isCssColor(t.color)) fail(`${at}.color`, 'expected red, orange, yellow, green or a colour such as "#e91e63"');
   });
 };
 
@@ -631,7 +634,7 @@ const validateItem = (item, path, parent, ctx) => {
   if (item.type === "label") {
     if (typeof item.text !== "string" && typeof item.text !== "number") fail(`${path}.text`, "required – the text to show");
     if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a font size in px");
-    if (item.color !== undefined && typeof item.color !== "string") fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
+    if (item.color !== undefined && !own(LABEL.colors, item.color) && !isCssColor(item.color)) fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
     for (const key of ["bold", "vertical"]) if (item[key] !== undefined && typeof item[key] !== "boolean") fail(`${path}.${key}`, "expected true or false");
   }
   if (item.type === "led") {
@@ -642,7 +645,7 @@ const validateItem = (item, path, parent, ctx) => {
       if (item.size === undefined) fail(`${path}.caption`, "needs 'size' – captions are shown only on LEDs with an explicit size");
     }
     if (item.vlan !== undefined && !own(ctx.vlans, item.vlan)) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
-    if (item.color !== undefined && typeof item.color !== "string") fail(`${path}.color`, 'expected a colour such as "#66b771"');
+    if (item.color !== undefined && !isCssColor(item.color)) fail(`${path}.color`, 'expected a colour such as "#66b771"');
     if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
     if (item.effect !== undefined && !LED.effects.includes(item.effect)) fail(`${path}.effect`, `expected one of ${LED.effects.join(", ")}`);
   }
@@ -770,6 +773,7 @@ const validateConfig = (config) => {
   if (!Array.isArray(config.items)) throw new Error(`${CARD_TYPE}: 'items' list is required`);
   const vlans = config.vlans || {};
   if (typeof vlans !== "object" || Array.isArray(vlans)) fail("vlans", "expected a map of name: colour");
+  for (const [name, color] of Object.entries(vlans)) if (!isCssColor(color)) fail(`vlans.${name}`, 'expected a colour such as "#6c9cda"');
   for (const key of ["fit_viewport", "debug", "vlan_toggle", "power_toggle", "animation_toggle", "debug_toggle"]) {
     if (config[key] !== undefined && typeof config[key] !== "boolean") fail(key, "expected true or false");
   }

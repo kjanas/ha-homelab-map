@@ -116,6 +116,17 @@ try {
 }
 expect("chip protocol-relative image", { items: [{ type: "chip", id: "c", at: [0, 0], image: "//evil.example/x.svg" }] }, "items[0].image: expected an image URL");
 expect("chip data small_image", { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", small_image: "data:image/svg+xml,x" }] }, "items[0].small_image: expected an image URL");
+expect("vlan colour not a colour", { items: [], vlans: { LAN: 123 } }, "vlans.LAN: expected a colour");
+expect("led colour url()", { items: [{ type: "led", id: "e", at: [0, 0], color: "url(https://x/y)" }] }, "items[0].color: expected a colour");
+expect("label colour with css", { items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "red; display: none" }] }, "items[0].color: expected primary, secondary");
+expect("threshold colour empty", { items: [B({ thresholds: [{ above: 1, color: " " }] })] }, "items[0].thresholds[0].color: expected red");
+try {
+  validateConfig({ vlans: { LAN: "tomato", IoT: "hsl(120, 50%, 40%)" }, items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "var(--accent-color)" }, B({ thresholds: [{ above: 1, color: "yellow" }] })] });
+  print("ok   named, hsl() and var() colours accepted");
+} catch (e) {
+  print(`FAIL colour names: ${e.message}`);
+  failed++;
+}
 expect("toggle not boolean", { items: [], vlan_toggle: "yes" }, "vlan_toggle: expected true or false");
 expect("power toggle not boolean", { items: [], power_toggle: 1 }, "power_toggle: expected true or false");
 const C = (extra = {}) => ({ type: "chip", id: "c1", at: [0, 0], icon: "mdi:docker", ...extra });
