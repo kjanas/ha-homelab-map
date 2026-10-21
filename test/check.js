@@ -336,6 +336,44 @@ else {
     failed++;
   }
 }
+{
+  frames.splice(0);
+  const strokes = [];
+  const getContext = Node_.prototype.getContext;
+  Node_.prototype.getContext = () => new Proxy({}, {
+    get: (t, k) => (k in t ? t[k] : () => ({ addColorStop: () => {} })),
+    set: (t, k, v) => {
+      if (k === "strokeStyle") strokes.push(v);
+      t[k] = v;
+      return true;
+    },
+  });
+  let red = "#111111";
+  const css = getComputedStyle;
+  getComputedStyle = () => ({ getPropertyValue: (name) => (name === "--error-color" ? red : "") });
+  const tc = new CardClass();
+  tc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", status_entity: "binary_sensor.up" }] });
+  const hs = (dark) => ({ themes: { darkMode: dark, theme: "default" }, states: { "binary_sensor.up": { entity_id: "binary_sensor.up", state: "off", attributes: {} } } });
+  const run = () => { for (const f of frames.splice(0)) f(0); };
+  tc.hass = hs(true);
+  run();
+  const before = strokes.at(-1);
+  red = "#222222";
+  tc.hass = hs(true);
+  run();
+  const same = strokes.at(-1);
+  tc.hass = hs(false);
+  run();
+  const after = strokes.at(-1);
+  getComputedStyle = css;
+  Node_.prototype.getContext = getContext;
+  frames.splice(0);
+  if (before === "#111111" && same === "#111111" && after === "#222222") print("ok   theme switch re-resolves canvas colours");
+  else {
+    print(`FAIL theme switch: ${before} ${same} ${after}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });

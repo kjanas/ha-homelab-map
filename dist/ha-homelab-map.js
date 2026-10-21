@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.19";
+const VERSION = "0.101.20";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -510,6 +510,8 @@ const resolveColor = (value, host) => {
   return own || (match[2] ? resolveColor(match[2].trim(), host) : "#888");
 };
 
+const themeKey = (hass) => JSON.stringify([hass?.themes?.darkMode, hass?.themes?.theme, hass?.selectedTheme]);
+
 const reducedMotion = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
 const fail = (path, message) => {
@@ -930,6 +932,10 @@ class HaHomelabMap extends HTMLElement {
     if (!this.#built) {
       if (!this.#failed) this.#render();
       return;
+    }
+    if (themeKey(prev) !== themeKey(hass)) {
+      this.#painted = false;
+      requestAnimationFrame(() => this.#resizeFx());
     }
     const due = new Set();
     for (const [id, updates] of this.#deps) if (prev.states[id] !== hass.states[id]) { for (const update of updates) due.add(update); }

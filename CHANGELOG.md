@@ -16,6 +16,7 @@
 - The card accepts the dashboard's own keys `visibility`, `layout_options` and `card_mod` instead of rejecting them as unknown.
 - An empty entity state is shown as `—` on disks, pools and chip counts instead of being read as 0; unavailable, unknown and empty states are recognised the same way everywhere.
 - The animation loop runs only while something actually moves (traffic on a cable, a flickering LED, a spinning disk or fan, a lit chip ring) and stops when everything is idle, saving CPU and battery on wall tablets.
+- Switching the Home Assistant theme or dark mode now also recolours the animated cables, LEDs and chip rings, which used to keep the old theme's colours until the card was reloaded.
 
 ## 0.101.0 – alpha
 
