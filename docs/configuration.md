@@ -73,6 +73,10 @@ powerlines: []
 
 The map grows to fit everything you place; you never set its size.
 
+Any other key is rejected with `unknown property`, except the ones the dashboard itself adds to every card: `visibility` (conditions for showing the card), `grid_options` and `layout_options` (size in a sections view), `view_layout` (layout-card) and `card_mod` (card-mod styling). The card ignores them and leaves them to Home Assistant or the add-on.
+
+**Colours** – wherever a colour is accepted (`vlans`, LEDs, labels, thresholds), you can use any CSS colour: `"#6c9cda"`, a name such as `tomato`, `rgb(…)` / `hsl(…)` or a theme variable such as `var(--accent-color)`. Anything else – a number, `url(…)` or extra CSS – is rejected with an error.
+
 ## Items
 
 | `type` | Is placed with | Size | Can contain (`items`) | Can be inside |
@@ -382,13 +386,13 @@ From left: running; stopped (red ring); running with an update (green ring); sto
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `icon` / `image` | one of the two | An MDI icon, or the path to an image |
+| `icon` / `image` | one of the two | An MDI icon, or an image URL starting with `/` (e.g. `/local/logos/grafana.svg`) or `http(s)://` |
 | `size` | `16` | Diameter in px |
 | `status_entity` | | A blinking **red** ring when this entity is not up. Up means `on`, `true`, `1`, `running`, `home` or `ok`; anything else, unavailable or missing is down |
 | `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count |
-| `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to |
+| `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to. An image URL like `image` |
 | `small_entity` | | A small number at the lower right, e.g. pending OS updates. Hidden at 0, `99+` above 99. Not together with `small_image` |
-| `url` | | Opened in a new tab on click |
+| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work; `javascript:`, `data:`, `vbscript:` and `file:` links are rejected |
 
 The screenshots in this documentation show a letter where your logo image would be – no logos are shipped with the card. Images under `config/www/` are available as `/local/…`; e.g. `config/www/ha-homelab-map/logos/grafana.svg` is `/local/ha-homelab-map/logos/grafana.svg`. With the **Animations** switch off, the rings stay lit (red wins over green).
 

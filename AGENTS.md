@@ -52,6 +52,7 @@ animation_toggle: true    # off = cables, LEDs and disks freeze; chip rings stay
 debug_toggle: true
 toggles_at: [860, 20]     # optional; top-left corner of the switches panel in map px (default: top-right corner); needs a switch
 debug: false              # overlay; with debug_toggle = starting position
+# visibility, grid_options, layout_options, view_layout, card_mod – dashboard keys, accepted and ignored
 items: []                 # required
 datalines: []
 powerlines: []
@@ -66,7 +67,7 @@ powerlines: []
 | `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
 | `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
 | `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
-| `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both |
+| `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both; `image`/`small_image` must start with `/` or `http(s)://`; `url` may be any link except `javascript:`, `data:`, `vbscript:`, `file:` |
 | `led` | `at`, `vlan` **or** `color`, `size: [w, h]` (default [3, 8]), `entity`, `effect` (`flicker` default, `blink`, `none`), `caption` | dark grey while `entity` is down; `caption` = text centred above the LED (8 px, secondary colour), only allowed together with an explicit `size` |
 | `label` | `at`, `text`, `size` (default 10), `bold`, `color` (`primary` default, `secondary`, or a colour), `vertical` | not clickable |
 | `group` | `at`, `items` | invisible; shown/hidden by a badge with `toggle` |
@@ -82,7 +83,7 @@ powerlines: []
 
 **Textures** (`device`, `rackdevice`, `fanpanel`): `texture` puts a faint pattern on the whole front, under the content – `hex`, `mesh`, `slots`, `grille`, `carbon`, `ribbed`, `brushed`, `glass`, or vendor-inspired `tpl` (TP-Link Omada), `mtk` (MikroTik), `unf` (UniFi), `dll` (Dell), `hpe` (HPE), which add a tint and a coloured line along the bottom (no logos). `texture_opacity` (0–1, default 1) needs `texture`. Purely decorative – don't use it to show status.
 
-**Badge thresholds** – the one way to flag a problem value: `thresholds: [{above: 70, color: orange}, {above: 85, color: red}]` or `{below: 20, color: red}`. Reached means equal or beyond; when several are reached the last one in the list wins (list mild → severe); `above` and `below` can be mixed. The icon and value text take the colour; nothing blinks or hides. Colours: `red`, `orange`, `green` (theme error/warning/success), `yellow`, or any CSS colour. Compared against the raw entity number in its own unit; non-numeric or unavailable states are never coloured. Don't put thresholds on values that are normally at their limit (an NVR disk is always ~100 % full).
+**Badge thresholds** – the one way to flag a problem value: `thresholds: [{above: 70, color: orange}, {above: 85, color: red}]` or `{below: 20, color: red}`. Reached means equal or beyond; when several are reached the last one in the list wins (list mild → severe); `above` and `below` can be mixed. The icon and value text take the colour; nothing blinks or hides. Colours: `red`, `orange`, `green` (theme error/warning/success), `yellow`, or any CSS colour (hex, name, `rgb()`/`hsl()`, `var(--…)`; `url(…)` and numbers are rejected). Compared against the raw entity number in its own unit; non-numeric or unavailable states are never coloured. Don't put thresholds on values that are normally at their limit (an NVR disk is always ~100 % full).
 
 **Fan speed** (`fanpanel`, `fan`): the `entity` value is mapped over `range: [slow, fast]` (default `[0, 100]`; e.g. a temperature `[27, 35]` or RPM `[0, 3000]`) – at or below `slow` the fan turns slowly, at or above `fast` quickly. `on` = full speed; `0`, `off`, unavailable, unknown or a missing entity = stopped; no `entity` = always slow. Whether a stopped or slow fan is a fault is up to the user: `thresholds` colour the rotor (e.g. `{below: 500, color: red}` for RPM). Rotors freeze with the Animations switch.
 
