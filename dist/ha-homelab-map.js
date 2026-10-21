@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.29";
+const VERSION = "0.101.30";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -843,6 +843,8 @@ class HaHomelabMap extends HTMLElement {
   #failed = false;
   #stale = false;
   #pending = null;
+  #fitFrame = 0;
+  #resizer = null;
   #deps = new Map();
   #frames = [];
   #platterDef = false;
@@ -896,7 +898,13 @@ class HaHomelabMap extends HTMLElement {
   #lastFrame = 0;
   #visible = true;
   #observer = null;
-  #onResize = () => this.#fit();
+  #onResize = () => {
+    if (this.#fitFrame) return;
+    this.#fitFrame = requestAnimationFrame(() => {
+      this.#fitFrame = 0;
+      this.#fit();
+    });
+  };
 
   constructor() {
     super();
@@ -937,7 +945,6 @@ class HaHomelabMap extends HTMLElement {
       ev.stopPropagation();
       ev.preventDefault();
     }, true);
-    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => this.#fit()).observe(this.#view);
   }
 
   static getStubConfig() {
@@ -994,7 +1001,11 @@ class HaHomelabMap extends HTMLElement {
 
   connectedCallback() {
     window.addEventListener("resize", this.#onResize);
-    requestAnimationFrame(this.#onResize);
+    this.#onResize();
+    if (!this.#resizer && typeof ResizeObserver !== "undefined") {
+      this.#resizer = new ResizeObserver(this.#onResize);
+      this.#resizer.observe(this.#view);
+    }
     if (this.#built && this.#hass) {
       this.#stale = false;
       requestAnimationFrame(() => this.#update());
@@ -1014,6 +1025,8 @@ class HaHomelabMap extends HTMLElement {
 
   disconnectedCallback() {
     window.removeEventListener("resize", this.#onResize);
+    this.#resizer?.disconnect();
+    this.#resizer = null;
     this.#observer?.disconnect();
     this.#observer = null;
     this.#applyVisibility();
@@ -1461,7 +1474,7 @@ class HaHomelabMap extends HTMLElement {
     this.#painted = false;
     this.#resizeFx();
     this.#applyVisibility();
-    requestAnimationFrame(this.#onResize);
+    this.#onResize();
   }
 
   #drawBackground(svg, defs, kind) {

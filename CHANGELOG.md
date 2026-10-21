@@ -26,6 +26,7 @@
 - Badges, labels and rates in a group that starts hidden get their real width when the group is shown, instead of keeping an estimate until their value changes.
 - A card that is off-screen or on another dashboard view skips state updates and catches up once when it becomes visible again.
 - Badge, label and rate widths are measured together before any layout is changed, so one state update causes one browser layout instead of one per badge.
+- Window and card resizes are combined into one re-fit per frame, and the resize observer is released when the card is removed.
 
 ## 0.101.0 – alpha
 

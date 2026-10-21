@@ -509,6 +509,37 @@ else {
     failed++;
   }
 }
+{
+  const log = [];
+  let notify = null;
+  ResizeObserver = class {
+    constructor(fn) { notify = fn; log.push("new"); }
+    observe() { log.push("observe"); }
+    disconnect() { log.push("disconnect"); }
+  };
+  frames.splice(0);
+  const rc = new CardClass();
+  rc.setConfig({ items: [D()] });
+  rc.hass = { states: {} };
+  for (const f of frames.splice(0)) f(0);
+  rc.connectedCallback();
+  const connected = frames.length;
+  notify([]);
+  notify([]);
+  const queued = frames.length - connected;
+  for (const f of frames.splice(0)) f(0);
+  rc.disconnectedCallback();
+  rc.connectedCallback();
+  rc.disconnectedCallback();
+  delete globalThis.ResizeObserver;
+  frames.splice(0);
+  const got = `${queued} ${log.join(",")}`;
+  if (got === "0 new,observe,disconnect,new,observe,disconnect") print("ok   resizes coalesce into one frame, observer follows connect/disconnect");
+  else {
+    print(`FAIL resize handling: ${got}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
