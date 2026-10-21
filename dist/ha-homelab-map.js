@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.15";
+const VERSION = "0.101.16";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -300,6 +300,8 @@ const STYLES = `
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
+const own = (table, key) => (typeof key === "string" && Object.hasOwn(table, key) ? table[key] : undefined);
+
 const svgEl = (tag, attrs = {}, parent = null) => {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attrs)) {
@@ -396,7 +398,7 @@ const RATE_UNITS = {
 const toKBps = (state) => {
   const value = toNumber(state);
   const unit = state?.attributes?.unit_of_measurement;
-  return value * (RATE_UNITS[unit] ?? RATE_UNITS[String(unit).toLowerCase()] ?? 1);
+  return value * (own(RATE_UNITS, unit) ?? own(RATE_UNITS, String(unit).toLowerCase()) ?? 1);
 };
 
 const formatRate = (kBps) => {
@@ -543,7 +545,7 @@ const validateItem = (item, path, parent, ctx) => {
   if (!item || typeof item !== "object") fail(path, "expected an item");
   const parentType = parent ? parent.type : "top";
   const allowed = CHILD_TYPES[parentType];
-  if (!ITEM_KEYS[item.type]) fail(`${path}.type`, `expected one of ${Object.keys(ITEM_KEYS).join(", ")}`);
+  if (!own(ITEM_KEYS, item.type)) fail(`${path}.type`, `expected one of ${Object.keys(ITEM_KEYS).join(", ")}`);
   if (!allowed.includes(item.type)) {
     fail(
       `${path}.type`,
@@ -604,13 +606,13 @@ const validateItem = (item, path, parent, ctx) => {
       if (typeof item.caption !== "string" && typeof item.caption !== "number") fail(`${path}.caption`, "expected a text");
       if (item.size === undefined) fail(`${path}.caption`, "needs 'size' – captions are shown only on LEDs with an explicit size");
     }
-    if (item.vlan !== undefined && !ctx.vlans[item.vlan]) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
+    if (item.vlan !== undefined && !own(ctx.vlans, item.vlan)) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
     if (item.color !== undefined && typeof item.color !== "string") fail(`${path}.color`, 'expected a colour such as "#66b771"');
     if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
     if (item.effect !== undefined && !LED.effects.includes(item.effect)) fail(`${path}.effect`, `expected one of ${LED.effects.join(", ")}`);
   }
   if (["device", "rackdevice", "pool", "hdd", "ssd"].includes(item.type)) validateStatus(item, path);
-  if (item.texture !== undefined && !TEXTURES[item.texture]) fail(`${path}.texture`, `expected one of ${Object.keys(TEXTURES).join(", ")}`);
+  if (item.texture !== undefined && !own(TEXTURES, item.texture)) fail(`${path}.texture`, `expected one of ${Object.keys(TEXTURES).join(", ")}`);
   if (item.texture_opacity !== undefined) {
     if (!(isNum(item.texture_opacity) && item.texture_opacity >= 0 && item.texture_opacity <= 1)) {
       fail(`${path}.texture_opacity`, "expected a number from 0 to 1");
@@ -706,7 +708,7 @@ const validateLine = (line, path, kind, { devices, ports, ids }, vlans) => {
   const flows = kind === "data" ? ["forward", "reverse", "dominant"] : ["forward", "reverse"];
   if (line.flow !== undefined && !flows.includes(line.flow)) fail(`${path}.flow`, `expected one of ${flows.join(", ")}`);
   if (kind !== "data") return;
-  for (const name of line.vlans || []) if (!vlans[name]) fail(`${path}.vlans`, `unknown VLAN '${name}' – add it to the card's 'vlans'`);
+  for (const name of line.vlans || []) if (!own(vlans, name)) fail(`${path}.vlans`, `unknown VLAN '${name}' – add it to the card's 'vlans'`);
   if (line.status !== undefined && !["active", "inactive"].includes(line.status) && !isBinarySensor(line.status)) {
     fail(`${path}.status`, "expected active, inactive or a binary_sensor entity id (e.g. binary_sensor.router_ether1)");
   }
@@ -976,7 +978,7 @@ class HaHomelabMap extends HTMLElement {
       return;
     }
     this.#card.style.setProperty("--hhm-font", `"${font}", var(--ha-font-family-body, sans-serif)`);
-    const file = BUNDLED_FONTS[font];
+    const file = own(BUNDLED_FONTS, font);
     if (file && document.fonts && !document.getElementById(`hhm-font-${file}`)) {
       const style = document.createElement("style");
       style.id = `hhm-font-${file}`;
@@ -1628,7 +1630,7 @@ class HaHomelabMap extends HTMLElement {
     else if (Number.isFinite(value)) speed = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
     fan.rps = stopped ? 0 : FAN.minRps + (speed ?? 0) * (FAN.maxRps - FAN.minRps);
     const hit = this.#threshold(dev, state);
-    const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
+    const color = hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "";
     for (const rotor of fan.rotors) if (rotor.el.style.fill !== color) rotor.el.style.fill = color;
     const unit = state?.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
     const reading = state ? `${state.state}${Number.isFinite(value) ? unit : ""}` : "missing";
@@ -1649,7 +1651,7 @@ class HaHomelabMap extends HTMLElement {
       pool.fill.setAttribute("y", pool.y + pool.h - height);
       pool.fill.setAttribute("height", height);
       const hit = this.#threshold(dev, usage);
-      const color = hit ? `color-mix(in srgb, ${THRESHOLD_COLORS[hit.color] ?? hit.color} 55%, var(--hhm-bg))` : "";
+      const color = hit ? `color-mix(in srgb, ${own(THRESHOLD_COLORS, hit.color) ?? hit.color} 55%, var(--hhm-bg))` : "";
       if (pool.fill.style.fill !== color) pool.fill.style.fill = color;
       parts.push(Number.isFinite(used) ? `${Math.round(used)}% used` : "usage —");
     }
@@ -1676,7 +1678,7 @@ class HaHomelabMap extends HTMLElement {
     const text = !dev.temperature ? "" : Number.isFinite(value) ? `${Math.round(value)}°` : "—";
     if (disk.temp.textContent !== text) disk.temp.textContent = text;
     const hit = this.#threshold(dev, state);
-    const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
+    const color = hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "";
     if (disk.temp.style.fill !== color) disk.temp.style.fill = color;
     const parts = [dev.id];
     if (dev.temperature) parts.push(Number.isFinite(value) ? `${value} ${state.attributes?.unit_of_measurement ?? "°C"}` : "temperature —");
@@ -1830,7 +1832,7 @@ class HaHomelabMap extends HTMLElement {
     const text = svgEl("text", { x: 0, y: size * 0.8 }, g);
     text.textContent = String(dev.text);
     text.style.fontSize = `${size}px`;
-    text.style.fill = LABEL.colors[dev.color ?? "primary"] ?? dev.color;
+    text.style.fill = own(LABEL.colors, dev.color ?? "primary") ?? dev.color;
     if (dev.bold) text.style.fontWeight = "700";
     const label = { dev, g, text, x, y, size, measured: 0 };
     this.#labels.push(label);
@@ -1941,7 +1943,7 @@ class HaHomelabMap extends HTMLElement {
     const state = this.#state(badge.dev.entity);
     const name = state?.attributes?.friendly_name || badge.dev.entity;
     const hit = this.#threshold(badge.dev, state);
-    const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
+    const color = hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "";
     for (const node of [badge.text, badge.icon]) if (node && node.style.fill !== color) node.style.fill = color;
     const reached = hit ? ` · ${hit.above !== undefined ? `above ${hit.above}` : `below ${hit.below}`}` : "";
     const tip = `${name}: ${text}${reached}${badge.dev.toggle ? " · click to show/hide" : ""}`;

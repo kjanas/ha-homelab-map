@@ -114,6 +114,10 @@ const E = (extra = {}) => ({ type: "led", id: "e1", at: [0, 0], color: "#66b771"
 expect("led neither", { items: [{ type: "led", id: "e", at: [0, 0] }] }, "a led needs either 'vlan' or 'color'");
 expect("led both", { items: [E({ vlan: "LAN" })], vlans: { LAN: "#fff" } }, "a led needs either 'vlan' or 'color'");
 expect("led unknown vlan", { items: [E({ color: undefined, vlan: "IoT" })], vlans: { LAN: "#fff" } }, "items[0].vlan: unknown VLAN 'IoT'");
+expect("led vlan named like a built-in", { items: [E({ color: undefined, vlan: "toString" })], vlans: { LAN: "#fff" } }, "items[0].vlan: unknown VLAN 'toString'");
+expect("line vlan named like a built-in", { items: two, datalines: [L({ vlans: ["constructor"] })] }, "datalines[0].vlans: unknown VLAN 'constructor'");
+expect("texture named like a built-in", { items: [D({ texture: "constructor" })] }, "items[0].texture: expected one of");
+expect("type named like a built-in", { items: [{ type: "toString", id: "x" }] }, "items[0].type: expected one of");
 expect("led bad effect", { items: [E({ effect: "pulse" })] }, "items[0].effect: expected one of flicker, blink, none");
 expect("led bad size", { items: [E({ size: 3 })] }, "items[0].size: expected [width, height] in px");
 expect("led bad entity", { items: [E({ entity: "on" })] }, "items[0].entity: expected an entity id");
