@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.22";
+const VERSION = "0.101.23";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -194,7 +194,7 @@ const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]
 const isImageUrl = (value) => typeof value === "string" && /^(\/|https?:\/\/)\S+$/.test(value);
 const DEPTH = Object.freeze({ big: { dy: 2.2, blur: 2.2, alpha: 0.55 }, small: { dy: 1, blur: 0.9, alpha: 0.5 } });
 const ZOOM = Object.freeze({ maxPx: 4, step: 2.5, tapMs: 320, tapPx: 30, dragPx: 6, compactWidth: 520 });
-const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2 });
+const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2, maxRatio: 2 });
 const NO_DASH = Object.freeze([]);
 const FADE = Object.freeze({ half: 6 });
 const BUNDLED_FONTS = Object.freeze({ "JetBrains Mono": "JetBrainsMono" });
@@ -2316,7 +2316,7 @@ class HaHomelabMap extends HTMLElement {
 
   #placeFx() {
     if (!this.#canvas) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, FX.maxRatio);
     const stage = this.#stage.getBoundingClientRect();
     const view = this.#view.getBoundingClientRect();
     this.#origin = [((stage.left || 0) - (view.left || 0)) * dpr, ((stage.top || 0) - (view.top || 0)) * dpr];
@@ -2326,7 +2326,7 @@ class HaHomelabMap extends HTMLElement {
     if (!this.#canvas || !this.#viewBox) return;
     const view = this.#view.getBoundingClientRect();
     const stage = this.#stage.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, FX.maxRatio);
     const width = Math.round(view.width * dpr);
     const height = Math.round(view.height * dpr);
     if (!width || !height || !stage.width) return;

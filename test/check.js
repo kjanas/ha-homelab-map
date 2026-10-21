@@ -398,6 +398,23 @@ else {
     failed++;
   }
 }
+{
+  window.devicePixelRatio = 3;
+  frames.splice(0);
+  const dc = new CardClass();
+  dc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server" }] });
+  dc.hass = { states: {} };
+  dc.connectedCallback();
+  for (const f of frames.splice(0)) f(0);
+  const canvas = dc.shadowRoot.querySelectorAll("canvas")[0];
+  dc.disconnectedCallback();
+  delete window.devicePixelRatio;
+  if (canvas && canvas.width === 1620 * 2) print("ok   canvas density capped at 2x");
+  else {
+    print(`FAIL canvas density: ${canvas && canvas.width}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
