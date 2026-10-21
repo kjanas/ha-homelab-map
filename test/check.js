@@ -579,6 +579,22 @@ else {
     failed++;
   }
 }
+{
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(String(m));
+  const mc = new CardClass();
+  mc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], image: "/local/missing.svg" }, { type: "chip", id: "c2", at: [20, 0], image: "/local/missing.svg" }] });
+  mc.hass = { states: {} };
+  for (const image of mc.shadowRoot.querySelectorAll("image")) image.dispatch("error", {});
+  console.warn = warn;
+  const hits = warned.filter((m) => m.includes("/local/missing.svg"));
+  if (hits.length === 1) print("ok   a missing image is reported once");
+  else {
+    print(`FAIL missing image: ${hits.length} warnings`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });

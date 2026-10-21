@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.32";
+const VERSION = "0.101.33";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -58,6 +58,7 @@ const CHILD_TYPES = {
 };
 const ICON_PATHS = new Map();
 const ICON_MISSES = new Map();
+const IMAGE_MISSES = new Set();
 const ICON_POLL = Object.freeze({ ms: 50, tries: 200, retryMs: 60000 });
 const TOGGLE_KEYS = {
   data: "ha-homelab-map:animate-vlans",
@@ -309,6 +310,16 @@ const STYLES = `
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const own = (table, key) => (typeof key === "string" && Object.hasOwn(table, key) ? table[key] : undefined);
+
+const imageEl = (attrs, parent) => {
+  const image = svgEl("image", attrs, parent);
+  image.addEventListener("error", () => {
+    if (IMAGE_MISSES.has(attrs.href)) return;
+    IMAGE_MISSES.add(attrs.href);
+    console.warn(`ha-homelab-map: image '${attrs.href}' could not be loaded`);
+  });
+  return image;
+};
 
 const svgEl = (tag, attrs = {}, parent = null) => {
   const node = document.createElementNS(SVG_NS, tag);
@@ -1067,7 +1078,7 @@ class HaHomelabMap extends HTMLElement {
     if (!document.fonts?.load) return;
     Promise.all([document.fonts.load(`10px "${font}"`), document.fonts.load(`bold 10px "${font}"`)])
       .then(() => this.#remeasure())
-      .catch(() => {});
+      .catch((error) => console.warn(`ha-homelab-map: font '${font}' could not be loaded`, error));
   }
 
   #remeasure() {
@@ -1491,7 +1502,7 @@ class HaHomelabMap extends HTMLElement {
       return;
     }
     if (isImageUrl(kind)) {
-      svgEl("image", { ...area, href: kind, preserveAspectRatio: "xMidYMid slice" }, layer);
+      imageEl({ ...area, href: kind, preserveAspectRatio: "xMidYMid slice" }, layer);
       return;
     }
     const glow = { blueprint: ["#6c9cda", 9, 22], pegboard: ["#ffffff", 4, 22], vignette: ["#ffffff", 6, 35] }[kind];
@@ -1906,14 +1917,14 @@ class HaHomelabMap extends HTMLElement {
     this.#raise(svgEl("circle", { class: "chip-bg", cx: x + r, cy: y + r, r }, g), "small");
     const inner = w * CHIP.inner;
     const at = (w - inner) / 2;
-    if (dev.image) svgEl("image", { href: dev.image, x: x + at, y: y + at, width: inner, height: inner }, g);
+    if (dev.image) imageEl({ href: dev.image, x: x + at, y: y + at, width: inner, height: inner }, g);
     else this.#drawIcon(g, dev.icon, x + at, y + at, inner);
     const sr = w * CHIP.small;
     const scx = x + r + r * CHIP.smallAt;
     const scy = y + r + r * CHIP.smallAt;
     if (dev.small_image) {
       svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: sr }, g);
-      svgEl("image", { href: dev.small_image, x: scx - sr * 0.75, y: scy - sr * 0.75, width: sr * 1.5, height: sr * 1.5 }, g);
+      imageEl({ href: dev.small_image, x: scx - sr * 0.75, y: scy - sr * 0.75, width: sr * 1.5, height: sr * 1.5 }, g);
     }
     let count = null;
     if (dev.small_entity) {
