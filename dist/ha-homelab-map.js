@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.18";
+const VERSION = "0.101.19";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -935,6 +935,7 @@ class HaHomelabMap extends HTMLElement {
     for (const [id, updates] of this.#deps) if (prev.states[id] !== hass.states[id]) { for (const update of updates) due.add(update); }
     if (!due.size) return;
     for (const update of due) this.#run(update);
+    this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 
@@ -1641,7 +1642,6 @@ class HaHomelabMap extends HTMLElement {
     const pace = stopped ? "stopped" : speed === null ? "slow (no reading)" : `speed ${Math.round(speed * 100)}%`;
     const text = `${dev.id} · ${reading} · ${pace}`;
     if (fan.title.textContent !== text) fan.title.textContent = text;
-    this.#applyVisibility();
   }
 
   #updatePool(pool) {
@@ -2029,6 +2029,7 @@ class HaHomelabMap extends HTMLElement {
     for (const badge of this.#badges) {
       if (badge.dev.toggle) badge.text.style.fontWeight = this.#hiddenGroups.has(badge.dev.toggle) ? "700" : "";
     }
+    this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 
@@ -2194,6 +2195,7 @@ class HaHomelabMap extends HTMLElement {
     for (const disk of this.#disks) this.#run(() => this.#updateDisk(disk));
     for (const fan of this.#fans) this.#run(() => this.#updateFan(fan));
     for (const line of this.#lines) this.#run(() => this.#updateLine(line));
+    this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 
@@ -2220,11 +2222,17 @@ class HaHomelabMap extends HTMLElement {
     this.#frame = requestAnimationFrame(this.#tick);
   };
 
+  #needsFrames() {
+    if (!this.#animate.motion) return false;
+    return this.#flows.some((flow) => !flow.off && this.#animate[flow.kind]) ||
+      this.#leds.some((led) => this.#ledMoving(led) && !this.#isHidden(led)) ||
+      this.#disks.some(({ spin }) => spin && !spin.stopped) ||
+      this.#fans.some((fan) => fan.rps > 0 && !this.#isHidden(fan)) ||
+      this.#chips.some((chip) => (chip.down || chip.update) && !this.#isHidden(chip));
+  }
+
   #applyVisibility() {
-    const moving = this.#animate.motion &&
-      (this.#flows.length > 0 || this.#leds.some((led) => led.dev.effect !== "none") || this.#disks.some((d) => d.spin) || this.#fans.length > 0);
-    const animated = moving || (this.#animate.motion && this.#chips.some((c) => c.dev.status_entity || c.dev.update_entity));
-    const run = this.#visible && this.isConnected && this.#built && animated && !reducedMotion();
+    const run = this.#visible && this.isConnected && this.#built && !reducedMotion() && this.#needsFrames();
     if (run && !this.#frame && !this.#timer) {
       this.#lastFrame = performance.now();
       this.#frame = requestAnimationFrame(this.#tick);

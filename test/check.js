@@ -318,6 +318,24 @@ else {
   print(`FAIL animations switch: frames on ${queuedFrames["1"]}, off ${queuedFrames["0"]}`);
   failed++;
 }
+{
+  frames.splice(0);
+  const ic = new CardClass();
+  ic.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", status_entity: "binary_sensor.up" }] });
+  ic.connectedCallback();
+  const up = (state) => ({ states: { "binary_sensor.up": { entity_id: "binary_sensor.up", state, attributes: {} } } });
+  ic.hass = up("on");
+  const idle = frames.length;
+  ic.hass = up("off");
+  const down = frames.length;
+  ic.disconnectedCallback();
+  frames.splice(0);
+  if (down === idle + 1) print("ok   no animation loop while nothing moves, starts when a chip goes down");
+  else {
+    print(`FAIL idle loop: frames idle ${idle}, down ${down}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
