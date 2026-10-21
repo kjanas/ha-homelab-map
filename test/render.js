@@ -36,13 +36,7 @@ window.devicePixelRatio = 1;
 window.addEventListener = () => {};
 window.removeEventListener = () => {};
 window.innerHeight = 4000;
-const flagText = (() => {
-  try {
-    return readFile(FLAGSFILE);
-  } catch (e) {
-    return "";
-  }
-})();
+const flagText = FLAGSFILE ? readFile(FLAGSFILE) : "";
 const store = Object.assign({}, JSON.parse(flagText.trim() || "{}"));
 window.localStorage = {
   getItem: (k) => (k in store ? store[k] : null),
