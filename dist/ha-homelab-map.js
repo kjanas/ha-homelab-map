@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.20";
+const VERSION = "0.101.21";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -486,7 +486,27 @@ const fadeBand = ([ax, ay], [bx, by]) => {
   return { from: [ax, ay], to: [bx, by], band: [[ax + nx, ay + ny], [ex + nx, ey + ny], [ex - nx, ey - ny], [ax - nx, ay - ny]] };
 };
 
-const toRgb = (color) => {
+const CSS_COLORS = new Map();
+
+const cssColor = (color) => {
+  if (!CSS_COLORS.has(color)) {
+    let parsed = color;
+    try {
+      const ctx = document.createElement("canvas").getContext("2d");
+      const read = (base) => {
+        ctx.fillStyle = base;
+        ctx.fillStyle = color;
+        return String(ctx.fillStyle);
+      };
+      const dark = read("#000000");
+      if (dark === read("#ffffff")) parsed = dark;
+    } catch {}
+    CSS_COLORS.set(color, parsed);
+  }
+  return CSS_COLORS.get(color);
+};
+
+const parseRgb = (color) => {
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color || "");
   if (hex) {
     const h = hex[1].length === 3 ? hex[1].replace(/./g, (c) => c + c) : hex[1];
@@ -495,6 +515,8 @@ const toRgb = (color) => {
   const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(color || "");
   return rgb ? rgb.slice(1, 4).map(Number) : null;
 };
+
+const toRgb = (color) => parseRgb(color) || (color ? parseRgb(cssColor(color)) : null);
 
 const mixColor = (color, background, amount) => {
   const a = toRgb(color);

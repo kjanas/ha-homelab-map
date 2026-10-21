@@ -374,6 +374,21 @@ else {
     failed++;
   }
 }
+{
+  const getContext = Node_.prototype.getContext;
+  const named = { tomato: "#ff6347", "hsl(120, 100%, 25%)": "#008000" };
+  Node_.prototype.getContext = () => {
+    let fill = "#000000";
+    return { set fillStyle(v) { if (named[v] || /^#/.test(v)) fill = named[v] || v; }, get fillStyle() { return fill; } };
+  };
+  const got = [mixColor("tomato", "#000000", 0.5), mixColor("hsl(120, 100%, 25%)", "#000000", 1), mixColor("nonsense", "#000000", 0.5)].join(" ");
+  Node_.prototype.getContext = getContext;
+  if (got === "rgb(128,50,36) rgb(0,128,0) nonsense") print("ok   named and hsl() colours mix like hex colours");
+  else {
+    print(`FAIL colour names: ${got}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
