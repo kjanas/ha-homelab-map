@@ -68,7 +68,7 @@ powerlines: []
 | `look` | `flat` | `depth` adds subtle shadows and relief – see [look](#look) |
 | `background` | `none` | A decorative backdrop behind the map – see [background](#background) |
 | `line_radius` | `6` | Radius of every line corner, in px |
-| `scale` | `1` | Zoom of the whole map: `1.5` = 150 % |
+| `scale` | `1` | Zoom of the whole map: `1.5` = 150 %. The map never gets wider than the card; zoom in with a pinch or ctrl/⌘ + wheel for more |
 | `fit_viewport` | `false` | Make the map as tall as the browser window (below the card's top edge); `scale` is then ignored |
 | `vlan_toggle`, `power_toggle`, `animation_toggle`, `debug_toggle` | `false` | Show the **VLANs**, **Power**, **Animations** and **Debug** switches – see [Switches](#switches) |
 | `toggles_at` | top-right corner | `[x, y]` on the map: top-left corner of the switches panel – see [Switches](#switches) |

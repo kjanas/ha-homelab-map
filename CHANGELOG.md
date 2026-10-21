@@ -22,6 +22,7 @@
 - The animation layer is drawn at most at 2× screen density, which cuts its memory and drawing work on 3× phones and tablets without a visible difference.
 - A chip's `url` can no longer be a `javascript:`, `data:`, `vbscript:` or `file:` link (app links such as `obsidian://` still work), and `image` / `small_image` must be image URLs starting with `/` or `http(s)://`, like the background.
 - VLAN, LED, label and threshold colours are checked: any CSS colour, `var(--…)` or the named choices work, anything else (a number, `url(…)`, extra CSS) is rejected with a clear error.
+- `scale: 0` is rejected instead of silently meaning 1; the docs now say that the map never gets wider than the card.
 
 ## 0.101.0 – alpha
 

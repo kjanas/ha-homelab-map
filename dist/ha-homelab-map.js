@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.25";
+const VERSION = "0.101.26";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -788,9 +788,8 @@ const validateConfig = (config) => {
   if (config.font !== undefined && !(typeof config.font === "string" && /^[\w .-]+$/.test(config.font.trim()) && config.font.trim())) {
     fail("font", "expected a font family name such as JetBrains Mono");
   }
-  for (const key of ["line_radius", "scale"]) {
-    if (config[key] !== undefined && !(isNum(config[key]) && config[key] >= 0)) fail(key, "expected a number");
-  }
+  if (config.line_radius !== undefined && !(isNum(config.line_radius) && config.line_radius >= 0)) fail("line_radius", "expected a number");
+  if (config.scale !== undefined && !isSize(config.scale)) fail("scale", "expected a number above 0");
   const ctx = { ids: new Set(), devices: new Set(), ports: new Set(), groups: new Set(), toggles: [], vlans };
   config.items.forEach((item, i) => validateItem(item, `items[${i}]`, null, ctx));
   for (const { path, id } of ctx.toggles) if (!ctx.groups.has(id)) fail(path, `'${id}' is not a group`);
@@ -1081,7 +1080,7 @@ class HaHomelabMap extends HTMLElement {
   #fit() {
     if (!this.#svg || !this.#viewBox) return;
     const { width, height } = this.#viewBox;
-    let target = width * (this.#config.scale || 1);
+    let target = width * (this.#config.scale ?? 1);
     if (this.#config.fit_viewport && this.isConnected) {
       const room = window.innerHeight - (this.#view.getBoundingClientRect().top || 0) - 16;
       if (room > 120) target = (room * width) / height;

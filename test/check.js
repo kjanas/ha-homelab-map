@@ -127,6 +127,7 @@ try {
   print(`FAIL colour names: ${e.message}`);
   failed++;
 }
+expect("scale zero", { items: [], scale: 0 }, "scale: expected a number above 0");
 expect("toggle not boolean", { items: [], vlan_toggle: "yes" }, "vlan_toggle: expected true or false");
 expect("power toggle not boolean", { items: [], power_toggle: 1 }, "power_toggle: expected true or false");
 const C = (extra = {}) => ({ type: "chip", id: "c1", at: [0, 0], icon: "mdi:docker", ...extra });
