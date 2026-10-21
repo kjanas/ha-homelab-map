@@ -30,6 +30,7 @@
 - An icon that can't be loaded is reported once in the browser console and not looked up again for a minute, instead of being polled for 10 seconds on every redraw.
 - The card reports its real height to masonry dashboards instead of always 10 rows, so cards below it are placed correctly.
 - Images (background, chip logos) and the bundled font that fail to load are reported in the browser console.
+- If the browser blocks local storage (some private modes), the card says once in the console that switches and groups won't be remembered.
 
 ## 0.101.0 – alpha
 

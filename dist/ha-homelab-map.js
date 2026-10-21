@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.33";
+const VERSION = "0.101.34";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -359,10 +359,18 @@ const textLength = (node) => {
   }
 };
 
+let storageWarned = false;
+const storageFailed = (error) => {
+  if (storageWarned) return;
+  storageWarned = true;
+  console.warn("ha-homelab-map: browser storage is not available, switches and groups will not be remembered", error);
+};
+
 const storedGroups = () => {
   try {
     return new Set(JSON.parse(window.localStorage.getItem(HIDDEN_GROUPS_KEY) || "[]"));
-  } catch {
+  } catch (error) {
+    storageFailed(error);
     return new Set();
   }
 };
@@ -370,8 +378,8 @@ const storedGroups = () => {
 const storeGroups = (ids) => {
   try {
     window.localStorage.setItem(HIDDEN_GROUPS_KEY, JSON.stringify([...ids]));
-  } catch {
-    return;
+  } catch (error) {
+    storageFailed(error);
   }
 };
 
@@ -379,7 +387,8 @@ const storedOn = (key, fallback = true) => {
   try {
     const value = window.localStorage.getItem(key);
     return value === null ? fallback : value !== "0";
-  } catch {
+  } catch (error) {
+    storageFailed(error);
     return fallback;
   }
 };
@@ -387,8 +396,8 @@ const storedOn = (key, fallback = true) => {
 const storeOn = (key, on) => {
   try {
     window.localStorage.setItem(key, on ? "1" : "0");
-  } catch {
-    return;
+  } catch (error) {
+    storageFailed(error);
   }
 };
 

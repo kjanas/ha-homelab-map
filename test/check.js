@@ -595,6 +595,23 @@ else {
     failed++;
   }
 }
+{
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(String(m));
+  storageWarned = false;
+  window.localStorage = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
+  storedOn("x");
+  storeOn("x", true);
+  storedGroups();
+  delete window.localStorage;
+  console.warn = warn;
+  if (warned.filter((m) => m.includes("browser storage")).length === 1) print("ok   blocked storage is reported once");
+  else {
+    print(`FAIL blocked storage: ${warned.length} warnings`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
