@@ -2,7 +2,6 @@
 
 ## 0.102.0 – unreleased
 
-- `look: depth` – optional subtle 3D: soft shadows, lifted frames, metallic rack rails.
 - `background` – `blueprint`, `pegboard`, `vignette`, a colour or an image URL behind the map.
 - Pan & zoom – pinch, ctrl/⌘ + wheel, trackpad pinch or double-tap to zoom (up to 4 screen px per map px), drag to move, ⤢ to reset.
 - Device textures – `texture` and `texture_opacity` on devices, rackdevices and fan panels: `hex`, `mesh`, `slots`, `grille`, `carbon`, `ribbed`, `brushed`, `glass`, and vendor-inspired `tpl`, `mtk`, `unf`, `dll`, `hpe`.

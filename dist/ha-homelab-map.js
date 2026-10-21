@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.38";
+const VERSION = "0.101.39";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -84,7 +84,6 @@ const CARD_KEYS = [
   "line_radius",
   "vlans",
   "font",
-  "look",
   "background",
   "scale",
   "fit_viewport",
@@ -113,7 +112,6 @@ const THRESHOLD_COLORS = Object.freeze({
   green: "var(--success-color, #43a047)",
 });
 
-const LOOKS = ["flat", "depth"];
 const SHADE = { fill: "#000", "fill-opacity": 0.38 };
 const SHINE = { fill: "#fff", "fill-opacity": 0.05 };
 const TEXTURES = Object.freeze({
@@ -198,7 +196,6 @@ const isCssColor = (value) =>
 const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
 const isImageUrl = (value) => typeof value === "string" && /^(\/(?!\/)|https?:\/\/)\S+$/i.test(value);
 const isLink = (value) => typeof value === "string" && /^\S+$/.test(value) && !/^(javascript|data|vbscript|file):/i.test(value);
-const DEPTH = Object.freeze({ big: { dy: 2.2, blur: 2.2, alpha: 0.55 }, small: { dy: 1, blur: 0.9, alpha: 0.5 } });
 const ZOOM = Object.freeze({ maxPx: 4, step: 2.5, tapMs: 320, tapPx: 30, dragPx: 6, compactWidth: 520 });
 const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2, maxRatio: 2 });
 const NO_DASH = Object.freeze([]);
@@ -299,12 +296,9 @@ const STYLES = `
   .badge .bframe { fill: var(--hhm-badge); stroke: var(--hhm-badge-border); stroke-width: 1; }
   .badge .btext { fill: var(--hhm-text); font-variant-numeric: tabular-nums; }
   .clickable { cursor: pointer; }
-  .depth .rail { fill: url(#hhm-rail); }
-  .depth .hole { fill: color-mix(in srgb, #000000 45%, var(--hhm-bg)); }
   .bg-line { fill: none; stroke: color-mix(in srgb, #6c9cda 22%, var(--hhm-bg)); stroke-width: .8; }
   .bg-fine { fill: none; stroke: color-mix(in srgb, #6c9cda 10%, var(--hhm-bg)); stroke-width: .5; }
   .bg-dot { fill: color-mix(in srgb, var(--hhm-text) 13%, var(--hhm-bg)); }
-  .lift { fill: url(#hhm-lift); stroke: none; pointer-events: none; }
   .dbg-grid, .dbg-box { pointer-events: none; }
   .dbg-box { fill: none; stroke: #ff4081; stroke-width: .6; stroke-dasharray: 2 2; }
   .dbg-tip { position: absolute; z-index: 5; pointer-events: none; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.8); color: #fff; font: 11px/1.4 var(--hhm-font, monospace); white-space: pre; display: none; }
@@ -820,7 +814,6 @@ const validateConfig = (config) => {
     if (!isPair(config.toggles_at)) fail("toggles_at", "expected [x, y]");
     if (!["vlan_toggle", "power_toggle", "animation_toggle", "debug_toggle"].some((key) => config[key])) fail("toggles_at", "has no effect without a switch");
   }
-  if (config.look !== undefined && !LOOKS.includes(config.look)) fail("look", `expected one of ${LOOKS.join(", ")}`);
   if (config.font !== undefined && !(typeof config.font === "string" && /^[\w .-]+$/.test(config.font.trim()) && config.font.trim())) {
     fail("font", "expected a font family name such as JetBrains Mono");
   }
@@ -888,7 +881,6 @@ class HaHomelabMap extends HTMLElement {
   #disks = [];
   #fans = [];
   #cabled = new Set();
-  #deep = false;
   #defs = null;
   #textures = new Set();
   #card;
@@ -1441,26 +1433,6 @@ class HaHomelabMap extends HTMLElement {
     svgEl("line", { class: "hatch-line", x1: 0, y1: 0, x2: 0, y2: 5 }, hatch);
     this.#defs = defs;
     this.#textures = new Set();
-    this.#deep = config.look === "depth";
-    if (this.#deep) {
-      svg.classList.add("depth");
-      for (const [id, { dy, blur, alpha }] of [["hhm-shadow", DEPTH.big], ["hhm-shadow-sm", DEPTH.small]]) {
-        const f = svgEl("filter", { id, x: "-10%", y: "-10%", width: "120%", height: "140%" }, defs);
-        svgEl("feGaussianBlur", { in: "SourceAlpha", stdDeviation: blur }, f);
-        svgEl("feOffset", { dy }, f);
-        const ct = svgEl("feComponentTransfer", {}, f);
-        svgEl("feFuncA", { type: "linear", slope: alpha }, ct);
-        const merge = svgEl("feMerge", {}, f);
-        svgEl("feMergeNode", {}, merge);
-        svgEl("feMergeNode", { in: "SourceGraphic" }, merge);
-      }
-      const lift = svgEl("linearGradient", { id: "hhm-lift", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-      for (const [offset, color, opacity] of [[0, "#ffffff", 0.07], [0.5, "#ffffff", 0], [1, "#000000", 0.12]]) {
-        svgEl("stop", { offset, "stop-color": color, "stop-opacity": opacity }, lift);
-      }
-      const rail = svgEl("linearGradient", { id: "hhm-rail", x1: 0, y1: 0, x2: 1, y2: 0 }, defs);
-      for (const [offset, color] of [[0, "#5a6370"], [0.5, "#3a414b"], [1, "#2a2f36"]]) svgEl("stop", { offset, "stop-color": color }, rail);
-    }
     this.#drawBackground(svg, defs, config.background);
     const racks = svgEl("g", {}, svg);
     const devices = svgEl("g", {}, svg);
@@ -1581,18 +1553,11 @@ class HaHomelabMap extends HTMLElement {
     return id;
   }
 
-  #raise(el, size = "big") {
-    if (this.#deep) el.setAttribute("filter", `url(#${size === "big" ? "hhm-shadow" : "hhm-shadow-sm"})`);
-    return el;
-  }
 
-  #lift(parent, x, y, w, h, rx) {
-    if (this.#deep) svgEl("rect", { class: "lift", x, y, width: w, height: h, rx }, parent);
-  }
 
   #drawRack(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: "rack", "data-id": dev.id }, parent);
-    this.#raise(svgEl("rect", { class: "cab", x, y, width: w, height: h, rx: BOX_RADIUS }, g));
+    svgEl("rect", { class: "cab", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
     for (const rx of [4, w - 18]) {
       svgEl("rect", { class: "rail", x: x + rx, y: y + RACK.cap, width: 14, height: dev.units * RACK.unit, rx: 2 }, g);
     }
@@ -1610,9 +1575,8 @@ class HaHomelabMap extends HTMLElement {
 
   #drawDevice(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: `dev ${dev.type}`, "data-id": dev.id }, parent);
-    this.#raise(svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g));
+    svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
     this.#applyTexture(g, dev, x, y, w, h);
-    this.#lift(g, x, y, w, h, BOX_RADIUS);
     if (dev.status_entity) {
       g.dataset.entity = dev.status_entity;
       g.classList.add("clickable");
@@ -1659,7 +1623,7 @@ class HaHomelabMap extends HTMLElement {
     if (dev.label !== undefined && dev.label !== "") {
       const text = String(dev.label);
       const tw = Math.min(text.length * 7 * 0.6 + 6, w - 4);
-      this.#raise(svgEl("rect", { class: "plabel-bg", x: x + (w - tw) / 2, y: y + h - 5, width: tw, height: 10, rx: 1.5 }, g), "small");
+      svgEl("rect", { class: "plabel-bg", x: x + (w - tw) / 2, y: y + h - 5, width: tw, height: 10, rx: 1.5 }, g);
       svgEl("text", { class: "plabel", x: x + w / 2, y: y + h + 2.5, "text-anchor": "middle" }, g).textContent = text;
     }
     this.#pools.push({ dev, g, title, fill, y: y + 1, h: h - 2 });
@@ -1675,7 +1639,7 @@ class HaHomelabMap extends HTMLElement {
       g.classList.add("clickable");
     }
     const k = w / DISK.size[0];
-    this.#raise(svgEl("rect", { class: "dbody", x, y, width: w, height: h, rx: 2.5 * k }, g), "small");
+    svgEl("rect", { class: "dbody", x, y, width: w, height: h, rx: 2.5 * k }, g);
     const disk = { dev, g, title, temp: null, spin: null };
     if (dev.type === "hdd") {
       if (!this.#platterDef) {
@@ -1722,16 +1686,14 @@ class HaHomelabMap extends HTMLElement {
     const title = svgEl("title", {}, g);
     const holes = [];
     if (dev.type === "fanpanel") {
-      this.#raise(svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g));
+      svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
       this.#applyTexture(g, dev, x, y, w, h);
-      this.#lift(g, x, y, w, h, BOX_RADIUS);
       const count = dev.count ?? FAN.count;
       const step = w / count;
       const r = Math.max(2, Math.min(h / 2 - 3, step / 2 - 4));
       for (let i = 0; i < count; i++) holes.push([x + step * (i + 0.5), y + h / 2, r]);
     } else {
-      this.#raise(svgEl("rect", { class: "frame", x, y, width: w, height: w, rx: w * 0.08 }, g), "small");
-      this.#lift(g, x, y, w, w, w * 0.08);
+      svgEl("rect", { class: "frame", x, y, width: w, height: w, rx: w * 0.08 }, g);
       const inset = w * 0.11;
       for (const [sx, sy] of [[x + inset, y + inset], [x + w - inset, y + inset], [x + inset, y + w - inset], [x + w - inset, y + w - inset]]) {
         svgEl("circle", { class: "fan-screw", cx: sx, cy: sy, r: w * 0.045 }, g);
@@ -1920,7 +1882,7 @@ class HaHomelabMap extends HTMLElement {
     if (dev.toggle) g.dataset.toggle = dev.toggle;
     else g.dataset.entity = dev.entity;
     const title = svgEl("title", {}, g);
-    const frame = dev.show_border ? this.#raise(svgEl("rect", { class: "bframe", x, y, height: lineH + 2 * pad[1], rx: BOX_RADIUS }, g), "small") : null;
+    const frame = dev.show_border ? svgEl("rect", { class: "bframe", x, y, height: lineH + 2 * pad[1], rx: BOX_RADIUS }, g) : null;
     const content = svgEl("g", {}, g);
     const icon = iconSize ? this.#drawIcon(content, dev.icon, x + pad[0], y + pad[1] + (lineH - iconSize) / 2, iconSize) : null;
     const textX = x + pad[0] + iconSize;
@@ -1940,7 +1902,7 @@ class HaHomelabMap extends HTMLElement {
     }
     const title = svgEl("title", {}, g);
     const r = w / 2;
-    this.#raise(svgEl("circle", { class: "chip-bg", cx: x + r, cy: y + r, r }, g), "small");
+    svgEl("circle", { class: "chip-bg", cx: x + r, cy: y + r, r }, g);
     const inner = w * CHIP.inner;
     const at = (w - inner) / 2;
     if (dev.image) imageEl({ href: dev.image, x: x + at, y: y + at, width: inner, height: inner }, g);

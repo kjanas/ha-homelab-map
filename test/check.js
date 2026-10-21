@@ -197,7 +197,7 @@ try {
 expect("debug_toggle not boolean", { items: [], debug_toggle: "yes" }, "debug_toggle: expected true or false");
 expect("animation_toggle not boolean", { items: [], animation_toggle: 1 }, "animation_toggle: expected true or false");
 expect("led caption without size", { items: [{ type: "led", id: "e", at: [0, 0], color: "#fff", caption: "LAN" }] }, "items[0].caption: needs 'size'");
-expect("look bad", { items: [], look: "3d" }, "look: expected one of flat, depth");
+expect("look removed", { items: [], look: "depth" }, "card.look: unknown property");
 expect("background bad", { items: [], background: "stars" }, "background: expected none, blueprint, pegboard, vignette");
 expect(
   "texture bad",

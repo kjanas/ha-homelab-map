@@ -11,7 +11,6 @@
 - [Switches](#switches)
 - [Pan and zoom](#pan-and-zoom)
 - [Font](#font)
-- [look](#look)
 - [background](#background)
 - [debug](#debug)
 - [Errors](#errors)
@@ -39,7 +38,6 @@ Some screenshots below have `debug: true` turned on, which draws the coordinate 
 ```yaml
 type: custom:ha-homelab-map
 font: JetBrains Mono
-look: depth
 background: blueprint
 line_radius: 6
 vlans:
@@ -65,7 +63,6 @@ powerlines: []
 | `powerlines` | | See [Powerlines](#powerlines) |
 | `vlans` | | Colour for each VLAN name, used by datalines and LEDs |
 | `font` | theme font | Font family for all text on the card – see [Font](#font) |
-| `look` | `flat` | `depth` adds subtle shadows and relief – see [look](#look) |
 | `background` | `none` | A decorative backdrop behind the map – see [background](#background) |
 | `line_radius` | `6` | Radius of every line corner, in px |
 | `scale` | `1` | Zoom of the whole map: `1.5` = 150 %. The map never gets wider than the card; zoom in with a pinch or ctrl/⌘ + wheel for more |
@@ -573,14 +570,6 @@ font: JetBrains Mono
 ```
 
 [JetBrains Mono](https://www.jetbrains.com/lp/mono/) is bundled with the card (SIL Open Font License) and loaded from the card's own folder – nothing is fetched from the internet. Any other name works if that font is installed on the viewing device. A monospace font also makes badge widths exact, which helps when aligning rows.
-
-## `look`
-
-`look: depth` gives the map a subtle 3D feel: soft shadows under racks, devices, badges and chips, a slight lift on frames, metallic rack rails and darker rack holes. Lines and animations are unchanged. The default `flat` draws everything without shadows.
-
-{{image:look_flat}}
-
-{{image:look_depth}}
 
 ## `background`
 

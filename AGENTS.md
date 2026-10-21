@@ -43,7 +43,6 @@ Everything is placed by hand with pixel coordinates. The card does no automatic 
 type: custom:ha-homelab-map
 line_radius: 6            # px, every line corner
 font: JetBrains Mono      # optional; bundled; falls back to the theme font
-look: depth               # optional; flat (default) | depth = subtle shadows and relief
 background: blueprint     # optional; none | blueprint | pegboard | vignette | "#rrggbb" | image URL (/local/…)
 vlans: {LAN: "#6c9cda", IoT: "#66b771"}   # name → colour, used by datalines and LEDs
 scale: 1                  # or fit_viewport: true (fills window height; scale ignored)
@@ -85,7 +84,7 @@ powerlines: []
 
 **Badge thresholds** – the one way to flag a problem value: `thresholds: [{above: 70, color: orange}, {above: 85, color: red}]` or `{below: 20, color: red}`. Reached means equal or beyond; when several are reached the last one in the list wins (list mild → severe); `above` and `below` can be mixed. The icon and value text take the colour; nothing blinks or hides. Colours: `red`, `orange`, `green` (theme error/warning/success), `yellow`, or any CSS colour. Compared against the raw entity number in its own unit; non-numeric or unavailable states are never coloured. Don't put thresholds on values that are normally at their limit (an NVR disk is always ~100 % full).
 
-**Fan speed** (`fanpanel`, `fan`): the `entity` value is mapped over `range: [slow, fast]` (default `[0, 100]`; e.g. a temperature `[27, 35]` or RPM `[0, 3000]`) – at or below `slow` the fan turns slowly, at or above `fast` quickly. `on` = full speed; `0` or `off` = stopped; unavailable = slow; no `entity` = always slow. Whether a stopped or slow fan is a fault is up to the user: `thresholds` colour the rotor (e.g. `{below: 500, color: red}` for RPM). Rotors freeze with the Animations switch.
+**Fan speed** (`fanpanel`, `fan`): the `entity` value is mapped over `range: [slow, fast]` (default `[0, 100]`; e.g. a temperature `[27, 35]` or RPM `[0, 3000]`) – at or below `slow` the fan turns slowly, at or above `fast` quickly. `on` = full speed; `0`, `off`, unavailable, unknown or a missing entity = stopped; no `entity` = always slow. Whether a stopped or slow fan is a fault is up to the user: `thresholds` colour the rotor (e.g. `{below: 500, color: red}` for RPM). Rotors freeze with the Animations switch.
 
 **Device frame status** (`device`, `rackdevice`): with `status_entity` the frame outline turns red (down) or orange (warn); OK keeps the normal outline. Without `status_map`: down for `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or a missing entity, anything else is OK (so a CPU-load sensor means "reachable"). With `status_map` (`{LB: down, OB: warn, OL: ok}`), the state is matched per word (`OL CHRG` matches `OL`), the first listed key wins, and an unlisted state is `warn`. Clicking the device (outside its badges, chips and ports) opens Home Assistant's more-info for `status_entity`; devices without it are not clickable, and devices never take a `url` (only chips do). Don't use the same entity as the device's logo chip `status_entity` – that shows the same thing twice.
 

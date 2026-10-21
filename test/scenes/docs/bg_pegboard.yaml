@@ -1,7 +1,6 @@
 type: custom:ha-homelab-map
 font: JetBrains Mono
 vlans: {LAN: "#6c9cda", IoT: "#66b771"}
-look: depth
 background: pegboard
 items:
   - type: rack
