@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.14";
+const VERSION = "0.101.15";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -217,6 +217,7 @@ const STYLES = `
   .scroller.zoomed { overflow: auto; touch-action: none; cursor: grab; }
   .scroller.panning { cursor: grabbing; }
   .stage { position: relative; width: fit-content; margin: 0 auto; }
+  .error { padding: 8px; color: var(--error-color, #db4437); font-size: 12px; white-space: pre-wrap; }
   svg { display: block; height: auto; }
   .fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; will-change: transform; }
   .zoom-reset { position: absolute; bottom: 6px; right: 6px; z-index: 4; display: none; width: 28px; height: 28px; border: 1px solid var(--hhm-frame-border); border-radius: 6px; background: var(--hhm-bg); color: var(--hhm-text-dim); font: 16px/1 sans-serif; cursor: pointer; }
@@ -798,6 +799,7 @@ class HaHomelabMap extends HTMLElement {
   #config = null;
   #hass = null;
   #built = false;
+  #failed = false;
   #deps = new Map();
   #frames = [];
   #platterDef = false;
@@ -911,6 +913,7 @@ class HaHomelabMap extends HTMLElement {
     validateConfig(config);
     this.#config = config;
     this.#built = false;
+    this.#failed = false;
     this.#applyFont();
     if (this.#hass) this.#render();
   }
@@ -919,17 +922,13 @@ class HaHomelabMap extends HTMLElement {
     const prev = this.#hass;
     this.#hass = hass;
     if (!this.#built) {
-      this.#render();
-      return;
-    }
-    if (!prev) {
-      this.#update();
+      if (!this.#failed) this.#render();
       return;
     }
     const due = new Set();
     for (const [id, updates] of this.#deps) if (prev.states[id] !== hass.states[id]) { for (const update of updates) due.add(update); }
     if (!due.size) return;
-    for (const update of due) update();
+    for (const update of due) this.#run(update);
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 
@@ -1007,8 +1006,29 @@ class HaHomelabMap extends HTMLElement {
 
   #render() {
     if (!this.#config || !this.#hass) return;
-    this.#build();
-    this.#update();
+    try {
+      this.#build();
+      this.#update();
+    } catch (error) {
+      this.#built = false;
+      this.#failed = true;
+      this.#showError(error);
+    }
+  }
+
+  #showError(error) {
+    console.error("ha-homelab-map:", error);
+    this.#stage.replaceChildren();
+    for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
+    htmlEl("div", "error", this.#stage).textContent = `Homelab Map could not be drawn: ${error?.message ?? error}`;
+  }
+
+  #run(update) {
+    try {
+      update();
+    } catch (error) {
+      console.error("ha-homelab-map: update failed", error);
+    }
   }
 
   #fit() {
@@ -1610,7 +1630,7 @@ class HaHomelabMap extends HTMLElement {
     const hit = this.#threshold(dev, state);
     const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
     for (const rotor of fan.rotors) if (rotor.el.style.fill !== color) rotor.el.style.fill = color;
-    const unit = state?.attributes.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
+    const unit = state?.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
     const reading = state ? `${state.state}${Number.isFinite(value) ? unit : ""}` : "missing";
     const pace = stopped ? "stopped" : speed === null ? "slow (no reading)" : `speed ${Math.round(speed * 100)}%`;
     const text = `${dev.id} · ${reading} · ${pace}`;
@@ -1659,7 +1679,7 @@ class HaHomelabMap extends HTMLElement {
     const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
     if (disk.temp.style.fill !== color) disk.temp.style.fill = color;
     const parts = [dev.id];
-    if (dev.temperature) parts.push(Number.isFinite(value) ? `${value} ${state.attributes.unit_of_measurement ?? "°C"}` : "temperature —");
+    if (dev.temperature) parts.push(Number.isFinite(value) ? `${value} ${state.attributes?.unit_of_measurement ?? "°C"}` : "temperature —");
     if (dev.status_entity) parts.push(status === "ok" ? "healthy" : `${status} (${this.#state(dev.status_entity)?.state ?? "missing"})`);
     const tip = parts.join(" · ");
     if (disk.title.textContent !== tip) disk.title.textContent = tip;
@@ -1873,7 +1893,7 @@ class HaHomelabMap extends HTMLElement {
       const display = show ? "" : "none";
       if (chip.count.g.style.display !== display) chip.count.g.style.display = display;
       chip.count.shown = show;
-      parts.push(`${raw?.attributes.friendly_name || dev.small_entity}: ${raw ? raw.state : "missing"}`);
+      parts.push(`${raw?.attributes?.friendly_name || dev.small_entity}: ${raw ? raw.state : "missing"}`);
     }
     const text = parts.join(" · ");
     if (chip.title.textContent !== text) chip.title.textContent = text;
@@ -1881,7 +1901,7 @@ class HaHomelabMap extends HTMLElement {
 
   #badgeText(dev) {
     const state = this.#state(dev.entity);
-    const ownUnit = state?.attributes.unit_of_measurement || "";
+    const ownUnit = state?.attributes?.unit_of_measurement || "";
     const unit = dev.units === undefined || dev.units === true ? ownUnit : HIDDEN(dev.units) ? "" : String(dev.units);
     const withUnit = (value) => (!unit ? value : unit === "%" ? `${value}%` : `${value} ${unit}`);
     const format = (num, decimals) =>
@@ -1919,7 +1939,7 @@ class HaHomelabMap extends HTMLElement {
     const changed = badge.text.textContent !== text;
     if (changed) badge.text.textContent = text;
     const state = this.#state(badge.dev.entity);
-    const name = state?.attributes.friendly_name || badge.dev.entity;
+    const name = state?.attributes?.friendly_name || badge.dev.entity;
     const hit = this.#threshold(badge.dev, state);
     const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
     for (const node of [badge.text, badge.icon]) if (node && node.style.fill !== color) node.style.fill = color;
@@ -2157,17 +2177,17 @@ class HaHomelabMap extends HTMLElement {
 
   #update() {
     if (!this.#built || !this.#hass) return;
-    for (const badge of this.#badges) this.#updateBadge(badge);
-    for (const chip of this.#chips) this.#updateChip(chip);
-    for (const led of this.#leds) this.#updateLed(led);
-    for (const rate of this.#rates) this.#updateRates(rate);
-    for (const label of this.#labels) if (!label.measured) this.#layoutLabel(label);
-    for (const port of this.#ports) this.#updatePort(port);
-    for (const frame of this.#frames) this.#updateFrame(frame);
-    for (const pool of this.#pools) this.#updatePool(pool);
-    for (const disk of this.#disks) this.#updateDisk(disk);
-    for (const fan of this.#fans) this.#updateFan(fan);
-    for (const line of this.#lines) this.#updateLine(line);
+    for (const badge of this.#badges) this.#run(() => this.#updateBadge(badge));
+    for (const chip of this.#chips) this.#run(() => this.#updateChip(chip));
+    for (const led of this.#leds) this.#run(() => this.#updateLed(led));
+    for (const rate of this.#rates) this.#run(() => this.#updateRates(rate));
+    for (const label of this.#labels) if (!label.measured) this.#run(() => this.#layoutLabel(label));
+    for (const port of this.#ports) this.#run(() => this.#updatePort(port));
+    for (const frame of this.#frames) this.#run(() => this.#updateFrame(frame));
+    for (const pool of this.#pools) this.#run(() => this.#updatePool(pool));
+    for (const disk of this.#disks) this.#run(() => this.#updateDisk(disk));
+    for (const fan of this.#fans) this.#run(() => this.#updateFan(fan));
+    for (const line of this.#lines) this.#run(() => this.#updateLine(line));
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 

@@ -584,6 +584,24 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
   }
 }
 {
+  const ic = new CardClass();
+  ic.setConfig({ items: [B({ id: "bad", entity: "sensor.bad" }), B({ id: "good", at: [0, 40], entity: "sensor.good" })] });
+  const states = { "sensor.good": { entity_id: "sensor.good", state: "21" } };
+  Object.defineProperty(states, "sensor.bad", { enumerable: true, get: () => { throw new Error("broken entity"); } });
+  const logged = [];
+  const error = console.error;
+  console.error = (...a) => logged.push(a.join(" "));
+  ic.hass = { states };
+  console.error = error;
+  const texts = ic.shadowRoot.querySelectorAll("text").map((t) => t.textContent);
+  const box = ic.shadowRoot.querySelectorAll("div").find((d) => d.attrs.class === "error");
+  if (texts.includes("21") && !box && logged.length === 1) print("ok   one failing element does not stop the others");
+  else {
+    print(`FAIL update isolation: texts ${texts} error box ${Boolean(box)} logged ${logged.length}`);
+    failed++;
+  }
+}
+{
   const host = readFile(CARD).split("const STYLES = `")[1].split(":host {")[1].split("}")[0];
   const loops = [...host.matchAll(/(--[\w-]+):\s*([^;]+);/g)].filter(([, name, value]) => value.includes(`var(${name})`) || value.includes(`var(${name},`)).map(
     ([, name]) => name,

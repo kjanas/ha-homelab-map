@@ -9,6 +9,10 @@
 - The switches moved to a panel in the top-right corner; on screens narrower than 520 px they fold into a ⚙ button. `toggles_at: [x, y]` places the panel anywhere on the map.
 - Colours are taken from the Home Assistant theme in one place.
 
+### Fixes
+
+- An error while drawing the map shows a message in the card instead of leaving it blank, and one element that fails to update no longer stops the others.
+
 ## 0.101.0 – alpha
 
 First full (non-pre-release) GitHub release, so HACS lists it without "Show beta versions". Same features as 0.100.0.
