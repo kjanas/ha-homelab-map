@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.35";
+const VERSION = "0.101.36";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -566,7 +566,18 @@ const resolveColor = (value, host) => {
 
 const themeKey = (hass) => JSON.stringify([hass?.themes?.darkMode, hass?.themes?.theme, hass?.selectedTheme]);
 
-const reducedMotion = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+let motionQuery;
+const reducedMotion = () => {
+  if (motionQuery === undefined) motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
+  return Boolean(motionQuery?.matches);
+};
+
+const NUMBER_FORMATS = new Map();
+const formatNumber = (num, decimals, language) => {
+  const key = `${language}|${decimals}`;
+  if (!NUMBER_FORMATS.has(key)) NUMBER_FORMATS.set(key, new Intl.NumberFormat(language, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
+  return NUMBER_FORMATS.get(key).format(num);
+};
 
 const fail = (path, message) => {
   throw new Error(`${CARD_TYPE}: ${path}: ${message}`);
@@ -2031,8 +2042,7 @@ class HaHomelabMap extends HTMLElement {
     const ownUnit = state?.attributes?.unit_of_measurement || "";
     const unit = dev.units === undefined || dev.units === true ? ownUnit : HIDDEN(dev.units) ? "" : String(dev.units);
     const withUnit = (value) => (!unit ? value : unit === "%" ? `${value}%` : `${value} ${unit}`);
-    const format = (num, decimals) =>
-      new Intl.NumberFormat(this.#hass.locale?.language, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(num);
+    const format = (num, decimals) => formatNumber(num, decimals, this.#hass.locale?.language);
     const reserve = (decimals) => {
       const max = BADGE_MAX[unit];
       if (max === undefined) return "";

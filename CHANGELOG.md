@@ -31,6 +31,7 @@
 - The card reports its real height to masonry dashboards instead of always 10 rows, so cards below it are placed correctly.
 - Images (background, chip logos) and the bundled font that fail to load are reported in the browser console.
 - If the browser blocks local storage (some private modes), the card says once in the console that switches and groups won't be remembered.
+- Less work per update and per frame: number formats and the reduced-motion setting are looked up once instead of on every badge update and every frame.
 
 ## 0.101.0 – alpha
 
