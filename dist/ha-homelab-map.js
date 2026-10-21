@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.27";
+const VERSION = "0.101.28";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -841,6 +841,7 @@ class HaHomelabMap extends HTMLElement {
   #hass = null;
   #built = false;
   #failed = false;
+  #stale = false;
   #deps = new Map();
   #frames = [];
   #platterDef = false;
@@ -970,6 +971,10 @@ class HaHomelabMap extends HTMLElement {
       this.#painted = false;
       requestAnimationFrame(() => this.#resizeFx());
     }
+    if (!this.#visible || !this.isConnected) {
+      this.#stale = true;
+      return;
+    }
     const due = new Set();
     for (const [id, updates] of this.#deps) if (prev.states[id] !== hass.states[id]) { for (const update of updates) due.add(update); }
     if (!due.size) return;
@@ -989,11 +994,18 @@ class HaHomelabMap extends HTMLElement {
   connectedCallback() {
     window.addEventListener("resize", this.#onResize);
     requestAnimationFrame(this.#onResize);
-    if (this.#built && this.#hass) requestAnimationFrame(() => this.#update());
+    if (this.#built && this.#hass) {
+      this.#stale = false;
+      requestAnimationFrame(() => this.#update());
+    }
     this.#applyVisibility();
     if (this.#observer || typeof IntersectionObserver === "undefined") return;
     this.#observer = new IntersectionObserver((entries) => {
       this.#visible = entries[entries.length - 1].isIntersecting;
+      if (this.#visible && this.#stale) {
+        this.#stale = false;
+        this.#update();
+      }
       this.#applyVisibility();
     });
     this.#observer.observe(this);

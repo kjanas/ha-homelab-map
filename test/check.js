@@ -460,6 +460,35 @@ else {
     failed++;
   }
 }
+{
+  let seen = null;
+  IntersectionObserver = class {
+    constructor(fn) { seen = fn; }
+    observe() {}
+    disconnect() {}
+  };
+  frames.splice(0);
+  const vc = new CardClass();
+  vc.setConfig({ items: [B({ entity: "sensor.v" })] });
+  const st = (v) => ({ states: { "sensor.v": { entity_id: "sensor.v", state: v, attributes: {} } } });
+  vc.hass = st("1");
+  vc.connectedCallback();
+  for (const f of frames.splice(0)) f(0);
+  const text = () => vc.shadowRoot.querySelectorAll("text").map((t) => t.textContent).filter((t) => /^\d+$/.test(t))[0];
+  seen([{ isIntersecting: false }]);
+  vc.hass = st("2");
+  const hidden = text();
+  seen([{ isIntersecting: true }]);
+  const shown = text();
+  vc.disconnectedCallback();
+  delete globalThis.IntersectionObserver;
+  frames.splice(0);
+  if (hidden === "1" && shown === "2") print("ok   off-screen card skips updates and catches up when shown");
+  else {
+    print(`FAIL off-screen updates: hidden ${hidden}, shown ${shown}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
