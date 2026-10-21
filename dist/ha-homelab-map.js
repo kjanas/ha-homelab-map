@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.31";
+const VERSION = "0.101.32";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -993,7 +993,10 @@ class HaHomelabMap extends HTMLElement {
   }
 
   getCardSize() {
-    return 10;
+    if (!this.#viewBox) return 10;
+    const { width, height } = this.#viewBox;
+    const shown = this.#base || width * (this.#config?.scale ?? 1);
+    return Math.max(1, Math.ceil(((shown * height) / width + 16) / 50));
   }
 
   getGridOptions() {

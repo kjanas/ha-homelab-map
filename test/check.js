@@ -564,6 +564,21 @@ else {
     failed++;
   }
 }
+{
+  const sc = new CardClass();
+  const before = sc.getCardSize();
+  sc.setConfig({ items: [{ type: "device", id: "tall", at: [0, 0], size: [100, 1000] }] });
+  sc.hass = { states: {} };
+  const small = new CardClass();
+  small.setConfig({ items: [{ type: "device", id: "flat", at: [0, 0], size: [1000, 40] }] });
+  small.hass = { states: {} };
+  const got = `${before} ${sc.getCardSize() > 10} ${small.getCardSize() < 10}`;
+  if (got === "10 true true") print("ok   getCardSize follows the map height");
+  else {
+    print(`FAIL getCardSize: ${got} (${sc.getCardSize()}, ${small.getCardSize()})`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
