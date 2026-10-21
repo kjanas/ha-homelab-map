@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.16";
+const VERSION = "0.101.17";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -97,6 +97,9 @@ const CARD_KEYS = [
   "powerlines",
   "view_layout",
   "grid_options",
+  "layout_options",
+  "visibility",
+  "card_mod",
 ];
 
 const DOWN_STATES = new Set(["unavailable", "unknown", "off", "down", "offline", "disconnected", "not_home"]);

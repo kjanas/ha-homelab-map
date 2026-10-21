@@ -99,6 +99,13 @@ expect("dominant needs rx tx", { items: two, datalines: [L({ flow: "dominant", r
 expect("status not binary", { items: two, datalines: [L({ status: "sensor.a" })] }, "datalines[0].status");
 expect("power has no status", { items: two, powerlines: [L({ status: "active" })] }, "powerlines[0].status: unknown property");
 expect("line id clashes with item", { items: two, datalines: [L({ id: "a" })] }, "duplicate id 'a'");
+try {
+  validateConfig({ items: [], visibility: [{ condition: "screen", media_query: "(min-width: 0px)" }], card_mod: { style: "" }, layout_options: {}, grid_options: {}, view_layout: {} });
+  print("ok   dashboard keys (visibility, card_mod, layout_options, grid_options, view_layout)");
+} catch (e) {
+  print(`FAIL dashboard keys: ${e.message}`);
+  failed++;
+}
 expect("toggle not boolean", { items: [], vlan_toggle: "yes" }, "vlan_toggle: expected true or false");
 expect("power toggle not boolean", { items: [], power_toggle: 1 }, "power_toggle: expected true or false");
 const C = (extra = {}) => ({ type: "chip", id: "c1", at: [0, 0], icon: "mdi:docker", ...extra });
