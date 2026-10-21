@@ -437,6 +437,29 @@ else {
     failed++;
   }
 }
+{
+  const measure = Node_.prototype.getComputedTextLength;
+  Node_.prototype.getComputedTextLength = function () {
+    for (let n = this; n; n = n.parentNode) if (n.style && n.style._p && n.style._p.display === "none") return 0;
+    return this.textContent.length * 5.5;
+  };
+  window.localStorage = { getItem: (k) => (k === HIDDEN_GROUPS_KEY ? JSON.stringify(["g1"]) : null), setItem: () => {} };
+  const gc = new CardClass();
+  gc.setConfig({ items: [D({ size: [200, 100], items: [G([B({ id: "inner", entity: "sensor.inner", show_border: true })]), B({ id: "switch", at: [0, 60], entity: "sensor.inner", toggle: "g1" })] })] });
+  gc.hass = { states: { "sensor.inner": { entity_id: "sensor.inner", state: "123456", attributes: {} } } };
+  const frameW = () => gc.shadowRoot.querySelectorAll("rect").filter((r) => /\bbframe\b/.test(r.attrs.class || "")).map((r) => r.attrs.width)[0];
+  const hiddenW = frameW();
+  const target = gc.shadowRoot.querySelectorAll("g").find((g) => g.dataset && g.dataset.toggle === "g1");
+  gc.shadowRoot.querySelectorAll("ha-card")[0].dispatch("click", { target: { closest: () => target }, stopPropagation() {}, preventDefault() {} });
+  const shownW = frameW();
+  Node_.prototype.getComputedTextLength = measure;
+  delete window.localStorage;
+  if (Number(shownW) > Number(hiddenW)) print("ok   badges in a hidden group are measured when the group is shown");
+  else {
+    print(`FAIL hidden group badge width: hidden ${hiddenW}, shown ${shownW}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });

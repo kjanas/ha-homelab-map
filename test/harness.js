@@ -110,8 +110,12 @@ class Node_ {
     if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((c) => c !== this);
     this.parentNode = null;
   }
-  addEventListener() {
+  addEventListener(type, fn) {
     this.listeners++;
+    (this.handlers = this.handlers || []).push([type, fn]);
+  }
+  dispatch(type, ev) {
+    for (const [t, fn] of this.handlers || []) if (t === type) fn(ev);
   }
   append(...n) {
     for (const c of n) this.appendChild(c);

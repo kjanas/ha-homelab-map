@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.26";
+const VERSION = "0.101.27";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -2058,6 +2058,10 @@ class HaHomelabMap extends HTMLElement {
     else this.#hiddenGroups.add(id);
     storeGroups(this.#hiddenGroups);
     this.#applyGroups();
+    if (this.#hiddenGroups.has(id)) return;
+    for (const badge of this.#badges) if (!badge.measured) this.#run(() => this.#updateBadge(badge));
+    for (const label of this.#labels) if (!label.measured) this.#run(() => this.#layoutLabel(label));
+    for (const rate of this.#rates) if (!rate.measured) this.#run(() => this.#updateRates(rate));
   }
 
   #applyGroups() {
