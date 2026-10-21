@@ -106,6 +106,10 @@ class Node_ {
     this.children.push(c);
     return c;
   }
+  remove() {
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((c) => c !== this);
+    this.parentNode = null;
+  }
   addEventListener() {
     this.listeners++;
   }
@@ -163,6 +167,9 @@ class Shadow extends Node_ {
   }
 }
 class HTMLElement {
+  constructor() {
+    this.style = styleProxy();
+  }
   attachShadow() {
     this.shadowRoot = new Shadow("#shadow");
     return this.shadowRoot;

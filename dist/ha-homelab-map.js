@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.0";
+const VERSION = "0.101.14";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -11,7 +11,7 @@ const EDGES = ["top", "right", "bottom", "left"];
 const POWER_COLOR = "#d9b945";
 
 const DEVICE_TYPES = ["rack", "device", "rackdevice", "endpoint"];
-const LABEL = Object.freeze({ size: 10, colors: { primary: "var(--primary-text-color)", secondary: "var(--secondary-text-color)" } });
+const LABEL = Object.freeze({ size: 10, colors: { primary: "var(--hhm-text)", secondary: "var(--hhm-text-dim)" } });
 const LED = Object.freeze({
   captionGap: 2.5,
   size: [3, 8],
@@ -24,13 +24,13 @@ const LED = Object.freeze({
 });
 const UP_STATES = ["on", "true", "1", "running", "home", "ok"];
 const UPDATE_STATES = ["on", "true", "1"];
-const CHIP = Object.freeze({ size: 16, bg: "#2f3540", inner: 0.7, blinkSeconds: 1.6, small: 0.26, count: 0.36, smallAt: 0.72 });
+const CHIP = Object.freeze({ size: 16, inner: 0.7, blinkSeconds: 1.6, small: 0.26, count: 0.36, smallAt: 0.72 });
 const BADGE = Object.freeze({ size: 8, padX: 2, padY: 2, iconScale: 1.25 });
 const BADGE_MAX = Object.freeze({ "": 99, "%": 100, "°C": 99, V: 999, Mbps: 999, ms: 999, W: 9999 });
 const ITEM_KEYS = {
   rack: ["type", "id", "at", "units", "items"],
-  device: ["type", "id", "at", "size", "status_entity", "status_map", "items"],
-  rackdevice: ["type", "id", "u", "units", "status_entity", "status_map", "items"],
+  device: ["type", "id", "at", "size", "status_entity", "status_map", "texture", "texture_opacity", "items"],
+  rackdevice: ["type", "id", "u", "units", "status_entity", "status_map", "texture", "texture_opacity", "items"],
   endpoint: ["type", "id", "at", "icon", "items"],
   badge: ["type", "id", "at", "entity", "icon", "units", "decimals", "size", "show_border", "toggle", "thresholds"],
   chip: ["type", "id", "at", "size", "icon", "image", "small_image", "small_entity", "status_entity", "update_entity", "url"],
@@ -42,7 +42,7 @@ const ITEM_KEYS = {
   hdd: ["type", "id", "at", "size", "temperature", "status_entity", "status_map", "thresholds"],
   ssd: ["type", "id", "at", "size", "temperature", "status_entity", "status_map", "thresholds"],
   bay: ["type", "id", "at", "size"],
-  fanpanel: ["type", "id", "u", "units", "count", "entity", "range", "thresholds"],
+  fanpanel: ["type", "id", "u", "units", "count", "entity", "range", "thresholds", "texture", "texture_opacity"],
   fan: ["type", "id", "at", "size", "entity", "range", "thresholds"],
   port: ["type", "id", "at", "entity", "speed"],
 };
@@ -82,6 +82,8 @@ const CARD_KEYS = [
   "line_radius",
   "vlans",
   "font",
+  "look",
+  "background",
   "scale",
   "fit_viewport",
   "debug",
@@ -89,6 +91,7 @@ const CARD_KEYS = [
   "power_toggle",
   "animation_toggle",
   "debug_toggle",
+  "toggles_at",
   "items",
   "datalines",
   "powerlines",
@@ -105,74 +108,190 @@ const THRESHOLD_COLORS = Object.freeze({
   green: "var(--success-color, #43a047)",
 });
 
+const LOOKS = ["flat", "depth"];
+const SHADE = { fill: "#000", "fill-opacity": 0.38 };
+const SHINE = { fill: "#fff", "fill-opacity": 0.05 };
+const TEXTURES = Object.freeze({
+  hex: {
+    w: 9,
+    h: 15.588,
+    marks: [["path", {
+      d: "M4.5 0L9 2.598V7.794L4.5 10.392L0 7.794V2.598ZM4.5 10.392V15.588",
+      fill: "none",
+      stroke: "#000",
+      "stroke-opacity": 0.55,
+      "stroke-width": 1.1,
+    }]],
+  },
+  mesh: { w: 6, h: 6, marks: [["circle", { cx: 3, cy: 3, r: 1.6, fill: "#000", "fill-opacity": 0.5 }]] },
+  slots: { w: 10, h: 7, marks: [["rect", { x: 1, y: 2, width: 8, height: 2.4, rx: 1.2, fill: "#000", "fill-opacity": 0.5 }]] },
+  grille: { w: 5, h: 5, rotate: 45, marks: [["rect", { width: 2, height: 5, fill: "#000", "fill-opacity": 0.4 }]] },
+  carbon: {
+    w: 8,
+    h: 8,
+    marks: [["rect", { width: 4, height: 4, ...SHINE }], ["rect", { x: 4, width: 4, height: 4, ...SHADE }], ["rect", { y: 4, width: 4, height: 4, ...SHADE }], [
+      "rect",
+      { x: 4, y: 4, width: 4, height: 4, ...SHINE },
+    ]],
+  },
+  ribbed: {
+    w: 4,
+    h: 4,
+    marks: [["rect", { width: 4, height: 2, fill: "#000", "fill-opacity": 0.35 }], ["rect", {
+      y: 2,
+      width: 4,
+      height: 0.6,
+      fill: "#fff",
+      "fill-opacity": 0.06,
+    }]],
+  },
+  brushed: { gradient: [[0, 0.02], [0.3, 0.1], [0.55, 0.03], [0.8, 0.09], [1, 0.02]] },
+  glass: { vertical: true, gradient: [[0, 0.16], [0.47, 0.06], [0.48, 0], [1, 0.05]] },
+  tpl: { w: 4, h: 4, tint: ["#0f3a3c", 0.35], accent: "#1fb6b0", marks: [["circle", { cx: 2, cy: 2, r: 0.7, fill: "#000", "fill-opacity": 0.45 }]] },
+  mtk: {
+    w: 6,
+    h: 14,
+    tint: ["#13284a", 0.35],
+    accent: "#3a7bd5",
+    marks: [["rect", { x: 2, y: 2, width: 2, height: 10, rx: 1, fill: "#000", "fill-opacity": 0.45 }]],
+  },
+  dll: {
+    w: 6,
+    h: 6,
+    tint: ["#0a1a2a", 0.3],
+    accent: "#0076ce",
+    marks: [["path", { d: "M3 0.9L5.1 3L3 5.1L0.9 3Z", fill: "#000", "fill-opacity": 0.5 }]],
+  },
+  hpe: {
+    w: 5,
+    h: 5,
+    tint: ["#ffffff", 0.05],
+    accent: "#01a982",
+    marks: [["rect", { x: 1, y: 1, width: 3, height: 3, rx: 0.4, fill: "#000", "fill-opacity": 0.5 }]],
+  },
+  unf: {
+    w: 6,
+    h: 10.392,
+    tint: ["#ffffff", 0.07],
+    accent: "#006fff",
+    marks: [["circle", { cx: 3, cy: 2.598, r: 1.3, fill: "#000", "fill-opacity": 0.45 }], ["circle", {
+      cx: 0,
+      cy: 7.794,
+      r: 1.3,
+      fill: "#000",
+      "fill-opacity": 0.45,
+    }], [
+      "circle",
+      { cx: 6, cy: 7.794, r: 1.3, fill: "#000", "fill-opacity": 0.45 },
+    ]],
+  },
+});
+const BACKGROUNDS = ["none", "blueprint", "pegboard", "vignette"];
+const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
+const isImageUrl = (value) => typeof value === "string" && /^(\/|https?:\/\/)\S+$/.test(value);
+const DEPTH = Object.freeze({ big: { dy: 2.2, blur: 2.2, alpha: 0.55 }, small: { dy: 1, blur: 0.9, alpha: 0.5 } });
+const ZOOM = Object.freeze({ maxPx: 4, step: 2.5, tapMs: 320, tapPx: 30, dragPx: 6, compactWidth: 520 });
 const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2 });
 const NO_DASH = Object.freeze([]);
 const FADE = Object.freeze({ half: 6 });
 const BUNDLED_FONTS = Object.freeze({ "JetBrains Mono": "JetBrainsMono" });
 
 const STYLES = `
-  :host { display: block; --hhm-bg: var(--card-background-color, var(--ha-card-background, #1c1c1c)); }
-  ha-card { padding: 8px; overflow: hidden; font-family: var(--hhm-font, var(--ha-font-family-body, inherit)); }
-  .stage { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
-  svg { display: block; max-width: 100%; height: auto; }
+  :host {
+    display: block;
+    --hhm-bg: var(--card-background-color, var(--ha-card-background, #1c1c1c));
+    --hhm-frame: var(--secondary-background-color, #282828);
+    --hhm-frame-border: var(--divider-color, rgba(225,225,225,.12));
+    --hhm-text: var(--primary-text-color, #e1e1e1);
+    --hhm-text-dim: var(--secondary-text-color, #9b9b9b);
+    --hhm-badge: var(--card-background-color, var(--ha-card-background, #1c1c1c));
+    --hhm-badge-border: var(--divider-color, rgba(225,225,225,.12));
+    --hhm-chip: #2f3540;
+    --hhm-accent: var(--primary-color, #03a9f4);
+    --hhm-rail: var(--divider-color, rgba(225,225,225,.12));
+  }
+  ha-card { background: var(--hhm-bg); padding: 8px; overflow: hidden; font-family: var(--hhm-font, var(--ha-font-family-body, inherit)); }
+  .view { position: relative; user-select: none; -webkit-user-select: none; }
+  .scroller { position: relative; overflow: hidden; touch-action: pan-y; scrollbar-width: none; }
+  .scroller::-webkit-scrollbar { display: none; }
+  .scroller.zoomed { overflow: auto; touch-action: none; cursor: grab; }
+  .scroller.panning { cursor: grabbing; }
+  .stage { position: relative; width: fit-content; margin: 0 auto; }
+  svg { display: block; height: auto; }
   .fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; will-change: transform; }
-  .cab { fill: var(--secondary-background-color, rgba(127,127,127,.06)); fill-opacity: .55; stroke: var(--divider-color); stroke-width: 2; }
-  .rail { fill: var(--divider-color); }
+  .zoom-reset { position: absolute; bottom: 6px; right: 6px; z-index: 4; display: none; width: 28px; height: 28px; border: 1px solid var(--hhm-frame-border); border-radius: 6px; background: var(--hhm-bg); color: var(--hhm-text-dim); font: 16px/1 sans-serif; cursor: pointer; }
+  .view.zoomed .zoom-reset { display: block; }
+  .toggle-menu { display: none; width: 28px; height: 28px; border: 1px solid var(--hhm-frame-border); border-radius: 6px; background: var(--hhm-bg); color: var(--hhm-text-dim); font: 16px/1 sans-serif; cursor: pointer; padding: 0; }
+  .toggles.compact .toggle-menu { display: block; }
+  .toggles.compact { align-items: flex-end; }
+  .toggles.placed { right: auto; }
+  .toggles.compact.placed { align-items: flex-start; }
+  .toggles.compact:not(.open) { padding: 0; border: none; background: none; }
+  .toggles.compact:not(.open) .toggle { display: none; }
+  .cab { fill: var(--hhm-frame); fill-opacity: .55; stroke: var(--hhm-frame-border); stroke-width: 2; }
+  .rail { fill: var(--hhm-rail); }
   .hole { fill: var(--hhm-bg); }
-  .ulabel { font-size: 10px; fill: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
-  .frame { fill: var(--secondary-background-color, rgba(127,127,127,.08)); stroke: var(--divider-color); stroke-width: 1.4; transition: stroke .3s; }
+  .ulabel { font-size: 10px; fill: var(--hhm-text-dim); font-variant-numeric: tabular-nums; }
+  .frame { fill: var(--hhm-frame); stroke: var(--hhm-frame-border); stroke-width: 1.4; transition: stroke .3s; }
   .dev.warn > .frame { stroke: var(--warning-color, #ffa600); }
   .dev.down > .frame { stroke: var(--error-color, #db4437); }
-  .mdi { fill: var(--secondary-text-color); }
+  .mdi { fill: var(--hhm-text-dim); }
+  .chip-bg, .chip-small { fill: var(--hhm-chip); }
   .chip-small { stroke: var(--hhm-bg); stroke-width: 1; }
-  .chip-count { fill: var(--primary-text-color); font-weight: 700; font-variant-numeric: tabular-nums; }
-  .port .mdi { fill: color-mix(in srgb, var(--secondary-text-color) 40%, var(--hhm-bg)); }
-  .port.up .mdi { fill: color-mix(in srgb, #ffffff 78%, var(--hhm-bg)); }
+  .chip-count { fill: var(--hhm-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .port .mdi { fill: color-mix(in srgb, var(--hhm-text-dim) 40%, var(--hhm-bg)); }
+  .port.up .mdi { fill: color-mix(in srgb, var(--hhm-text) 92%, var(--hhm-bg)); }
   .port.slow .mdi { fill: var(--warning-color, #ffa600); }
   .port.fault .mdi { fill: var(--error-color, #db4437); }
-  .pool .pfill { fill: color-mix(in srgb, var(--secondary-text-color) 22%, var(--hhm-bg)); }
-  .pool .pbox { fill: none; stroke: var(--divider-color); stroke-width: 1.2; transition: stroke .3s; }
+  .pool .pfill { fill: color-mix(in srgb, var(--hhm-text-dim) 22%, var(--hhm-bg)); }
+  .pool .pbox { fill: none; stroke: var(--hhm-frame-border); stroke-width: 1.2; transition: stroke .3s; }
   .pool.warn .pbox { stroke: var(--warning-color, #ffa600); }
   .pool.down .pbox { stroke: var(--error-color, #db4437); }
-  .pool .plabel-bg { fill: var(--hhm-bg); stroke: var(--divider-color); stroke-width: .8; }
-  .pool .plabel { font-size: 7px; font-weight: 700; fill: var(--secondary-text-color); }
-  .disk .dbody { fill: color-mix(in srgb, var(--secondary-text-color) 18%, var(--hhm-bg)); stroke: var(--divider-color); stroke-width: .8; }
+  .pool .plabel-bg { fill: var(--hhm-bg); stroke: var(--hhm-frame-border); stroke-width: .8; }
+  .pool .plabel { font-size: 7px; font-weight: 700; fill: var(--hhm-text-dim); }
+  .disk .dbody { fill: color-mix(in srgb, var(--hhm-text-dim) 18%, var(--hhm-bg)); stroke: var(--hhm-frame-border); stroke-width: .8; }
   .disk.down .dbody { stroke: var(--error-color, #db4437); }
-  .disk .dtemp { fill: var(--primary-text-color); font-variant-numeric: tabular-nums; }
-  .disk .dled { fill: color-mix(in srgb, var(--secondary-text-color) 30%, var(--hhm-bg)); }
+  .disk .dtemp { fill: var(--hhm-text); font-variant-numeric: tabular-nums; }
+  .disk .dled { fill: color-mix(in srgb, var(--hhm-text-dim) 30%, var(--hhm-bg)); }
   .disk.ok .dled { fill: var(--success-color, #43a047); }
   .disk.warn .dled { fill: var(--warning-color, #ffa600); }
   .disk.down .dled { fill: var(--error-color, #db4437); }
-  .disk .hdd-hub { fill: color-mix(in srgb, var(--secondary-text-color) 35%, var(--hhm-bg)); }
+  .disk .hdd-hub { fill: color-mix(in srgb, var(--hhm-text-dim) 35%, var(--hhm-bg)); }
   .disk .ssd-board { fill: color-mix(in srgb, #2e7d32 35%, var(--hhm-bg)); }
-  .disk .ssd-chip { fill: color-mix(in srgb, var(--secondary-text-color) 45%, var(--hhm-bg)); }
-  .bay .dbody { fill: none; stroke: color-mix(in srgb, var(--secondary-text-color) 45%, var(--hhm-bg)); stroke-dasharray: 2 2; }
-  .led-caption { font-size: 8px; fill: var(--secondary-text-color); }
-  .fan-hole { fill: color-mix(in srgb, #000000 10%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--secondary-text-color) 12%, var(--hhm-bg)); stroke-width: 1; }
-  .fan-screw { fill: color-mix(in srgb, #000000 25%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--secondary-text-color) 25%, var(--hhm-bg)); stroke-width: .6; }
-  .fan-rotor { fill: color-mix(in srgb, var(--secondary-text-color) 7%, var(--hhm-bg)); }
-  .fan-hub { fill: color-mix(in srgb, var(--secondary-text-color) 11%, var(--hhm-bg)); }
-  .port-x { display: none; stroke: color-mix(in srgb, var(--secondary-text-color) 70%, var(--hhm-bg)); stroke-linecap: round; }
+  .disk .ssd-chip { fill: color-mix(in srgb, var(--hhm-text-dim) 45%, var(--hhm-bg)); }
+  .bay .dbody { fill: none; stroke: color-mix(in srgb, var(--hhm-text-dim) 45%, var(--hhm-bg)); stroke-dasharray: 2 2; }
+  .led-caption { font-size: 8px; fill: var(--hhm-text-dim); }
+  .fan-hole { fill: color-mix(in srgb, #000000 10%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--hhm-text-dim) 12%, var(--hhm-bg)); stroke-width: 1; }
+  .fan-screw { fill: color-mix(in srgb, #000000 25%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--hhm-text-dim) 25%, var(--hhm-bg)); stroke-width: .6; }
+  .fan-rotor { fill: color-mix(in srgb, var(--hhm-text-dim) 7%, var(--hhm-bg)); }
+  .fan-hub { fill: color-mix(in srgb, var(--hhm-text-dim) 11%, var(--hhm-bg)); }
+  .port-x { display: none; stroke: color-mix(in srgb, var(--hhm-text-dim) 70%, var(--hhm-bg)); stroke-linecap: round; }
   .port.disabled .port-x { display: inline; }
   .icon-loader { position: absolute; width: 0; height: 0; overflow: hidden; visibility: hidden; }
-  .lnk { fill: none; stroke: color-mix(in srgb, var(--secondary-text-color) 55%, var(--hhm-bg)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .3s; }
+  .lnk { fill: none; stroke: color-mix(in srgb, var(--hhm-text-dim) 55%, var(--hhm-bg)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .3s; }
   .lnk.power { stroke: color-mix(in srgb, #666666 90%, var(--hhm-bg)); }
   .lnk.down { stroke: color-mix(in srgb, var(--error-color, #db4437) 70%, var(--hhm-bg)); stroke-dasharray: 2 6; }
   .lnk.bare { stroke: none; }
-  .rates { fill: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
-  .stage.still-data .lnk.data:not(.down) { stroke: color-mix(in srgb, var(--secondary-text-color) 35%, var(--hhm-bg)); }
+  .rates { fill: var(--hhm-text-dim); font-variant-numeric: tabular-nums; }
+  .stage.still-data .lnk.data:not(.down) { stroke: color-mix(in srgb, var(--hhm-text-dim) 35%, var(--hhm-bg)); }
   .stage.still-power .lnk.power { stroke: color-mix(in srgb, #666666 35%, var(--hhm-bg)); }
-  .toggles { position: absolute; top: 6px; left: 6px; z-index: 4; display: flex; flex-direction: column; gap: 5px; }
-  .toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 10px; color: var(--secondary-text-color); }
+  .toggles { position: absolute; top: 6px; right: 6px; z-index: 4; display: flex; flex-direction: column; gap: 6px; padding: 7px 9px; border-radius: 6px; background: var(--hhm-badge); border: 1px solid var(--hhm-frame-border); }
+  .toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 10px; color: var(--hhm-text); }
   .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .toggle .track { position: relative; width: 26px; height: 14px; border-radius: 7px; background: var(--divider-color, #444); transition: background .2s; }
-  .toggle .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--hhm-bg); transition: transform .2s; }
-  .toggle input:checked + .track { background: var(--primary-color, #03a9f4); }
+  .toggle .track { position: relative; width: 26px; height: 14px; border-radius: 7px; background: color-mix(in srgb, var(--hhm-text-dim) 40%, var(--hhm-badge)); transition: background .2s; }
+  .toggle .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--hhm-text); transition: transform .2s; }
+  .toggle input:checked + .track { background: var(--hhm-accent); }
   .toggle input:checked + .track::after { transform: translateX(12px); }
-  .toggle input:focus-visible + .track { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; }
-  .badge .bframe { fill: var(--hhm-bg); stroke: var(--divider-color); stroke-width: 1; }
-  .badge .btext { fill: var(--primary-text-color); font-variant-numeric: tabular-nums; }
+  .toggle input:focus-visible + .track { outline: 2px solid var(--hhm-accent); outline-offset: 2px; }
+  .badge .bframe { fill: var(--hhm-badge); stroke: var(--hhm-badge-border); stroke-width: 1; }
+  .badge .btext { fill: var(--hhm-text); font-variant-numeric: tabular-nums; }
   .clickable { cursor: pointer; }
+  .depth .rail { fill: url(#hhm-rail); }
+  .depth .hole { fill: color-mix(in srgb, #000000 45%, var(--hhm-bg)); }
+  .bg-line { fill: none; stroke: color-mix(in srgb, #6c9cda 22%, var(--hhm-bg)); stroke-width: .8; }
+  .bg-fine { fill: none; stroke: color-mix(in srgb, #6c9cda 10%, var(--hhm-bg)); stroke-width: .5; }
+  .bg-dot { fill: color-mix(in srgb, var(--hhm-text) 13%, var(--hhm-bg)); }
+  .lift { fill: url(#hhm-lift); stroke: none; pointer-events: none; }
   .dbg-grid, .dbg-box { pointer-events: none; }
   .dbg-box { fill: none; stroke: #ff4081; stroke-width: .6; stroke-dasharray: 2 2; }
   .dbg-tip { position: absolute; z-index: 5; pointer-events: none; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.8); color: #fff; font: 11px/1.4 var(--hhm-font, monospace); white-space: pre; display: none; }
@@ -490,6 +609,13 @@ const validateItem = (item, path, parent, ctx) => {
     if (item.effect !== undefined && !LED.effects.includes(item.effect)) fail(`${path}.effect`, `expected one of ${LED.effects.join(", ")}`);
   }
   if (["device", "rackdevice", "pool", "hdd", "ssd"].includes(item.type)) validateStatus(item, path);
+  if (item.texture !== undefined && !TEXTURES[item.texture]) fail(`${path}.texture`, `expected one of ${Object.keys(TEXTURES).join(", ")}`);
+  if (item.texture_opacity !== undefined) {
+    if (!(isNum(item.texture_opacity) && item.texture_opacity >= 0 && item.texture_opacity <= 1)) {
+      fail(`${path}.texture_opacity`, "expected a number from 0 to 1");
+    }
+    if (item.texture === undefined) fail(`${path}.texture_opacity`, "has no effect without 'texture'");
+  }
   if (item.type === "pool") {
     if (!isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
     if (item.label !== undefined && typeof item.label !== "string" && typeof item.label !== "number") fail(`${path}.label`, "expected a text");
@@ -608,6 +734,14 @@ const validateConfig = (config) => {
   for (const key of ["fit_viewport", "debug", "vlan_toggle", "power_toggle", "animation_toggle", "debug_toggle"]) {
     if (config[key] !== undefined && typeof config[key] !== "boolean") fail(key, "expected true or false");
   }
+  if (config.background !== undefined && !BACKGROUNDS.includes(config.background) && !isColor(config.background) && !isImageUrl(config.background)) {
+    fail("background", `expected ${BACKGROUNDS.join(", ")}, a colour such as "#1a2230" or an image URL such as /local/background.jpg`);
+  }
+  if (config.toggles_at !== undefined) {
+    if (!isPair(config.toggles_at)) fail("toggles_at", "expected [x, y]");
+    if (!["vlan_toggle", "power_toggle", "animation_toggle", "debug_toggle"].some((key) => config[key])) fail("toggles_at", "has no effect without a switch");
+  }
+  if (config.look !== undefined && !LOOKS.includes(config.look)) fail("look", `expected one of ${LOOKS.join(", ")}`);
   if (config.font !== undefined && !(typeof config.font === "string" && /^[\w .-]+$/.test(config.font.trim()) && config.font.trim())) {
     fail("font", "expected a font family name such as JetBrains Mono");
   }
@@ -671,8 +805,23 @@ class HaHomelabMap extends HTMLElement {
   #disks = [];
   #fans = [];
   #cabled = new Set();
+  #deep = false;
+  #defs = null;
+  #textures = new Set();
   #card;
+  #view;
+  #scroller;
+  #reset;
   #stage;
+  #togglesBox = null;
+  #base = 0;
+  #zoom = 1;
+  #origin = [0, 0];
+  #painted = false;
+  #pointers = new Map();
+  #gesture = null;
+  #dragged = false;
+  #lastTap = null;
   #svg = null;
   #canvas = null;
   #ctx = null;
@@ -710,7 +859,17 @@ class HaHomelabMap extends HTMLElement {
     const style = document.createElement("style");
     style.textContent = STYLES;
     this.#card = document.createElement("ha-card");
-    this.#stage = htmlEl("div", "stage", this.#card);
+    this.#view = htmlEl("div", "view", this.#card);
+    this.#scroller = htmlEl("div", "scroller", this.#view);
+    this.#stage = htmlEl("div", "stage", this.#scroller);
+    this.#reset = htmlEl("button", "zoom-reset", this.#view);
+    this.#reset.textContent = "⤢";
+    this.#reset.title = "Show the whole map";
+    this.#reset.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      this.#zoomTo(1);
+    });
+    this.#bindZoom();
     this.#iconLoader = htmlEl("div", "icon-loader");
     root.append(style, this.#card, this.#iconLoader);
     this.#card.addEventListener("click", (ev) => {
@@ -727,7 +886,13 @@ class HaHomelabMap extends HTMLElement {
       }
       this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: target.dataset.entity }, bubbles: true, composed: true }));
     });
-    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => this.#resizeFx()).observe(this.#stage);
+    this.#card.addEventListener("click", (ev) => {
+      if (!this.#dragged) return;
+      this.#dragged = false;
+      ev.stopPropagation();
+      ev.preventDefault();
+    }, true);
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => this.#fit()).observe(this.#view);
   }
 
   static getStubConfig() {
@@ -851,11 +1016,155 @@ class HaHomelabMap extends HTMLElement {
     const { width, height } = this.#viewBox;
     let target = width * (this.#config.scale || 1);
     if (this.#config.fit_viewport && this.isConnected) {
-      const room = window.innerHeight - this.#stage.getBoundingClientRect().top - 16;
+      const room = window.innerHeight - (this.#view.getBoundingClientRect().top || 0) - 16;
       if (room > 120) target = (room * width) / height;
     }
-    const px = `${Math.round(target)}px`;
+    const avail = this.#view.clientWidth || target;
+    this.#base = Math.max(1, Math.min(target, avail));
+    this.#applyZoom();
+  }
+
+  #maxZoom() {
+    return this.#viewBox && this.#base ? Math.max(1, (ZOOM.maxPx * this.#viewBox.width) / this.#base) : 1;
+  }
+
+  #applyZoom() {
+    if (!this.#svg || !this.#viewBox) return;
+    const width = Math.round(this.#base * this.#zoom);
+    const px = `${width}px`;
     if (this.#svg.style.width !== px) this.#svg.style.width = px;
+    const zoomed = this.#zoom > 1.001;
+    this.#scroller.classList.toggle("zoomed", zoomed);
+    this.#view.classList.toggle("zoomed", zoomed);
+    const height = zoomed ? `${Math.round((this.#base * this.#viewBox.height) / this.#viewBox.width)}px` : "";
+    if (this.#scroller.style.height !== height) this.#scroller.style.height = height;
+    if (!zoomed) {
+      this.#scroller.scrollLeft = 0;
+      this.#scroller.scrollTop = 0;
+    }
+    this.#togglesBox?.classList.toggle("compact", (this.#view.clientWidth || Infinity) < ZOOM.compactWidth);
+    this.#resizeFx();
+    this.#placeToggles();
+  }
+
+  #placeToggles() {
+    const box = this.#togglesBox;
+    const at = this.#config?.toggles_at;
+    if (!box || !at || !this.#viewBox) return;
+    const view = this.#view.getBoundingClientRect();
+    const stage = this.#stage.getBoundingClientRect();
+    if (!stage.width) return;
+    const k = stage.width / this.#viewBox.width;
+    const clamp = (value, max) => Math.round(Math.max(0, Math.min(max, value)));
+    const left = (stage.left || 0) - (view.left || 0) + (at[0] - this.#viewBox.minX) * k;
+    const top = (stage.top || 0) - (view.top || 0) + (at[1] - this.#viewBox.minY) * k;
+    box.style.left = `${clamp(left, (view.width || 0) - (box.offsetWidth || 0))}px`;
+    box.style.top = `${clamp(top, (view.height || 0) - (box.offsetHeight || 0))}px`;
+  }
+
+  #zoomTo(zoom, clientX, clientY) {
+    if (!this.#viewBox || !this.#base) return;
+    const next = Math.max(1, Math.min(this.#maxZoom(), zoom));
+    if (Math.abs(next - this.#zoom) < 1e-3) return;
+    const view = this.#scroller.getBoundingClientRect();
+    const stage = this.#stage.getBoundingClientRect();
+    const x = clientX ?? (view.left || 0) + (view.width || 0) / 2;
+    const y = clientY ?? (view.top || 0) + (view.height || 0) / 2;
+    const fx = stage.width ? (x - (stage.left || 0)) / stage.width : 0.5;
+    const fy = stage.height ? (y - (stage.top || 0)) / stage.height : 0.5;
+    this.#zoom = next;
+    this.#applyZoom();
+    const width = this.#base * next;
+    const height = (width * this.#viewBox.height) / this.#viewBox.width;
+    if (next > 1.001) {
+      this.#scroller.scrollLeft = fx * width - (x - (view.left || 0));
+      this.#scroller.scrollTop = fy * height - (y - (view.top || 0));
+    }
+    this.#onScroll();
+  }
+
+  #onScroll = () => {
+    this.#placeFx();
+    this.#placeToggles();
+    if (!this.#frame && !this.#timer) this.#drawFx();
+  };
+
+  #bindZoom() {
+    const sc = this.#scroller;
+    sc.addEventListener("scroll", this.#onScroll, { passive: true });
+    sc.addEventListener("pointerdown", (ev) => {
+      if (ev.pointerType === "mouse" && ev.button !== 0) return;
+      this.#dragged = false;
+      this.#pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      const pts = [...this.#pointers.values()];
+      if (pts.length === 2) {
+        this.#gesture = { kind: "pinch", dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1, zoom: this.#zoom };
+      } else if (pts.length === 1) {
+        this.#gesture = { kind: "pan", x: ev.clientX, y: ev.clientY, left: sc.scrollLeft, top: sc.scrollTop, moved: false };
+      }
+    });
+    sc.addEventListener("pointermove", (ev) => {
+      if (!this.#pointers.has(ev.pointerId)) return;
+      this.#pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      const g = this.#gesture;
+      if (!g) return;
+      const pts = [...this.#pointers.values()];
+      if (g.kind === "pinch" && pts.length >= 2) {
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        this.#dragged = true;
+        this.#zoomTo(g.zoom * (dist / g.dist), (pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+        return;
+      }
+      if (g.kind !== "pan" || this.#zoom <= 1.001) return;
+      const dx = ev.clientX - g.x;
+      const dy = ev.clientY - g.y;
+      if (!g.moved && Math.hypot(dx, dy) > ZOOM.dragPx) {
+        g.moved = true;
+        sc.classList.add("panning");
+        sc.setPointerCapture?.(ev.pointerId);
+      }
+      if (!g.moved) return;
+      this.#dragged = true;
+      sc.scrollLeft = g.left - dx;
+      sc.scrollTop = g.top - dy;
+    });
+    const end = (ev, cancelled) => {
+      if (!this.#pointers.has(ev.pointerId)) return;
+      this.#pointers.delete(ev.pointerId);
+      sc.classList.remove("panning");
+      const g = this.#gesture;
+      if (this.#pointers.size) {
+        this.#gesture = null;
+        return;
+      }
+      this.#gesture = null;
+      if (cancelled || !g || g.kind !== "pan" || g.moved) return;
+      if (ev.target?.closest?.("[data-entity], [data-url], [data-toggle], .toggles, button")) return;
+      const now = performance.now();
+      const last = this.#lastTap;
+      if (last && now - last.t < ZOOM.tapMs && Math.hypot(ev.clientX - last.x, ev.clientY - last.y) < ZOOM.tapPx) {
+        this.#lastTap = null;
+        this.#zoomTo(this.#zoom >= this.#maxZoom() - 0.01 ? 1 : this.#zoom * ZOOM.step, ev.clientX, ev.clientY);
+      } else this.#lastTap = { t: now, x: ev.clientX, y: ev.clientY };
+    };
+    sc.addEventListener("pointerup", (ev) => end(ev, false));
+    sc.addEventListener("pointercancel", (ev) => end(ev, true));
+    sc.addEventListener("wheel", (ev) => {
+      if (!ev.ctrlKey && !ev.metaKey) return;
+      ev.preventDefault();
+      this.#zoomTo(this.#zoom * Math.exp(-Math.max(-50, Math.min(50, ev.deltaY)) * 0.01), ev.clientX, ev.clientY);
+    }, { passive: false });
+    let start = 1;
+    sc.addEventListener("gesturestart", (ev) => {
+      if (this.#pointers.size) return;
+      ev.preventDefault();
+      start = this.#zoom;
+    });
+    sc.addEventListener("gesturechange", (ev) => {
+      if (this.#pointers.size) return;
+      ev.preventDefault();
+      this.#zoomTo(start * ev.scale, ev.clientX, ev.clientY);
+    });
   }
 
   #build() {
@@ -945,8 +1254,12 @@ class HaHomelabMap extends HTMLElement {
     }
 
     this.#stage.replaceChildren();
+    for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
+    this.#painted = false;
+    this.#zoom = 1;
+    this.#togglesBox = null;
     const svg = svgEl("svg", { viewBox: `${minX} ${minY} ${width} ${height}`, role: "img", "aria-label": "Homelab map" }, this.#stage);
-    this.#canvas = htmlEl("canvas", "fx", this.#stage);
+    this.#canvas = htmlEl("canvas", "fx", this.#view);
     this.#ctx = null;
     this.#svg = svg;
     this.#viewBox = { minX, minY, width, height };
@@ -967,27 +1280,44 @@ class HaHomelabMap extends HTMLElement {
     this.#fit();
 
     const defs = svgEl("defs", {}, svg);
+    this.#defs = defs;
+    this.#textures = new Set();
+    this.#deep = config.look === "depth";
+    if (this.#deep) {
+      svg.classList.add("depth");
+      for (const [id, { dy, blur, alpha }] of [["hhm-shadow", DEPTH.big], ["hhm-shadow-sm", DEPTH.small]]) {
+        const f = svgEl("filter", { id, x: "-10%", y: "-10%", width: "120%", height: "140%" }, defs);
+        svgEl("feGaussianBlur", { in: "SourceAlpha", stdDeviation: blur }, f);
+        svgEl("feOffset", { dy }, f);
+        const ct = svgEl("feComponentTransfer", {}, f);
+        svgEl("feFuncA", { type: "linear", slope: alpha }, ct);
+        const merge = svgEl("feMerge", {}, f);
+        svgEl("feMergeNode", {}, merge);
+        svgEl("feMergeNode", { in: "SourceGraphic" }, merge);
+      }
+      const lift = svgEl("linearGradient", { id: "hhm-lift", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+      for (const [offset, color, opacity] of [[0, "#ffffff", 0.07], [0.5, "#ffffff", 0], [1, "#000000", 0.12]]) {
+        svgEl("stop", { offset, "stop-color": color, "stop-opacity": opacity }, lift);
+      }
+      const rail = svgEl("linearGradient", { id: "hhm-rail", x1: 0, y1: 0, x2: 1, y2: 0 }, defs);
+      for (const [offset, color] of [[0, "#5a6370"], [0.5, "#3a414b"], [1, "#2a2f36"]]) svgEl("stop", { offset, "stop-color": color }, rail);
+    }
+    this.#drawBackground(svg, defs, config.background);
     const racks = svgEl("g", {}, svg);
     const devices = svgEl("g", {}, svg);
     const lineLayer = svgEl("g", {}, svg);
     const badgeLayer = svgEl("g", {}, svg);
-    for (const box of this.#boxes) {
-      if (box.dev.type === "rack") this.#drawRack(racks, box);
-      else this.#drawDevice(devices, box);
-    }
+    for (const box of this.#boxes) box.el = box.dev.type === "rack" ? this.#drawRack(racks, box) : this.#drawDevice(devices, box);
     for (const box of fans) box.el = this.#drawFan(box.dev.type === "fanpanel" ? racks : devices, box);
     this.#fans.forEach((f, i) => (f.group = fans[i].group));
-    for (const box of storage) {
-      if (box.dev.type === "pool") this.#drawPool(devices, box);
-      else this.#drawDisk(devices, box, defs);
-    }
+    for (const box of storage) box.el = box.dev.type === "pool" ? this.#drawPool(devices, box) : this.#drawDisk(devices, box, defs);
     const radius = config.line_radius ?? DEFAULTS.lineRadius;
     lines.forEach((line, i) => this.#drawLine(lineLayer, line, radius, defs, i));
     for (const line of lines) if (line.kind === "data" && line.cfg.rates_at !== undefined) this.#drawRates(badgeLayer, line);
     for (const led of leds) led.el = this.#drawLed(badgeLayer, led);
     for (const label of labels) label.el = this.#drawLabel(badgeLayer, label);
     this.#cabled = new Set(lines.flatMap(({ cfg }) => [cfg.start_port, cfg.end_port]).filter(Boolean));
-    for (const port of ports) this.#drawPort(badgeLayer, port, portParent.get(port.dev.id));
+    for (const port of ports) port.el = this.#drawPort(badgeLayer, port, portParent.get(port.dev.id));
     for (const chip of chips) chip.el = this.#drawChip(badgeLayer, chip);
     for (const badge of badges) badge.el = this.#drawBadge(badgeLayer, badge);
     this.#groupEls = new Map();
@@ -1023,14 +1353,90 @@ class HaHomelabMap extends HTMLElement {
     for (const fan of this.#fans) depend([fan.dev.entity], () => this.#updateFan(fan));
     for (const line of this.#lines) depend([line.cfg.rx, line.cfg.tx, isEntity(line.cfg.status) ? line.cfg.status : null], () => this.#updateLine(line));
     this.#built = true;
+    this.#painted = false;
     this.#resizeFx();
     this.#applyVisibility();
     requestAnimationFrame(this.#onResize);
   }
 
+  #drawBackground(svg, defs, kind) {
+    if (!kind || kind === "none") return;
+    const { minX, minY, width, height } = this.#viewBox;
+    const area = { x: minX, y: minY, width, height };
+    const layer = svgEl("g", { class: "bg", "pointer-events": "none" }, svg);
+    if (isColor(kind)) {
+      svgEl("rect", { ...area, fill: kind }, layer);
+      return;
+    }
+    if (isImageUrl(kind)) {
+      svgEl("image", { ...area, href: kind, preserveAspectRatio: "xMidYMid slice" }, layer);
+      return;
+    }
+    const glow = { blueprint: ["#6c9cda", 9, 22], pegboard: ["#ffffff", 4, 22], vignette: ["#ffffff", 6, 35] }[kind];
+    const gradient = svgEl("radialGradient", { id: "hhm-bg-glow", cx: "48%", cy: "42%", r: "78%" }, defs);
+    for (
+      const [offset, style] of [
+        [0, `stop-color: color-mix(in srgb, ${glow[0]} ${glow[1]}%, var(--hhm-bg))`],
+        [0.6, "stop-color: var(--hhm-bg)"],
+        [1, `stop-color: color-mix(in srgb, #000000 ${glow[2]}%, var(--hhm-bg))`],
+      ]
+    ) {
+      svgEl("stop", { offset, style }, gradient);
+    }
+    svgEl("rect", { ...area, fill: "url(#hhm-bg-glow)" }, layer);
+    if (kind === "blueprint") {
+      const pattern = svgEl("pattern", { id: "hhm-bg-grid", width: 50, height: 50, patternUnits: "userSpaceOnUse" }, defs);
+      svgEl("path", { class: "bg-fine", d: "M10 0V50M20 0V50M30 0V50M40 0V50M0 10H50M0 20H50M0 30H50M0 40H50" }, pattern);
+      svgEl("path", { class: "bg-line", d: "M50 0H0V50" }, pattern);
+      svgEl("rect", { ...area, fill: "url(#hhm-bg-grid)" }, layer);
+    } else if (kind === "pegboard") {
+      const pattern = svgEl("pattern", { id: "hhm-bg-dots", width: 12, height: 12, patternUnits: "userSpaceOnUse" }, defs);
+      svgEl("circle", { class: "bg-dot", cx: 6, cy: 6, r: 0.9 }, pattern);
+      svgEl("rect", { ...area, fill: "url(#hhm-bg-dots)" }, layer);
+    }
+  }
+
+  #applyTexture(g, dev, x, y, w, h) {
+    if (!dev.texture) return;
+    const t = TEXTURES[dev.texture];
+    const layer = svgEl("g", { opacity: dev.texture_opacity ?? 1, "pointer-events": "none" }, g);
+    const box = { x: x + 0.7, y: y + 0.7, width: Math.max(0, w - 1.4), height: Math.max(0, h - 1.4), rx: BOX_RADIUS };
+    if (t.tint) svgEl("rect", { ...box, fill: t.tint[0], "fill-opacity": t.tint[1] }, layer);
+    svgEl("rect", { ...box, fill: `url(#${this.#texture(dev.texture)})` }, layer);
+    if (t.accent) svgEl("rect", { x: x + 4, y: y + h - 3, width: Math.max(0, w - 8), height: 1.5, rx: 0.75, fill: t.accent, "fill-opacity": 0.85 }, layer);
+  }
+
+  #texture(name) {
+    const id = `hhm-tex-${name}`;
+    if (this.#textures.has(name)) return id;
+    this.#textures.add(name);
+    const t = TEXTURES[name];
+    if (t.gradient) {
+      const gradient = svgEl("linearGradient", { id, x1: 0, y1: 0, x2: t.vertical ? 0 : 1, y2: t.vertical ? 1 : 0 }, this.#defs);
+      for (const [offset, opacity] of t.gradient) svgEl("stop", { offset, "stop-color": "#ffffff", "stop-opacity": opacity }, gradient);
+      return id;
+    }
+    const pattern = svgEl(
+      "pattern",
+      { id, width: t.w, height: t.h, patternUnits: "userSpaceOnUse", patternTransform: t.rotate ? `rotate(${t.rotate})` : null },
+      this.#defs,
+    );
+    for (const [tag, attrs] of t.marks) svgEl(tag, attrs, pattern);
+    return id;
+  }
+
+  #raise(el, size = "big") {
+    if (this.#deep) el.setAttribute("filter", `url(#${size === "big" ? "hhm-shadow" : "hhm-shadow-sm"})`);
+    return el;
+  }
+
+  #lift(parent, x, y, w, h, rx) {
+    if (this.#deep) svgEl("rect", { class: "lift", x, y, width: w, height: h, rx }, parent);
+  }
+
   #drawRack(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: "rack", "data-id": dev.id }, parent);
-    svgEl("rect", { class: "cab", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
+    this.#raise(svgEl("rect", { class: "cab", x, y, width: w, height: h, rx: BOX_RADIUS }, g));
     for (const rx of [4, w - 18]) {
       svgEl("rect", { class: "rail", x: x + rx, y: y + RACK.cap, width: 14, height: dev.units * RACK.unit, rx: 2 }, g);
     }
@@ -1043,19 +1449,24 @@ class HaHomelabMap extends HTMLElement {
         }
       }
     }
+    return g;
   }
 
   #drawDevice(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: `dev ${dev.type}`, "data-id": dev.id }, parent);
-    svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
+    this.#raise(svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g));
+    this.#applyTexture(g, dev, x, y, w, h);
+    this.#lift(g, x, y, w, h, BOX_RADIUS);
     if (dev.status_entity) {
       g.dataset.entity = dev.status_entity;
       g.classList.add("clickable");
       this.#frames.push({ dev, g, title: svgEl("title", {}, g) });
     }
-    if (dev.type !== "endpoint" || !dev.icon) return;
-    const { size, pad } = ENDPOINT;
-    this.#drawIcon(g, dev.icon, x + pad, y + pad, size - 2 * pad);
+    if (dev.type === "endpoint" && dev.icon) {
+      const { size, pad } = ENDPOINT;
+      this.#drawIcon(g, dev.icon, x + pad, y + pad, size - 2 * pad);
+    }
+    return g;
   }
 
   #drawIcon(parent, name, x, y, size) {
@@ -1075,6 +1486,7 @@ class HaHomelabMap extends HTMLElement {
     const inset = w * 0.12;
     svgEl("line", { class: "port-x", x1: x + inset, y1: y + inset, x2: x + w - inset, y2: y + w - inset, "stroke-width": Math.max(1, w * 0.1) }, g);
     this.#ports.push({ dev, g, title, states: group.states, cabled: this.#cabled.has(dev.id), expected: parseSpeed(dev.speed ?? group.speed ?? PORT.speed) });
+    return g;
   }
 
   #drawPool(parent, { dev, x, y, w, h }) {
@@ -1090,10 +1502,11 @@ class HaHomelabMap extends HTMLElement {
     if (dev.label !== undefined && dev.label !== "") {
       const text = String(dev.label);
       const tw = Math.min(text.length * 7 * 0.6 + 6, w - 4);
-      svgEl("rect", { class: "plabel-bg", x: x + (w - tw) / 2, y: y + h - 5, width: tw, height: 10, rx: 1.5 }, g);
+      this.#raise(svgEl("rect", { class: "plabel-bg", x: x + (w - tw) / 2, y: y + h - 5, width: tw, height: 10, rx: 1.5 }, g), "small");
       svgEl("text", { class: "plabel", x: x + w / 2, y: y + h + 2.5, "text-anchor": "middle" }, g).textContent = text;
     }
     this.#pools.push({ dev, g, title, fill, y: y + 1, h: h - 2 });
+    return g;
   }
 
   #drawDisk(parent, { dev, x, y, w, h }, defs) {
@@ -1105,7 +1518,7 @@ class HaHomelabMap extends HTMLElement {
       g.classList.add("clickable");
     }
     const k = w / DISK.size[0];
-    svgEl("rect", { class: "dbody", x, y, width: w, height: h, rx: 2.5 * k }, g);
+    this.#raise(svgEl("rect", { class: "dbody", x, y, width: w, height: h, rx: 2.5 * k }, g), "small");
     const disk = { dev, g, title, temp: null, spin: null };
     if (dev.type === "hdd") {
       if (!this.#platterDef) {
@@ -1140,6 +1553,7 @@ class HaHomelabMap extends HTMLElement {
       disk.temp.style.fontSize = `${size}px`;
     }
     this.#disks.push(disk);
+    return g;
   }
 
   #drawFan(parent, { dev, x, y, w, h }) {
@@ -1151,13 +1565,16 @@ class HaHomelabMap extends HTMLElement {
     const title = svgEl("title", {}, g);
     const holes = [];
     if (dev.type === "fanpanel") {
-      svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
+      this.#raise(svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g));
+      this.#applyTexture(g, dev, x, y, w, h);
+      this.#lift(g, x, y, w, h, BOX_RADIUS);
       const count = dev.count ?? FAN.count;
       const step = w / count;
       const r = Math.max(2, Math.min(h / 2 - 3, step / 2 - 4));
       for (let i = 0; i < count; i++) holes.push([x + step * (i + 0.5), y + h / 2, r]);
     } else {
-      svgEl("rect", { class: "frame", x, y, width: w, height: w, rx: w * 0.08 }, g);
+      this.#raise(svgEl("rect", { class: "frame", x, y, width: w, height: w, rx: w * 0.08 }, g), "small");
+      this.#lift(g, x, y, w, w, w * 0.08);
       const inset = w * 0.11;
       for (const [sx, sy] of [[x + inset, y + inset], [x + w - inset, y + inset], [x + inset, y + w - inset], [x + w - inset, y + w - inset]]) {
         svgEl("circle", { class: "fan-screw", cx: sx, cy: sy, r: w * 0.045 }, g);
@@ -1340,7 +1757,7 @@ class HaHomelabMap extends HTMLElement {
     if (dev.toggle) g.dataset.toggle = dev.toggle;
     else g.dataset.entity = dev.entity;
     const title = svgEl("title", {}, g);
-    const frame = dev.show_border ? svgEl("rect", { class: "bframe", x, y, height: lineH + 2 * pad[1], rx: BOX_RADIUS }, g) : null;
+    const frame = dev.show_border ? this.#raise(svgEl("rect", { class: "bframe", x, y, height: lineH + 2 * pad[1], rx: BOX_RADIUS }, g), "small") : null;
     const content = svgEl("g", {}, g);
     const icon = iconSize ? this.#drawIcon(content, dev.icon, x + pad[0], y + pad[1] + (lineH - iconSize) / 2, iconSize) : null;
     const textX = x + pad[0] + iconSize;
@@ -1360,7 +1777,7 @@ class HaHomelabMap extends HTMLElement {
     }
     const title = svgEl("title", {}, g);
     const r = w / 2;
-    svgEl("circle", { cx: x + r, cy: y + r, r, fill: CHIP.bg }, g);
+    this.#raise(svgEl("circle", { class: "chip-bg", cx: x + r, cy: y + r, r }, g), "small");
     const inner = w * CHIP.inner;
     const at = (w - inner) / 2;
     if (dev.image) svgEl("image", { href: dev.image, x: x + at, y: y + at, width: inner, height: inner }, g);
@@ -1369,14 +1786,14 @@ class HaHomelabMap extends HTMLElement {
     const scx = x + r + r * CHIP.smallAt;
     const scy = y + r + r * CHIP.smallAt;
     if (dev.small_image) {
-      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: sr, fill: CHIP.bg }, g);
+      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: sr }, g);
       svgEl("image", { href: dev.small_image, x: scx - sr * 0.75, y: scy - sr * 0.75, width: sr * 1.5, height: sr * 1.5 }, g);
     }
     let count = null;
     if (dev.small_entity) {
       const cg = svgEl("g", {}, g);
       const cr = w * CHIP.count;
-      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: cr, fill: CHIP.bg }, cg);
+      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: cr }, cg);
       const fs = cr * 1.5;
       const text = svgEl("text", { class: "chip-count", x: scx, y: scy + fs * 0.36, "text-anchor": "middle" }, cg);
       text.style.fontSize = `${fs}px`;
@@ -1538,7 +1955,16 @@ class HaHomelabMap extends HTMLElement {
       ["debug", "Debug", config.debug_toggle],
     ].filter(([, , on]) => on);
     if (toggles.length) {
-      const box = htmlEl("div", "toggles", this.#stage);
+      const box = htmlEl("div", config.toggles_at ? "toggles placed" : "toggles", this.#view);
+      this.#togglesBox = box;
+      const menu = htmlEl("button", "toggle-menu", box);
+      menu.textContent = "⚙";
+      menu.title = "Switches";
+      menu.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        box.classList.toggle("open");
+        this.#placeToggles();
+      });
       for (const [kind, text] of toggles) {
         if (kind !== "debug") this.#animate[kind] = storedOn(TOGGLE_KEYS[kind]);
         const label = htmlEl("label", "toggle", box);
@@ -1623,7 +2049,7 @@ class HaHomelabMap extends HTMLElement {
       path.setAttribute("mask", `url(#${id})`);
     }
     const vlanColors = kind === "data" ? (cfg.vlans || []).map((name) => this.#config.vlans[name]) : [];
-    const colors = kind === "power" ? [POWER_COLOR] : vlanColors.length ? vlanColors : ["var(--primary-color)"];
+    const colors = kind === "power" ? [POWER_COLOR] : vlanColors.length ? vlanColors : ["var(--hhm-accent)"];
     const dashed = vlanColors.length > 0;
     const flow = cfg.flow ? this.#addFlow(d, colors, dashed, kind) : null;
     if (flow) flow.fade = fade;
@@ -1704,7 +2130,7 @@ class HaHomelabMap extends HTMLElement {
     for (const b of badges) {
       svgEl("circle", { cx: b.x, cy: b.y, r: 1.5, fill: "#ff4081" }, layer);
     }
-    const tip = htmlEl("div", "dbg-tip", this.#stage);
+    const tip = htmlEl("div", "dbg-tip", this.#view);
     this.#debugTip = tip;
     svg.addEventListener("mousemove", (ev) => {
       const ctm = svg.getScreenCTM?.();
@@ -1714,7 +2140,7 @@ class HaHomelabMap extends HTMLElement {
       const local = hit ? ` · ${hit.dev.id}: ${Math.round(pt.x - hit.x)}, ${Math.round(pt.y - hit.y)}` : "";
       const item = ev.target?.closest?.("[data-id]")?.dataset.id;
       tip.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}${local}${item ? `\n${item}` : ""}`;
-      const rect = this.#stage.getBoundingClientRect();
+      const rect = this.#view.getBoundingClientRect();
       tip.style.left = `${ev.clientX - rect.left + 12}px`;
       tip.style.top = `${ev.clientY - rect.top + 12}px`;
       tip.style.display = "block";
@@ -1820,22 +2246,37 @@ class HaHomelabMap extends HTMLElement {
     return this.#ctx;
   }
 
+  #placeFx() {
+    if (!this.#canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const stage = this.#stage.getBoundingClientRect();
+    const view = this.#view.getBoundingClientRect();
+    this.#origin = [((stage.left || 0) - (view.left || 0)) * dpr, ((stage.top || 0) - (view.top || 0)) * dpr];
+  }
+
   #resizeFx() {
     if (!this.#canvas || !this.#viewBox) return;
-    const rect = this.#stage.getBoundingClientRect();
+    const view = this.#view.getBoundingClientRect();
+    const stage = this.#stage.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const width = Math.round(rect.width * dpr);
-    const height = Math.round(rect.height * dpr);
-    if (!width || !height) return;
+    const width = Math.round(view.width * dpr);
+    const height = Math.round(view.height * dpr);
+    if (!width || !height || !stage.width) return;
     if (this.#canvas.width !== width) this.#canvas.width = width;
     if (this.#canvas.height !== height) this.#canvas.height = height;
-    this.#scale = (rect.width / this.#viewBox.width) * dpr;
+    this.#scale = (stage.width / this.#viewBox.width) * dpr;
+    this.#placeFx();
+    if (this.#painted) {
+      this.#drawFx();
+      return;
+    }
+    this.#painted = true;
     for (const flow of this.#flows) {
       flow.paint = flow.colors.map((c) => resolveColor(c, this));
       flow.faded = null;
     }
     const background = resolveColor("var(--hhm-bg, #1c1c1c)", this);
-    const grey = resolveColor("var(--secondary-text-color, #9b9b9b)", this);
+    const grey = resolveColor("var(--hhm-text-dim, #9b9b9b)", this);
     this.#ledPaint = { dark: mixColor(grey, background, LED.dark) };
     for (const led of this.#leds) {
       led.off = mixColor(resolveColor(led.color, this), background, LED.dim);
@@ -1889,7 +2330,7 @@ class HaHomelabMap extends HTMLElement {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
     const k = this.#scale;
-    ctx.setTransform(k, 0, 0, k, -this.#viewBox.minX * k, -this.#viewBox.minY * k);
+    ctx.setTransform(k, 0, 0, k, this.#origin[0] - this.#viewBox.minX * k, this.#origin[1] - this.#viewBox.minY * k);
     ctx.lineWidth = FX.lineWidth;
     ctx.lineJoin = "round";
     for (const flow of this.#flows) {

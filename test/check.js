@@ -164,6 +164,17 @@ try {
 expect("debug_toggle not boolean", { items: [], debug_toggle: "yes" }, "debug_toggle: expected true or false");
 expect("animation_toggle not boolean", { items: [], animation_toggle: 1 }, "animation_toggle: expected true or false");
 expect("led caption without size", { items: [{ type: "led", id: "e", at: [0, 0], color: "#fff", caption: "LAN" }] }, "items[0].caption: needs 'size'");
+expect("look bad", { items: [], look: "3d" }, "look: expected one of flat, depth");
+expect("background bad", { items: [], background: "stars" }, "background: expected none, blueprint, pegboard, vignette");
+expect(
+  "texture bad",
+  { items: [D({ texture: "dell" })] },
+  "items[0].texture: expected one of hex, mesh, slots, grille, carbon, ribbed, brushed, glass, tpl, mtk, dll, hpe, unf",
+);
+expect("toggles_at shape", { debug_toggle: true, toggles_at: [10], items: [D()] }, "toggles_at: expected [x, y]");
+expect("toggles_at without switch", { toggles_at: [10, 10], items: [D()] }, "toggles_at: has no effect without a switch");
+expect("texture_opacity without texture", { items: [D({ texture_opacity: 0.5 })] }, "items[0].texture_opacity: has no effect without 'texture'");
+expect("texture_opacity range", { items: [D({ texture: "hex", texture_opacity: 2 })] }, "items[0].texture_opacity: expected a number from 0 to 1");
 expect("font not a name", { items: [], font: 12 }, "font: expected a font family name");
 expect("font with quotes", { items: [], font: 'x"; color: red' }, "font: expected a font family name");
 expect(
@@ -569,6 +580,18 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
   if (got === want) print("ok   fan speed mapping, stopped, no reading, thresholds");
   else {
     print(`FAIL fans: ${got}`);
+    failed++;
+  }
+}
+{
+  const host = readFile(CARD).split("const STYLES = `")[1].split(":host {")[1].split("}")[0];
+  const loops = [...host.matchAll(/(--[\w-]+):\s*([^;]+);/g)].filter(([, name, value]) => value.includes(`var(${name})`) || value.includes(`var(${name},`)).map(
+    ([, name]) => name,
+  );
+  const undefinedRefs = [...host.matchAll(/var\((--hhm-[\w-]+)/g)].map((m) => m[1]).filter((name) => !new RegExp(`^\\s*${name}:`, "m").test(host));
+  if (!loops.length && !undefinedRefs.length) print("ok   :host colour defaults resolve (no self-references)");
+  else {
+    print(`FAIL :host defaults: self ${loops} undefined ${undefinedRefs}`);
     failed++;
   }
 }

@@ -43,12 +43,15 @@ Everything is placed by hand with pixel coordinates. The card does no automatic 
 type: custom:ha-homelab-map
 line_radius: 6            # px, every line corner
 font: JetBrains Mono      # optional; bundled; falls back to the theme font
+look: depth               # optional; flat (default) | depth = subtle shadows and relief
+background: blueprint     # optional; none | blueprint | pegboard | vignette | "#rrggbb" | image URL (/local/…)
 vlans: {LAN: "#6c9cda", IoT: "#66b771"}   # name → colour, used by datalines and LEDs
 scale: 1                  # or fit_viewport: true (fills window height; scale ignored)
-vlan_toggle: true         # optional switches in the top-left corner
+vlan_toggle: true         # optional switches on a panel in the top-right corner (⚙ button below 520 px)
 power_toggle: true
 animation_toggle: true    # off = cables, LEDs and disks freeze; chip rings stay lit (red wins over green)
 debug_toggle: true
+toggles_at: [860, 20]     # optional; top-left corner of the switches panel in map px (default: top-right corner); needs a switch
 debug: false              # overlay; with debug_toggle = starting position
 items: []                 # required
 datalines: []
@@ -60,8 +63,8 @@ powerlines: []
 | type | Keys (`id` and `type` always) | Notes |
 | --- | --- | --- |
 | `rack` | `at`, `units`, `items` | 347 px wide, `20 + units × 32` px tall |
-| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `items` | inside a rack only; no `at` |
-| `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `items` | |
+| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at` |
+| `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
 | `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
 | `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
 | `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both |
@@ -72,11 +75,13 @@ powerlines: []
 | `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
 | `hdd` / `ssd` | `at`, `size` (default `[27, 36]`), `temperature`, `status_entity`, `status_map`, `thresholds` | disk: temperature at the bottom (`41°`, coloured by `thresholds`), status LED top-right (green/orange/red); an HDD's platter spins unless its status is down, an SSD shows a chip board |
 | `bay` | `at`, `size` | empty drive bay, dashed outline |
-| `fanpanel` | `u`, `units` (default 2), `count` (default 4), `entity`, `range`, `thresholds` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
+| `fanpanel` | `u`, `units` (default 2), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
 | `fan` | `at`, `size` (square side, default 24), `entity`, `range`, `thresholds` | a single fan placed anywhere, drawn as a square chassis with 4 corner screw holes |
 | `port` | `at` (relative to its `ports`), `entity`, `speed` (overrides the container's) | white = up at expected speed or faster, orange = slower, dimmed = no link; `icon` comes from the container only |
 
 **Port colours:** white = active (link at the expected speed or faster), orange = warn (slower, or half duplex when the other end could do full duplex – a device that only supports half duplex is fine), dimmed = no link on a port with no cable on the map, **red = fault** (no link on a port where a map cable ends – a cable is expected – or an SFP fault), **crossed-out** = disabled. Port entities, best first: the MikroTik integration's `binary_sensor.<device>_<iface>_connection` (its `enabled`, `status`, `rate`, `full_duplex` and SFP attributes give all five states); a speed text (`1Gbps`, `100Mbps`, `10 Gbit/s`) or a bare number (read in the entity's unit, or Mbps); an on/off entity. For other devices put a `states` map on the `ports` container – state → `active` | `warn` | `inactive` | `fault` | `disabled`, case-insensitive – e.g. NVR channels `{recording: active, online: warn, offline: fault, empty: inactive}`; states not in the map fall back to the rules above.
+
+**Textures** (`device`, `rackdevice`, `fanpanel`): `texture` puts a faint pattern on the whole front, under the content – `hex`, `mesh`, `slots`, `grille`, `carbon`, `ribbed`, `brushed`, `glass`, or vendor-inspired `tpl` (TP-Link Omada), `mtk` (MikroTik), `unf` (UniFi), `dll` (Dell), `hpe` (HPE), which add a tint and a coloured line along the bottom (no logos). `texture_opacity` (0–1, default 1) needs `texture`. Purely decorative – don't use it to show status.
 
 **Badge thresholds** – the one way to flag a problem value: `thresholds: [{above: 70, color: orange}, {above: 85, color: red}]` or `{below: 20, color: red}`. Reached means equal or beyond; when several are reached the last one in the list wins (list mild → severe); `above` and `below` can be mixed. The icon and value text take the colour; nothing blinks or hides. Colours: `red`, `orange`, `green` (theme error/warning/success), `yellow`, or any CSS colour. Compared against the raw entity number in its own unit; non-numeric or unavailable states are never coloured. Don't put thresholds on values that are normally at their limit (an NVR disk is always ~100 % full).
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.102.0 – unreleased
+
+- `look: depth` – optional subtle 3D: soft shadows, lifted frames, metallic rack rails.
+- `background` – `blueprint`, `pegboard`, `vignette`, a colour or an image URL behind the map.
+- Pan & zoom – pinch, ctrl/⌘ + wheel, trackpad pinch or double-tap to zoom (up to 4 screen px per map px), drag to move, ⤢ to reset.
+- Device textures – `texture` and `texture_opacity` on devices, rackdevices and fan panels: `hex`, `mesh`, `slots`, `grille`, `carbon`, `ribbed`, `brushed`, `glass`, and vendor-inspired `tpl`, `mtk`, `unf`, `dll`, `hpe`.
+- The switches moved to a panel in the top-right corner; on screens narrower than 520 px they fold into a ⚙ button. `toggles_at: [x, y]` places the panel anywhere on the map.
+- Colours are taken from the Home Assistant theme in one place.
+
 ## 0.101.0 – alpha
 
 First full (non-pre-release) GitHub release, so HACS lists it without "Show beta versions". Same features as 0.100.0.
