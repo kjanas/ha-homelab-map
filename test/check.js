@@ -912,7 +912,8 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
   nc.hass = { states: { "sensor.used": { entity_id: "sensor.used", state: "", attributes: {} }, "sensor.temp": { entity_id: "sensor.temp", state: "", attributes: {} } } };
   const titles = nc.shadowRoot.querySelectorAll("title").map((t) => t.textContent).join(" | ");
   const temps = nc.shadowRoot.querySelectorAll("text").map((t) => t.textContent).join(" ");
-  if (titles.includes("usage —") && titles.includes("temperature —") && temps.includes("—") && !temps.includes("0°")) print("ok   empty states show — instead of 0");
+  const hatched = nc.shadowRoot.querySelectorAll("g").some((g) => /\bpool\b/.test(g.attrs.class || "") && /\bnodata\b/.test(g.attrs.class));
+  if (hatched && titles.includes("usage —") && titles.includes("temperature —") && temps.includes("—") && !temps.includes("0°")) print("ok   empty states show — instead of 0");
   else {
     print(`FAIL empty states: ${titles} / ${temps}`);
     failed++;

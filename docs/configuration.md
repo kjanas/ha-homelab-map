@@ -629,7 +629,7 @@ A `pool` is a container placed by hand around its disks:
 | --- | --- |
 | `at`, `size` | Top-left corner and `[width, height]` |
 | `label` | Text on a tag centred on the bottom edge (it sticks out 5 px below) |
-| `usage_entity` | % used – shown as a fill rising from the bottom. Click opens it |
+| `usage_entity` | % used – shown as a fill rising from the bottom; hatched while the entity is unavailable, unknown or missing. Click opens it |
 | `thresholds` | Colour of the fill – see [thresholds](#thresholds) |
 | `status_entity`, `status_map` | Outline colour, as for [devices](#device-status), e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}` |
 | `items` | `hdd`, `ssd` and `bay` |

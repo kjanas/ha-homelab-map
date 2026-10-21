@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.37";
+const VERSION = "0.101.38";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -254,6 +254,9 @@ const STYLES = `
   .port.slow .mdi { fill: var(--warning-color, #ffa600); }
   .port.fault .mdi { fill: var(--error-color, #db4437); }
   .pool .pfill { fill: color-mix(in srgb, var(--hhm-text-dim) 22%, var(--hhm-bg)); }
+  .pool .phatch { display: none; }
+  .pool.nodata .phatch { display: inline; }
+  .hatch-line { stroke: color-mix(in srgb, var(--hhm-text-dim) 30%, var(--hhm-bg)); stroke-width: 1.5; }
   .pool .pbox { fill: none; stroke: var(--hhm-frame-border); stroke-width: 1.2; transition: stroke .3s; }
   .pool.warn .pbox { stroke: var(--warning-color, #ffa600); }
   .pool.down .pbox { stroke: var(--error-color, #db4437); }
@@ -1434,6 +1437,8 @@ class HaHomelabMap extends HTMLElement {
     this.#fit();
 
     const defs = svgEl("defs", {}, svg);
+    const hatch = svgEl("pattern", { id: "hhm-hatch", width: 5, height: 5, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+    svgEl("line", { class: "hatch-line", x1: 0, y1: 0, x2: 0, y2: 5 }, hatch);
     this.#defs = defs;
     this.#textures = new Set();
     this.#deep = config.look === "depth";
@@ -1649,6 +1654,7 @@ class HaHomelabMap extends HTMLElement {
     }
     const title = svgEl("title", {}, g);
     const fill = dev.usage_entity ? svgEl("rect", { class: "pfill", x: x + 1, y: y + h - 1, width: Math.max(0, w - 2), height: 0, rx: 2 }, g) : null;
+    if (fill) svgEl("rect", { class: "phatch", x: x + 1, y: y + 1, width: Math.max(0, w - 2), height: Math.max(0, h - 2), rx: 2, fill: "url(#hhm-hatch)" }, g);
     svgEl("rect", { class: "pbox", x, y, width: w, height: h, rx: 3 }, g);
     if (dev.label !== undefined && dev.label !== "") {
       const text = String(dev.label);
@@ -1782,7 +1788,8 @@ class HaHomelabMap extends HTMLElement {
       const hit = this.#threshold(dev, usage);
       const color = hit ? `color-mix(in srgb, ${thresholdColor(hit)} 55%, var(--hhm-bg))` : "";
       if (pool.fill.style.fill !== color) pool.fill.style.fill = color;
-      parts.push(Number.isFinite(used) ? `${Math.round(used)}% used` : "usage —");
+      pool.g.classList.toggle("nodata", !Number.isFinite(used));
+      parts.push(Number.isFinite(used) ? `${Math.round(used)}% used` : "usage — (no data)");
     }
     if (dev.status_entity) {
       const status = this.#frameStatus(dev);

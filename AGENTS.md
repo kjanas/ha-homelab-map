@@ -72,7 +72,7 @@ powerlines: []
 | `label` | `at`, `text`, `size` (default 10), `bold`, `color` (`primary` default, `secondary`, or a colour), `vertical` | not clickable |
 | `group` | `at`, `items` | invisible; shown/hidden by a badge with `toggle` |
 | `ports` | `at`, `size` (icon px, default 12), `speed` (expected link speed, default `1Gbps`), `icon` (default `mdi:ethernet`), `states`, `items` | container for `port` items |
-| `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
+| `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`; hatched when the usage entity has no data), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
 | `hdd` / `ssd` | `at`, `size` (default `[27, 36]`), `temperature`, `status_entity`, `status_map`, `thresholds` | disk: temperature at the bottom (`41°`, coloured by `thresholds`), status LED top-right (green/orange/red); an HDD's platter spins unless its status is down, an SSD shows a chip board |
 | `bay` | `at`, `size` | empty drive bay, dashed outline |
 | `fanpanel` | `u`, `units` (default 2), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
