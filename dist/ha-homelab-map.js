@@ -563,6 +563,67 @@ const resolveColor = (value, host) => {
 
 const themeKey = (hass) => JSON.stringify([hass?.themes?.darkMode, hass?.themes?.theme, hass?.selectedTheme]);
 
+const mapBounds = ({ boxes, ports, labels, storage, fans, chips, badges, lines }) => {
+  const xs = [];
+  const ys = [];
+  for (const b of boxes) {
+    xs.push(b.x, b.x + b.w);
+    ys.push(b.y, b.y + b.h);
+    if (b.dev.type === "rack") xs.push(b.x - 20);
+  }
+  for (const p of ports) {
+    xs.push(p.x, p.x + p.w);
+    ys.push(p.y, p.y + p.h);
+  }
+  for (const l of labels) {
+    xs.push(l.x, l.x + (l.dev.vertical ? l.h : l.w));
+    ys.push(l.y, l.y + (l.dev.vertical ? l.w : l.h));
+  }
+  for (const b of [...storage, ...fans]) {
+    xs.push(b.x, b.x + b.w);
+    ys.push(b.y, b.y + b.h + 5);
+  }
+  for (const c of chips) {
+    xs.push(c.x - 2, c.x + c.w + 2);
+    ys.push(c.y - 2, c.y + c.h + 2);
+  }
+  for (const b of badges) {
+    xs.push(b.x, b.x + 40);
+    ys.push(b.y, b.y + 16);
+  }
+  for (const line of lines) {
+    line.pts.forEach(([x, y], i) => {
+      if (line.open && i === line.open[0]) return;
+      xs.push(x);
+      ys.push(y);
+    });
+  }
+  if (!xs.length) xs.push(0);
+  if (!ys.length) ys.push(0);
+  const m = DEFAULTS.margin;
+  const minX = Math.min(...xs) - m;
+  const minY = Math.min(...ys) - m;
+  const width = Math.max(...xs) + m - minX;
+  const height = Math.max(...ys) + m - minY;
+  return { minX, minY, width, height };
+};
+
+const clipOpenEnds = (lines, { minX, minY, width, height }) => {
+  for (const line of lines) {
+    if (!line.open) continue;
+    const [tip, inner] = line.open;
+    const [ax, ay] = line.pts[inner];
+    const [bx, by] = line.pts[tip];
+    let t = 1;
+    for (const [a, b, lo, hi] of [[ax, bx, minX, minX + width], [ay, by, minY, minY + height]]) {
+      if (b < lo && b !== a) t = Math.min(t, (lo - a) / (b - a));
+      if (b > hi && b !== a) t = Math.min(t, (hi - a) / (b - a));
+    }
+    line.pts[tip] = [ax + (bx - ax) * Math.max(0, t), ay + (by - ay) * Math.max(0, t)];
+    line.fade = fadeBand(line.pts[inner], line.pts[tip]);
+  }
+};
+
 let motionQuery;
 const reducedMotion = () => {
   if (motionQuery === undefined) motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
@@ -609,6 +670,139 @@ const validateThresholds = (list, path) => {
   });
 };
 
+const checkRack = (item, path) => {
+  if (!(Number.isInteger(item.units) && item.units >= 1)) fail(`${path}.units`, "expected a whole number of U");
+};
+
+const checkDevice = (item, path) => {
+  if (!isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
+};
+
+const checkEndpoint = (item, path) => {
+  if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:television");
+};
+
+const checkRackUnits = (item, path, ctx, parent) => {
+  const units = item.units ?? (item.type === "fanpanel" ? FAN.units : 1);
+  if (!Number.isInteger(item.u) || item.u < 1) fail(`${path}.u`, "expected a whole number from 1");
+  if (!Number.isInteger(units) || units < 1) fail(`${path}.units`, "expected a whole number from 1");
+  if (item.u + units - 1 > parent.units) fail(`${path}.u`, `U${item.u}–U${item.u + units - 1} does not fit in the ${parent.units}U rack '${parent.id}'`);
+};
+
+const checkFan = (item, path) => {
+  if (item.type === "fanpanel" && item.count !== undefined && !(Number.isInteger(item.count) && item.count >= 1)) {
+    fail(`${path}.count`, "expected a whole number from 1");
+  }
+  if (item.type === "fan" && item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a size in px");
+  if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  if (item.range !== undefined && !(Array.isArray(item.range) && item.range.length === 2 && item.range.every(isNum) && item.range[0] !== item.range[1])) {
+    fail(`${path}.range`, "expected [slow, fast] – two different numbers such as [27, 35]");
+  }
+  if (item.range !== undefined && item.entity === undefined) fail(`${path}.range`, "has no effect without 'entity'");
+  if (item.thresholds !== undefined && item.entity === undefined) fail(`${path}.thresholds`, "has no effect without 'entity'");
+};
+
+const checkBadge = (item, path) => {
+  if (!isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  if (!("icon" in item)) fail(`${path}.icon`, "required – an mdi icon such as mdi:thermometer, or none");
+  if (!HIDDEN(item.icon) && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:thermometer, or none");
+  if (item.units !== undefined && item.units !== true && !HIDDEN(item.units) && typeof item.units !== "string") {
+    fail(`${path}.units`, "expected true, none or your own text");
+  }
+  if (item.decimals !== undefined && !(Number.isInteger(item.decimals) && item.decimals >= 0)) fail(`${path}.decimals`, "expected a whole number from 0");
+  if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a font size in px");
+  if (item.show_border !== undefined && typeof item.show_border !== "boolean") fail(`${path}.show_border`, "expected true or false");
+};
+
+const checkLabel = (item, path) => {
+  if (typeof item.text !== "string" && typeof item.text !== "number") fail(`${path}.text`, "required – the text to show");
+  if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a font size in px");
+  if (item.color !== undefined && !own(LABEL.colors, item.color) && !isCssColor(item.color)) fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
+  for (const key of ["bold", "vertical"]) if (item[key] !== undefined && typeof item[key] !== "boolean") fail(`${path}.${key}`, "expected true or false");
+};
+
+const checkLed = (item, path, ctx) => {
+  if (item.size !== undefined && !isBox(item.size)) fail(`${path}.size`, "expected [width, height] in px");
+  if (Boolean(item.vlan) === Boolean(item.color)) fail(path, "a led needs either 'vlan' or 'color'");
+  if (item.caption !== undefined) {
+    if (typeof item.caption !== "string" && typeof item.caption !== "number") fail(`${path}.caption`, "expected a text");
+    if (item.size === undefined) fail(`${path}.caption`, "needs 'size' – captions are shown only on LEDs with an explicit size");
+  }
+  if (item.vlan !== undefined && !own(ctx.vlans, item.vlan)) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
+  if (item.color !== undefined && !isCssColor(item.color)) fail(`${path}.color`, 'expected a colour such as "#66b771"');
+  if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  if (item.effect !== undefined && !LED.effects.includes(item.effect)) fail(`${path}.effect`, `expected one of ${LED.effects.join(", ")}`);
+};
+
+const checkPool = (item, path) => {
+  if (!isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
+  if (item.label !== undefined && typeof item.label !== "string" && typeof item.label !== "number") fail(`${path}.label`, "expected a text");
+  if (item.usage_entity !== undefined && !isEntity(item.usage_entity)) fail(`${path}.usage_entity`, "expected an entity id");
+  if (item.thresholds !== undefined && item.usage_entity === undefined) fail(`${path}.thresholds`, "has no effect without 'usage_entity'");
+};
+
+const checkDisk = (item, path) => {
+  if (item.size !== undefined && !isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
+  if (item.temperature !== undefined && !isEntity(item.temperature)) fail(`${path}.temperature`, "expected an entity id");
+  if (item.thresholds !== undefined && item.temperature === undefined) fail(`${path}.thresholds`, "has no effect without 'temperature'");
+};
+
+const checkChip = (item, path) => {
+  if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a diameter in px");
+  if (Boolean(item.icon) === Boolean(item.image)) fail(path, "a chip needs either 'icon' or 'image'");
+  if (item.image !== undefined && !isImageUrl(item.image)) fail(`${path}.image`, "expected an image URL starting with / or http(s)://");
+  if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:docker");
+  if (item.small_image !== undefined && !isImageUrl(item.small_image)) fail(`${path}.small_image`, "expected an image URL starting with / or http(s)://");
+  if (item.small_image !== undefined && item.small_entity !== undefined) fail(path, "a chip can have 'small_image' or 'small_entity', not both");
+  for (const key of ["small_entity", "status_entity", "update_entity"]) {
+    if (item[key] !== undefined && !isEntity(item[key])) fail(`${path}.${key}`, "expected an entity id");
+  }
+  if (item.url !== undefined && !isLink(item.url)) fail(`${path}.url`, "expected a link; javascript:, data:, vbscript: and file: are not allowed");
+};
+
+const checkPorts = (item, path) => {
+  if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected an icon size in px");
+  if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:ethernet");
+  if (item.states !== undefined) {
+    if (!item.states || typeof item.states !== "object" || Array.isArray(item.states)) {
+      fail(`${path}.states`, "expected a map of state: active | warn | inactive | fault | disabled");
+    }
+    for (const [key, value] of Object.entries(item.states)) {
+      if (!PORT.states.includes(value)) fail(`${path}.states.${key}`, `expected one of ${PORT.states.join(", ")}`);
+    }
+  }
+};
+
+const checkSpeed = (item, path) => {
+  if (item.speed !== undefined && Number.isNaN(parseSpeed(item.speed))) {
+  fail(`${path}.speed`, "expected a link speed such as 1Gbps, 2.5Gbps or 100Mbps");
+  }
+};
+
+const checkPort = (item, path, ctx) => {
+  if (!isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  ctx.ports.add(item.id);
+};
+
+const ITEM_CHECKS = {
+  rack: [checkRack],
+  device: [checkDevice],
+  endpoint: [checkEndpoint],
+  rackdevice: [checkRackUnits],
+  fanpanel: [checkRackUnits, checkFan],
+  fan: [checkFan],
+  badge: [checkBadge],
+  label: [checkLabel],
+  led: [checkLed],
+  pool: [checkPool],
+  hdd: [checkDisk],
+  ssd: [checkDisk],
+  bay: [checkDisk],
+  chip: [checkChip],
+  ports: [checkPorts, checkSpeed],
+  port: [checkSpeed, checkPort],
+};
+
 const validateItem = (item, path, parent, ctx) => {
   if (!item || typeof item !== "object") fail(path, "expected an item");
   const parentType = parent ? parent.type : "top";
@@ -627,58 +821,7 @@ const validateItem = (item, path, parent, ctx) => {
   if (ctx.ids.has(item.id)) fail(`${path}.id`, `duplicate id '${item.id}'`);
   ctx.ids.add(item.id);
   if (!["rackdevice", "fanpanel"].includes(item.type) && !isPair(item.at)) fail(`${path}.at`, "expected [x, y]");
-  if (item.type === "rack" && !(Number.isInteger(item.units) && item.units >= 1)) fail(`${path}.units`, "expected a whole number of U");
-  if (item.type === "device" && !isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
-  if (item.type === "endpoint") {
-    if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:television");
-  }
-  if (item.type === "rackdevice" || item.type === "fanpanel") {
-    const units = item.units ?? (item.type === "fanpanel" ? FAN.units : 1);
-    if (!Number.isInteger(item.u) || item.u < 1) fail(`${path}.u`, "expected a whole number from 1");
-    if (!Number.isInteger(units) || units < 1) fail(`${path}.units`, "expected a whole number from 1");
-    if (item.u + units - 1 > parent.units) fail(`${path}.u`, `U${item.u}–U${item.u + units - 1} does not fit in the ${parent.units}U rack '${parent.id}'`);
-  }
-  if (item.type === "fanpanel" || item.type === "fan") {
-    if (item.type === "fanpanel" && item.count !== undefined && !(Number.isInteger(item.count) && item.count >= 1)) {
-      fail(`${path}.count`, "expected a whole number from 1");
-    }
-    if (item.type === "fan" && item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a size in px");
-    if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
-    if (item.range !== undefined && !(Array.isArray(item.range) && item.range.length === 2 && item.range.every(isNum) && item.range[0] !== item.range[1])) {
-      fail(`${path}.range`, "expected [slow, fast] – two different numbers such as [27, 35]");
-    }
-    if (item.range !== undefined && item.entity === undefined) fail(`${path}.range`, "has no effect without 'entity'");
-    if (item.thresholds !== undefined && item.entity === undefined) fail(`${path}.thresholds`, "has no effect without 'entity'");
-  }
-  if (item.type === "badge") {
-    if (!isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
-    if (!("icon" in item)) fail(`${path}.icon`, "required – an mdi icon such as mdi:thermometer, or none");
-    if (!HIDDEN(item.icon) && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:thermometer, or none");
-    if (item.units !== undefined && item.units !== true && !HIDDEN(item.units) && typeof item.units !== "string") {
-      fail(`${path}.units`, "expected true, none or your own text");
-    }
-    if (item.decimals !== undefined && !(Number.isInteger(item.decimals) && item.decimals >= 0)) fail(`${path}.decimals`, "expected a whole number from 0");
-    if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a font size in px");
-    if (item.show_border !== undefined && typeof item.show_border !== "boolean") fail(`${path}.show_border`, "expected true or false");
-  }
-  if (item.type === "label") {
-    if (typeof item.text !== "string" && typeof item.text !== "number") fail(`${path}.text`, "required – the text to show");
-    if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a font size in px");
-    if (item.color !== undefined && !own(LABEL.colors, item.color) && !isCssColor(item.color)) fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
-    for (const key of ["bold", "vertical"]) if (item[key] !== undefined && typeof item[key] !== "boolean") fail(`${path}.${key}`, "expected true or false");
-  }
-  if (item.type === "led") {
-    if (item.size !== undefined && !isBox(item.size)) fail(`${path}.size`, "expected [width, height] in px");
-    if (Boolean(item.vlan) === Boolean(item.color)) fail(path, "a led needs either 'vlan' or 'color'");
-    if (item.caption !== undefined) {
-      if (typeof item.caption !== "string" && typeof item.caption !== "number") fail(`${path}.caption`, "expected a text");
-      if (item.size === undefined) fail(`${path}.caption`, "needs 'size' – captions are shown only on LEDs with an explicit size");
-    }
-    if (item.vlan !== undefined && !own(ctx.vlans, item.vlan)) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
-    if (item.color !== undefined && !isCssColor(item.color)) fail(`${path}.color`, 'expected a colour such as "#66b771"');
-    if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
-    if (item.effect !== undefined && !LED.effects.includes(item.effect)) fail(`${path}.effect`, `expected one of ${LED.effects.join(", ")}`);
-  }
+  for (const check of own(ITEM_CHECKS, item.type) ?? []) check(item, path, ctx, parent);
   if (["device", "rackdevice", "pool", "hdd", "ssd"].includes(item.type)) validateStatus(item, path);
   if (item.texture !== undefined && !own(TEXTURES, item.texture)) fail(`${path}.texture`, `expected one of ${Object.keys(TEXTURES).join(", ")}`);
   if (item.texture_opacity !== undefined) {
@@ -687,53 +830,11 @@ const validateItem = (item, path, parent, ctx) => {
     }
     if (item.texture === undefined) fail(`${path}.texture_opacity`, "has no effect without 'texture'");
   }
-  if (item.type === "pool") {
-    if (!isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
-    if (item.label !== undefined && typeof item.label !== "string" && typeof item.label !== "number") fail(`${path}.label`, "expected a text");
-    if (item.usage_entity !== undefined && !isEntity(item.usage_entity)) fail(`${path}.usage_entity`, "expected an entity id");
-    if (item.thresholds !== undefined && item.usage_entity === undefined) fail(`${path}.thresholds`, "has no effect without 'usage_entity'");
-  }
-  if (DISK.types.includes(item.type)) {
-    if (item.size !== undefined && !isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
-    if (item.temperature !== undefined && !isEntity(item.temperature)) fail(`${path}.temperature`, "expected an entity id");
-    if (item.thresholds !== undefined && item.temperature === undefined) fail(`${path}.thresholds`, "has no effect without 'temperature'");
-  }
   if (["badge", "pool", "hdd", "ssd", "fanpanel", "fan"].includes(item.type) && item.thresholds !== undefined) {
     validateThresholds(item.thresholds, `${path}.thresholds`);
   }
-  if (item.type === "chip") {
-    if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a diameter in px");
-    if (Boolean(item.icon) === Boolean(item.image)) fail(path, "a chip needs either 'icon' or 'image'");
-    if (item.image !== undefined && !isImageUrl(item.image)) fail(`${path}.image`, "expected an image URL starting with / or http(s)://");
-    if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:docker");
-    if (item.small_image !== undefined && !isImageUrl(item.small_image)) fail(`${path}.small_image`, "expected an image URL starting with / or http(s)://");
-    if (item.small_image !== undefined && item.small_entity !== undefined) fail(path, "a chip can have 'small_image' or 'small_entity', not both");
-    for (const key of ["small_entity", "status_entity", "update_entity"]) {
-      if (item[key] !== undefined && !isEntity(item[key])) fail(`${path}.${key}`, "expected an entity id");
-    }
-    if (item.url !== undefined && !isLink(item.url)) fail(`${path}.url`, "expected a link; javascript:, data:, vbscript: and file: are not allowed");
-  }
   if (item.type === "badge" && item.toggle !== undefined) ctx.toggles.push({ path: `${path}.toggle`, id: item.toggle });
   if (item.type === "group") ctx.groups.add(item.id);
-  if (item.type === "ports") {
-    if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected an icon size in px");
-    if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:ethernet");
-    if (item.states !== undefined) {
-      if (!item.states || typeof item.states !== "object" || Array.isArray(item.states)) {
-        fail(`${path}.states`, "expected a map of state: active | warn | inactive | fault | disabled");
-      }
-      for (const [key, value] of Object.entries(item.states)) {
-        if (!PORT.states.includes(value)) fail(`${path}.states.${key}`, `expected one of ${PORT.states.join(", ")}`);
-      }
-    }
-  }
-  if ((item.type === "ports" || item.type === "port") && item.speed !== undefined && Number.isNaN(parseSpeed(item.speed))) {
-    fail(`${path}.speed`, "expected a link speed such as 1Gbps, 2.5Gbps or 100Mbps");
-  }
-  if (item.type === "port") {
-    if (!isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
-    ctx.ports.add(item.id);
-  }
   if (DEVICE_TYPES.includes(item.type)) ctx.devices.add(item.id);
   if (item.items !== undefined) {
     if (!Array.isArray(item.items)) fail(`${path}.items`, "expected a list");
@@ -1318,6 +1419,20 @@ class HaHomelabMap extends HTMLElement {
 
   #build() {
     const config = this.#config;
+    const parts = this.#placeAll(config);
+    const viewBox = mapBounds({ boxes: this.#boxes, ...parts });
+    clipOpenEnds(parts.lines, viewBox);
+    const svg = this.#resetStage(viewBox);
+    this.#drawMap(config, svg, parts);
+    this.#trackDependencies();
+    this.#built = true;
+    this.#painted = false;
+    this.#resizeFx();
+    this.#applyVisibility();
+    this.#onResize();
+  }
+
+  #placeAll(config) {
     const placed = placeItems(config.items, [0, 0], []);
     this.#boxes = placed.filter((p) => DEVICE_TYPES.includes(p.dev.type));
     const chips = placed.filter((p) => p.dev.type === "chip");
@@ -1346,62 +1461,11 @@ class HaHomelabMap extends HTMLElement {
       const n = line.pts.length;
       line.open = openEnd ? [n - 1, n - 2] : openStart ? [0, 1] : null;
     }
+    return { chips, storage, fans, leds, labels, ports, portParent, badges, lines };
+  }
 
-    const xs = [];
-    const ys = [];
-    for (const b of this.#boxes) {
-      xs.push(b.x, b.x + b.w);
-      ys.push(b.y, b.y + b.h);
-      if (b.dev.type === "rack") xs.push(b.x - 20);
-    }
-    for (const p of ports) {
-      xs.push(p.x, p.x + p.w);
-      ys.push(p.y, p.y + p.h);
-    }
-    for (const l of labels) {
-      xs.push(l.x, l.x + (l.dev.vertical ? l.h : l.w));
-      ys.push(l.y, l.y + (l.dev.vertical ? l.w : l.h));
-    }
-    for (const b of [...storage, ...fans]) {
-      xs.push(b.x, b.x + b.w);
-      ys.push(b.y, b.y + b.h + 5);
-    }
-    for (const c of chips) {
-      xs.push(c.x - 2, c.x + c.w + 2);
-      ys.push(c.y - 2, c.y + c.h + 2);
-    }
-    for (const b of badges) {
-      xs.push(b.x, b.x + 40);
-      ys.push(b.y, b.y + 16);
-    }
-    for (const line of lines) {
-      line.pts.forEach(([x, y], i) => {
-        if (line.open && i === line.open[0]) return;
-        xs.push(x);
-        ys.push(y);
-      });
-    }
-    if (!xs.length) xs.push(0);
-    if (!ys.length) ys.push(0);
-    const m = DEFAULTS.margin;
-    const minX = Math.min(...xs) - m;
-    const minY = Math.min(...ys) - m;
-    const width = Math.max(...xs) + m - minX;
-    const height = Math.max(...ys) + m - minY;
-    for (const line of lines) {
-      if (!line.open) continue;
-      const [tip, inner] = line.open;
-      const [ax, ay] = line.pts[inner];
-      const [bx, by] = line.pts[tip];
-      let t = 1;
-      for (const [a, b, lo, hi] of [[ax, bx, minX, minX + width], [ay, by, minY, minY + height]]) {
-        if (b < lo && b !== a) t = Math.min(t, (lo - a) / (b - a));
-        if (b > hi && b !== a) t = Math.min(t, (hi - a) / (b - a));
-      }
-      line.pts[tip] = [ax + (bx - ax) * Math.max(0, t), ay + (by - ay) * Math.max(0, t)];
-      line.fade = fadeBand(line.pts[inner], line.pts[tip]);
-    }
-
+  #resetStage(viewBox) {
+    const { minX, minY, width, height } = viewBox;
     this.#stage.replaceChildren();
     for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
     this.#painted = false;
@@ -1411,7 +1475,7 @@ class HaHomelabMap extends HTMLElement {
     this.#canvas = htmlEl("canvas", "fx", this.#view);
     this.#ctx = null;
     this.#svg = svg;
-    this.#viewBox = { minX, minY, width, height };
+    this.#viewBox = viewBox;
     this.#flows = [];
     this.#lines = [];
     this.#rates = [];
@@ -1427,7 +1491,10 @@ class HaHomelabMap extends HTMLElement {
     this.#platterDef = false;
     this.#drawToggles();
     this.#fit();
+    return svg;
+  }
 
+  #drawMap(config, svg, { chips, storage, fans, leds, labels, ports, portParent, badges, lines }) {
     const defs = svgEl("defs", {}, svg);
     const hatch = svgEl("pattern", { id: "hhm-hatch", width: 5, height: 5, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
     svgEl("line", { class: "hatch-line", x1: 0, y1: 0, x2: 0, y2: 5 }, hatch);
@@ -1461,7 +1528,9 @@ class HaHomelabMap extends HTMLElement {
     this.#debugTip = null;
     if (config.debug || config.debug_toggle) this.#drawDebug(svg, defs, badges, [...storage, ...fans]);
     this.#applyDebug();
+  }
 
+  #trackDependencies() {
     this.#deps = new Map();
     const depend = (ids, update) => {
       for (const id of ids) {
@@ -1480,11 +1549,6 @@ class HaHomelabMap extends HTMLElement {
     for (const disk of this.#disks) depend([disk.dev.temperature, disk.dev.status_entity], () => this.#updateDisk(disk));
     for (const fan of this.#fans) depend([fan.dev.entity], () => this.#updateFan(fan));
     for (const line of this.#lines) depend([line.cfg.rx, line.cfg.tx, isEntity(line.cfg.status) ? line.cfg.status : null], () => this.#updateLine(line));
-    this.#built = true;
-    this.#painted = false;
-    this.#resizeFx();
-    this.#applyVisibility();
-    this.#onResize();
   }
 
   #drawBackground(svg, defs, kind) {
