@@ -1,0 +1,1 @@
+{"sensor.router_cpu": {"state": "12", "attributes": {"unit_of_measurement": "%"}}, "sensor.router_temperature": {"state": "41.0", "attributes": {"unit_of_measurement": "°C"}}, "sensor.ap_clients": {"state": "9", "attributes": {}}}

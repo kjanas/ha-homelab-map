@@ -4,12 +4,14 @@
 
 - [The basics](#the-basics)
 - [Card options](#card-options)
-- [Items](#items): [rack](#rack), [rackdevice](#rackdevice), [device](#device), [endpoint](#endpoint), [device status](#device-status), [badge](#badge), [thresholds](#thresholds), [chip](#chip), [led](#led), [label](#label), [group](#group), [ports and port](#ports-and-port), [pool, hdd, ssd, bay](#pool-hdd-ssd-bay), [fanpanel and fan](#fanpanel-and-fan)
+- [Items](#items): [rack](#rack), [rackdevice](#rackdevice), [device](#device), [endpoint](#endpoint), [device status](#device-status), [textures](#textures), [badge](#badge), [thresholds](#thresholds), [chip](#chip), [led](#led), [label](#label), [group](#group), [ports and port](#ports-and-port), [pool, hdd, ssd, bay](#pool-hdd-ssd-bay), [fanpanel and fan](#fanpanel-and-fan)
 - [Lines](#lines): [where a line starts and ends](#where-a-line-starts-and-ends), [points](#points), [line_radius](#line_radius), [open ends](#open-ends)
 - [Datalines](#datalines): [vlans](#vlans), [flow](#flow), [status](#status), [rx and tx](#rx-and-tx), [rates](#rates)
 - [Powerlines](#powerlines)
 - [Switches](#switches)
+- [Pan and zoom](#pan-and-zoom)
 - [Font](#font)
+- [background](#background)
 - [debug](#debug)
 - [Errors](#errors)
 
@@ -36,6 +38,7 @@ Some screenshots below have `debug: true` turned on, which draws the coordinate 
 ```yaml
 type: custom:ha-homelab-map
 font: JetBrains Mono
+background: blueprint
 line_radius: 6
 vlans:
   LAN: "#6c9cda"
@@ -46,6 +49,7 @@ vlan_toggle: true
 power_toggle: true
 animation_toggle: true
 debug_toggle: true
+toggles_at: [860, 20]
 debug: false
 items: []
 datalines: []
@@ -59,13 +63,19 @@ powerlines: []
 | `powerlines` | | See [Powerlines](#powerlines) |
 | `vlans` | | Colour for each VLAN name, used by datalines and LEDs |
 | `font` | theme font | Font family for all text on the card – see [Font](#font) |
+| `background` | `none` | A decorative backdrop behind the map – see [background](#background) |
 | `line_radius` | `6` | Radius of every line corner, in px |
-| `scale` | `1` | Zoom of the whole map: `1.5` = 150 % |
+| `scale` | `1` | Zoom of the whole map: `1.5` = 150 %. The map never gets wider than the card; zoom in with a pinch or ctrl/⌘ + wheel for more |
 | `fit_viewport` | `false` | Make the map as tall as the browser window (below the card's top edge); `scale` is then ignored |
 | `vlan_toggle`, `power_toggle`, `animation_toggle`, `debug_toggle` | `false` | Show the **VLANs**, **Power**, **Animations** and **Debug** switches – see [Switches](#switches) |
+| `toggles_at` | top-right corner | `[x, y]` on the map: top-left corner of the switches panel – see [Switches](#switches) |
 | `debug` | `false` | Show the [debug](#debug) overlay. With `debug_toggle`, the starting position of the switch |
 
 The map grows to fit everything you place; you never set its size.
+
+Any other key is rejected with `unknown property`, except the ones the dashboard itself adds to every card: `visibility` (conditions for showing the card), `grid_options` and `layout_options` (size in a sections view), `view_layout` (layout-card) and `card_mod` (card-mod styling). The card ignores them and leaves them to Home Assistant or the add-on.
+
+**Colours** – wherever a colour is accepted (`vlans`, LEDs, labels, thresholds), you can use any CSS colour: `"#6c9cda"`, a name such as `tomato`, `rgb(…)` / `hsl(…)` or a theme variable such as `var(--accent-color)`. Anything else – a number, `url(…)` or extra CSS – is rejected with an error.
 
 ## Items
 
@@ -146,6 +156,7 @@ A device that fills the rack from rail to rail. It goes in a rack's `items`.
 | `u` | **required** | First unit, counted from the top (U1 is the top) |
 | `units` | `1` | Height in U |
 | `status_entity`, `status_map` | | Colour the frame from an entity – see [device status](#device-status) |
+| `texture`, `texture_opacity` | | A pattern on the front – see [textures](#textures) |
 | `items` | | What is shown on it, relative to the rackdevice |
 
 A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours.
@@ -170,6 +181,7 @@ items:
 | `at` | Top-left corner |
 | `size` | `[width, height]` |
 | `status_entity`, `status_map` | Colour the frame from an entity – see [device status](#device-status) |
+| `texture`, `texture_opacity` | A pattern on the front – see [textures](#textures) |
 | `items` | What is shown on it, relative to the device |
 
 ### `endpoint`
@@ -243,6 +255,24 @@ items:
 | --- | --- |
 | `status_entity` | Any entity. Without `status_map`, the device is down when the entity is `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or missing, and OK otherwise – so a CPU-load sensor means "reachable" |
 | `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked (`OB DISCHRG` matches `OB`), the first listed key wins, and a state that is not listed is `warn` |
+
+### Textures
+
+A `device`, `rackdevice` or `fanpanel` can have a pattern on its whole front, drawn under its content. Textures are faint and dark, so text on top stays readable.
+
+<img src="images/textures.png" width="530" alt="textures">
+
+```yaml
+- {type: rackdevice, id: server, u: 5, units: 4, texture: hex}
+- {type: device, id: switch, at: [600, 300], size: [240, 50], texture: brushed, texture_opacity: 0.6}
+```
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `texture` | | `hex`, `mesh`, `slots`, `grille`, `carbon`, `ribbed`, `brushed`, `glass` – or one inspired by a vendor's hardware: `tpl` (TP-Link Omada), `mtk` (MikroTik), `unf` (UniFi), `dll` (Dell), `hpe` (HPE) |
+| `texture_opacity` | `1` | Strength of the texture, from `0` to `1` |
+
+The vendor-inspired textures add a tint and a thin line in the vendor's colour along the bottom edge. They only borrow a style – no logos or trademarks are drawn.
 
 ### `badge`
 
@@ -356,13 +386,13 @@ From left: running; stopped (red ring); running with an update (green ring); sto
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `icon` / `image` | one of the two | An MDI icon, or the path to an image |
+| `icon` / `image` | one of the two | An MDI icon, or an image URL starting with `/` (e.g. `/local/logos/grafana.svg`) or `http(s)://` |
 | `size` | `16` | Diameter in px |
 | `status_entity` | | A blinking **red** ring when this entity is not up. Up means `on`, `true`, `1`, `running`, `home` or `ok`; anything else, unavailable or missing is down |
 | `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count |
-| `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to |
+| `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to. An image URL like `image` |
 | `small_entity` | | A small number at the lower right, e.g. pending OS updates. Hidden at 0, `99+` above 99. Not together with `small_image` |
-| `url` | | Opened in a new tab on click |
+| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work; `javascript:`, `data:`, `vbscript:` and `file:` links are rejected |
 
 The screenshots in this documentation show a letter where your logo image would be – no logos are shipped with the card. Images under `config/www/` are available as `/local/…`; e.g. `config/www/ha-homelab-map/logos/grafana.svg` is `/local/ha-homelab-map/logos/grafana.svg`. With the **Animations** switch off, the rings stay lit (red wins over green).
 
@@ -600,7 +630,7 @@ A `pool` is a container placed by hand around its disks:
 | --- | --- |
 | `at`, `size` | Top-left corner and `[width, height]` |
 | `label` | Text on a tag centred on the bottom edge (it sticks out 5 px below) |
-| `usage_entity` | % used – shown as a fill rising from the bottom. Click opens it |
+| `usage_entity` | % used – shown as a fill rising from the bottom; hatched while the entity is unavailable, unknown or missing. Click opens it |
 | `thresholds` | Colour of the fill – see [thresholds](#thresholds) |
 | `status_entity`, `status_map` | Outline colour, as for [devices](#device-status), e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}` |
 | `items` | `hdd`, `ssd` and `bay` |
@@ -653,8 +683,9 @@ items:
 | `entity` | | Drives the speed |
 | `range` | `[0, 100]` | `[slow, fast]`: at or below `slow` the fan turns slowly, at or above `fast` quickly – a temperature (`[27, 35]`), a % or RPM (`[0, 3000]`) |
 | `thresholds` | | Colour of the rotor – you decide whether a stopped or slow fan is a fault |
+| `texture`, `texture_opacity` (`fanpanel`) | | A pattern on the panel – see [textures](#textures) |
 
-`on` = full speed, `0` or `off` = stopped, unavailable or no `entity` = slow. The rotors stop with the **Animations** switch.
+`on` = full speed; `0`, `off`, an unavailable or unknown state or a missing entity = stopped; no `entity` at all = slow. The rotors stop with the **Animations** switch.
 
 ## Lines
 
@@ -853,7 +884,7 @@ rx: sensor.router_ether2_tx
 tx: sensor.router_ether2_rx
 ```
 
-The unit is read from each sensor and converted: `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, and the short forms `bps`, `kbps`, `Mbps`, `Gbps`. A sensor without a unit is read as kB/s.
+The unit is read from each sensor and converted: `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, the short forms `bps`, `kbps`, `Mbps`, `Gbps` and `kb/s`, `Mb/s`, `Gb/s` for bits; bit units and `KiB/s`–`GiB/s` are also recognised in lower case (`mbit/s`, `mbps`). A sensor without a unit is read as kB/s; a sensor with any other unit shows `—`.
 
 ### Rates
 
@@ -913,7 +944,7 @@ powerlines:
 
 ## Switches
 
-`vlan_toggle`, `power_toggle`, `animation_toggle` and `debug_toggle` add switches in the top-left corner:
+`vlan_toggle`, `power_toggle`, `animation_toggle` and `debug_toggle` add switches on a small panel in the top-right corner. When the card is narrower than 520 px (e.g. on a phone), the panel folds into a ⚙ button:
 
 | Switch | Off |
 | --- | --- |
@@ -926,7 +957,25 @@ powerlines:
 
 <img src="images/toggles_off.png" width="520" alt="toggles_off">
 
+To put the panel somewhere else, give its top-left corner on the map with `toggles_at`:
+
+```yaml
+toggles_at: [860, 20]
+```
+
+The panel follows that point when you zoom or pan, but keeps its size, and it never leaves the card: a point outside the visible area moves it to the nearest edge. On a narrow card the ⚙ button sits at the same point and the panel opens from there.
+
 Each browser remembers its own switch positions. VLANs, Power and Animations start on; Debug starts off (or on, with `debug: true`). The card also stops animating when it is scrolled out of view, when the browser tab is hidden, and when the system asks for reduced motion.
+
+## Pan and zoom
+
+The map can be zoomed and moved, which helps on a phone:
+
+- **zoom**: pinch, ctrl / ⌘ + mouse wheel, a trackpad pinch, or a double-tap / double-click (×2.5; a double-tap at the maximum zoom returns to the whole map);
+- **move**: drag with one finger or the mouse while zoomed in;
+- **reset**: the ⤢ button in the bottom-right corner, shown while zoomed in.
+
+Zooming stops at 4 screen px per map px. Everything is vector graphics, so text and lines stay sharp at any zoom. The zoom is not remembered after a reload. Taps and clicks on badges, chips and devices work as usual; a click at the end of a drag is ignored.
 
 ## Font
 
@@ -937,6 +986,25 @@ font: JetBrains Mono
 ```
 
 [JetBrains Mono](https://www.jetbrains.com/lp/mono/) is bundled with the card (SIL Open Font License) and loaded from the card's own folder – nothing is fetched from the internet. Any other name works if that font is installed on the viewing device. A monospace font also makes badge widths exact, which helps when aligning rows.
+
+## `background`
+
+A decorative backdrop behind the whole map, drawn once (it costs nothing while animating):
+
+| Value | Background |
+| --- | --- |
+| `none` (default) | The card's own background |
+| `blueprint` | A technical grid – fine lines every 10 px, stronger every 50 px – with a faint blue glow |
+| `pegboard` | Small dots every 12 px |
+| `vignette` | A soft light in the middle, darker towards the edges |
+| a colour, e.g. `"#1a2230"` | A plain colour |
+| an image URL, e.g. `/local/backgrounds/desk.jpg` | Your own image, covering the map (cropped, not stretched) |
+
+The built-in backgrounds are mixed from the card's background colour in your Home Assistant theme, so they follow light and dark themes.
+
+<img src="images/bg_blueprint.png" width="610" alt="bg_blueprint">
+
+<img src="images/bg_pegboard.png" width="610" alt="bg_pegboard">
 
 ## `debug`
 
@@ -963,6 +1031,8 @@ ha-homelab-map: items[0]: an endpoint needs either an mdi 'icon' or a chip in 'i
 ha-homelab-map: items[0].items[0].icon: required – an mdi icon such as mdi:thermometer, or none
 ha-homelab-map: items[0].items[0].thresholds[0]: needs either 'above' or 'below'
 ha-homelab-map: items[0].items[0].toggle: 'containers' is not a group
+ha-homelab-map: toggles_at: has no effect without a switch
+ha-homelab-map: items[0].texture: expected one of hex, mesh, slots, grille, carbon, ribbed, brushed, glass, tpl, mtk, dll, hpe, unf
 ha-homelab-map: items[0].items[0].caption: needs 'size' – captions are shown only on LEDs with an explicit size
 ha-homelab-map: datalines[0].end_edge: expected one of top, right, bottom, left
 ha-homelab-map: datalines[0].flow: 'dominant' needs both 'rx' and 'tx'

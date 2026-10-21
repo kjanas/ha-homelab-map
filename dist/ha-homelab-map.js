@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.0";
+const VERSION = "0.101.39";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -11,7 +11,7 @@ const EDGES = ["top", "right", "bottom", "left"];
 const POWER_COLOR = "#d9b945";
 
 const DEVICE_TYPES = ["rack", "device", "rackdevice", "endpoint"];
-const LABEL = Object.freeze({ size: 10, colors: { primary: "var(--primary-text-color)", secondary: "var(--secondary-text-color)" } });
+const LABEL = Object.freeze({ size: 10, colors: { primary: "var(--hhm-text)", secondary: "var(--hhm-text-dim)" } });
 const LED = Object.freeze({
   captionGap: 2.5,
   size: [3, 8],
@@ -24,13 +24,13 @@ const LED = Object.freeze({
 });
 const UP_STATES = ["on", "true", "1", "running", "home", "ok"];
 const UPDATE_STATES = ["on", "true", "1"];
-const CHIP = Object.freeze({ size: 16, bg: "#2f3540", inner: 0.7, blinkSeconds: 1.6, small: 0.26, count: 0.36, smallAt: 0.72 });
+const CHIP = Object.freeze({ size: 16, inner: 0.7, blinkSeconds: 1.6, small: 0.26, count: 0.36, smallAt: 0.72 });
 const BADGE = Object.freeze({ size: 8, padX: 2, padY: 2, iconScale: 1.25 });
 const BADGE_MAX = Object.freeze({ "": 99, "%": 100, "°C": 99, V: 999, Mbps: 999, ms: 999, W: 9999 });
 const ITEM_KEYS = {
   rack: ["type", "id", "at", "units", "items"],
-  device: ["type", "id", "at", "size", "status_entity", "status_map", "items"],
-  rackdevice: ["type", "id", "u", "units", "status_entity", "status_map", "items"],
+  device: ["type", "id", "at", "size", "status_entity", "status_map", "texture", "texture_opacity", "items"],
+  rackdevice: ["type", "id", "u", "units", "status_entity", "status_map", "texture", "texture_opacity", "items"],
   endpoint: ["type", "id", "at", "icon", "items"],
   badge: ["type", "id", "at", "entity", "icon", "units", "decimals", "size", "show_border", "toggle", "thresholds"],
   chip: ["type", "id", "at", "size", "icon", "image", "small_image", "small_entity", "status_entity", "update_entity", "url"],
@@ -42,7 +42,7 @@ const ITEM_KEYS = {
   hdd: ["type", "id", "at", "size", "temperature", "status_entity", "status_map", "thresholds"],
   ssd: ["type", "id", "at", "size", "temperature", "status_entity", "status_map", "thresholds"],
   bay: ["type", "id", "at", "size"],
-  fanpanel: ["type", "id", "u", "units", "count", "entity", "range", "thresholds"],
+  fanpanel: ["type", "id", "u", "units", "count", "entity", "range", "thresholds", "texture", "texture_opacity"],
   fan: ["type", "id", "at", "size", "entity", "range", "thresholds"],
   port: ["type", "id", "at", "entity", "speed"],
 };
@@ -57,7 +57,9 @@ const CHILD_TYPES = {
   pool: ["hdd", "ssd", "bay"],
 };
 const ICON_PATHS = new Map();
-const ICON_POLL = Object.freeze({ ms: 50, tries: 200 });
+const ICON_MISSES = new Map();
+const IMAGE_MISSES = new Set();
+const ICON_POLL = Object.freeze({ ms: 50, tries: 200, retryMs: 60000 });
 const TOGGLE_KEYS = {
   data: "ha-homelab-map:animate-vlans",
   power: "ha-homelab-map:animate-power",
@@ -82,6 +84,7 @@ const CARD_KEYS = [
   "line_radius",
   "vlans",
   "font",
+  "background",
   "scale",
   "fit_viewport",
   "debug",
@@ -89,11 +92,15 @@ const CARD_KEYS = [
   "power_toggle",
   "animation_toggle",
   "debug_toggle",
+  "toggles_at",
   "items",
   "datalines",
   "powerlines",
   "view_layout",
   "grid_options",
+  "layout_options",
+  "visibility",
+  "card_mod",
 ];
 
 const DOWN_STATES = new Set(["unavailable", "unknown", "off", "down", "offline", "disconnected", "not_home"]);
@@ -105,80 +112,211 @@ const THRESHOLD_COLORS = Object.freeze({
   green: "var(--success-color, #43a047)",
 });
 
-const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2 });
+const SHADE = { fill: "#000", "fill-opacity": 0.38 };
+const SHINE = { fill: "#fff", "fill-opacity": 0.05 };
+const TEXTURES = Object.freeze({
+  hex: {
+    w: 9,
+    h: 15.588,
+    marks: [["path", {
+      d: "M4.5 0L9 2.598V7.794L4.5 10.392L0 7.794V2.598ZM4.5 10.392V15.588",
+      fill: "none",
+      stroke: "#000",
+      "stroke-opacity": 0.55,
+      "stroke-width": 1.1,
+    }]],
+  },
+  mesh: { w: 6, h: 6, marks: [["circle", { cx: 3, cy: 3, r: 1.6, fill: "#000", "fill-opacity": 0.5 }]] },
+  slots: { w: 10, h: 7, marks: [["rect", { x: 1, y: 2, width: 8, height: 2.4, rx: 1.2, fill: "#000", "fill-opacity": 0.5 }]] },
+  grille: { w: 5, h: 5, rotate: 45, marks: [["rect", { width: 2, height: 5, fill: "#000", "fill-opacity": 0.4 }]] },
+  carbon: {
+    w: 8,
+    h: 8,
+    marks: [["rect", { width: 4, height: 4, ...SHINE }], ["rect", { x: 4, width: 4, height: 4, ...SHADE }], ["rect", { y: 4, width: 4, height: 4, ...SHADE }], [
+      "rect",
+      { x: 4, y: 4, width: 4, height: 4, ...SHINE },
+    ]],
+  },
+  ribbed: {
+    w: 4,
+    h: 4,
+    marks: [["rect", { width: 4, height: 2, fill: "#000", "fill-opacity": 0.35 }], ["rect", {
+      y: 2,
+      width: 4,
+      height: 0.6,
+      fill: "#fff",
+      "fill-opacity": 0.06,
+    }]],
+  },
+  brushed: { gradient: [[0, 0.02], [0.3, 0.1], [0.55, 0.03], [0.8, 0.09], [1, 0.02]] },
+  glass: { vertical: true, gradient: [[0, 0.16], [0.47, 0.06], [0.48, 0], [1, 0.05]] },
+  tpl: { w: 4, h: 4, tint: ["#0f3a3c", 0.35], accent: "#1fb6b0", marks: [["circle", { cx: 2, cy: 2, r: 0.7, fill: "#000", "fill-opacity": 0.45 }]] },
+  mtk: {
+    w: 6,
+    h: 14,
+    tint: ["#13284a", 0.35],
+    accent: "#3a7bd5",
+    marks: [["rect", { x: 2, y: 2, width: 2, height: 10, rx: 1, fill: "#000", "fill-opacity": 0.45 }]],
+  },
+  dll: {
+    w: 6,
+    h: 6,
+    tint: ["#0a1a2a", 0.3],
+    accent: "#0076ce",
+    marks: [["path", { d: "M3 0.9L5.1 3L3 5.1L0.9 3Z", fill: "#000", "fill-opacity": 0.5 }]],
+  },
+  hpe: {
+    w: 5,
+    h: 5,
+    tint: ["#ffffff", 0.05],
+    accent: "#01a982",
+    marks: [["rect", { x: 1, y: 1, width: 3, height: 3, rx: 0.4, fill: "#000", "fill-opacity": 0.5 }]],
+  },
+  unf: {
+    w: 6,
+    h: 10.392,
+    tint: ["#ffffff", 0.07],
+    accent: "#006fff",
+    marks: [["circle", { cx: 3, cy: 2.598, r: 1.3, fill: "#000", "fill-opacity": 0.45 }], ["circle", {
+      cx: 0,
+      cy: 7.794,
+      r: 1.3,
+      fill: "#000",
+      "fill-opacity": 0.45,
+    }], [
+      "circle",
+      { cx: 6, cy: 7.794, r: 1.3, fill: "#000", "fill-opacity": 0.45 },
+    ]],
+  },
+});
+const BACKGROUNDS = ["none", "blueprint", "pegboard", "vignette"];
+const isCssColor = (value) =>
+  typeof value === "string" && /^[#\w(),.%\s/-]+$/.test(value.trim()) && !/^\s*url\(/i.test(value) &&
+  (typeof CSS === "undefined" || !CSS.supports || CSS.supports("color", value));
+const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
+const isImageUrl = (value) => typeof value === "string" && /^(\/(?!\/)|https?:\/\/)\S+$/i.test(value);
+const isLink = (value) => typeof value === "string" && /^\S+$/.test(value) && !/^(javascript|data|vbscript|file):/i.test(value);
+const ZOOM = Object.freeze({ maxPx: 4, step: 2.5, tapMs: 320, tapPx: 30, dragPx: 6, compactWidth: 520 });
+const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2, maxRatio: 2 });
 const NO_DASH = Object.freeze([]);
 const FADE = Object.freeze({ half: 6 });
 const BUNDLED_FONTS = Object.freeze({ "JetBrains Mono": "JetBrainsMono" });
 
 const STYLES = `
-  :host { display: block; --hhm-bg: var(--card-background-color, var(--ha-card-background, #1c1c1c)); }
-  ha-card { padding: 8px; overflow: hidden; font-family: var(--hhm-font, var(--ha-font-family-body, inherit)); }
-  .stage { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
-  svg { display: block; max-width: 100%; height: auto; }
+  :host {
+    display: block;
+    --hhm-bg: var(--card-background-color, var(--ha-card-background, #1c1c1c));
+    --hhm-frame: var(--secondary-background-color, #282828);
+    --hhm-frame-border: var(--divider-color, rgba(225,225,225,.12));
+    --hhm-text: var(--primary-text-color, #e1e1e1);
+    --hhm-text-dim: var(--secondary-text-color, #9b9b9b);
+    --hhm-badge: var(--card-background-color, var(--ha-card-background, #1c1c1c));
+    --hhm-badge-border: var(--divider-color, rgba(225,225,225,.12));
+    --hhm-chip: #2f3540;
+    --hhm-accent: var(--primary-color, #03a9f4);
+    --hhm-rail: var(--divider-color, rgba(225,225,225,.12));
+  }
+  ha-card { background: var(--hhm-bg); padding: 8px; overflow: hidden; font-family: var(--hhm-font, var(--ha-font-family-body, inherit)); }
+  .view { position: relative; user-select: none; -webkit-user-select: none; }
+  .scroller { position: relative; overflow: hidden; touch-action: pan-y; scrollbar-width: none; }
+  .scroller::-webkit-scrollbar { display: none; }
+  .scroller.zoomed { overflow: auto; touch-action: none; cursor: grab; }
+  .scroller.panning { cursor: grabbing; }
+  .stage { position: relative; width: fit-content; margin: 0 auto; }
+  .error { padding: 8px; color: var(--error-color, #db4437); font-size: 12px; white-space: pre-wrap; }
+  svg { display: block; height: auto; }
   .fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; will-change: transform; }
-  .cab { fill: var(--secondary-background-color, rgba(127,127,127,.06)); fill-opacity: .55; stroke: var(--divider-color); stroke-width: 2; }
-  .rail { fill: var(--divider-color); }
+  .zoom-reset { position: absolute; bottom: 6px; right: 6px; z-index: 4; display: none; width: 28px; height: 28px; border: 1px solid var(--hhm-frame-border); border-radius: 6px; background: var(--hhm-bg); color: var(--hhm-text-dim); font: 16px/1 sans-serif; cursor: pointer; }
+  .view.zoomed .zoom-reset { display: block; }
+  .toggle-menu { display: none; width: 28px; height: 28px; border: 1px solid var(--hhm-frame-border); border-radius: 6px; background: var(--hhm-bg); color: var(--hhm-text-dim); font: 16px/1 sans-serif; cursor: pointer; padding: 0; }
+  .toggles.compact .toggle-menu { display: block; }
+  .toggles.compact { align-items: flex-end; }
+  .toggles.placed { right: auto; }
+  .toggles.compact.placed { align-items: flex-start; }
+  .toggles.compact:not(.open) { padding: 0; border: none; background: none; }
+  .toggles.compact:not(.open) .toggle { display: none; }
+  .cab { fill: var(--hhm-frame); fill-opacity: .55; stroke: var(--hhm-frame-border); stroke-width: 2; }
+  .rail { fill: var(--hhm-rail); }
   .hole { fill: var(--hhm-bg); }
-  .ulabel { font-size: 10px; fill: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
-  .frame { fill: var(--secondary-background-color, rgba(127,127,127,.08)); stroke: var(--divider-color); stroke-width: 1.4; transition: stroke .3s; }
+  .ulabel { font-size: 10px; fill: var(--hhm-text-dim); font-variant-numeric: tabular-nums; }
+  .frame { fill: var(--hhm-frame); stroke: var(--hhm-frame-border); stroke-width: 1.4; transition: stroke .3s; }
   .dev.warn > .frame { stroke: var(--warning-color, #ffa600); }
   .dev.down > .frame { stroke: var(--error-color, #db4437); }
-  .mdi { fill: var(--secondary-text-color); }
+  .mdi { fill: var(--hhm-text-dim); }
+  .chip-bg, .chip-small { fill: var(--hhm-chip); }
   .chip-small { stroke: var(--hhm-bg); stroke-width: 1; }
-  .chip-count { fill: var(--primary-text-color); font-weight: 700; font-variant-numeric: tabular-nums; }
-  .port .mdi { fill: color-mix(in srgb, var(--secondary-text-color) 40%, var(--hhm-bg)); }
-  .port.up .mdi { fill: color-mix(in srgb, #ffffff 78%, var(--hhm-bg)); }
+  .chip-count { fill: var(--hhm-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .port .mdi { fill: color-mix(in srgb, var(--hhm-text-dim) 40%, var(--hhm-bg)); }
+  .port.up .mdi { fill: color-mix(in srgb, var(--hhm-text) 92%, var(--hhm-bg)); }
   .port.slow .mdi { fill: var(--warning-color, #ffa600); }
   .port.fault .mdi { fill: var(--error-color, #db4437); }
-  .pool .pfill { fill: color-mix(in srgb, var(--secondary-text-color) 22%, var(--hhm-bg)); }
-  .pool .pbox { fill: none; stroke: var(--divider-color); stroke-width: 1.2; transition: stroke .3s; }
+  .pool .pfill { fill: color-mix(in srgb, var(--hhm-text-dim) 22%, var(--hhm-bg)); }
+  .pool .phatch { display: none; }
+  .pool.nodata .phatch { display: inline; }
+  .hatch-line { stroke: color-mix(in srgb, var(--hhm-text-dim) 30%, var(--hhm-bg)); stroke-width: 1.5; }
+  .pool .pbox { fill: none; stroke: var(--hhm-frame-border); stroke-width: 1.2; transition: stroke .3s; }
   .pool.warn .pbox { stroke: var(--warning-color, #ffa600); }
   .pool.down .pbox { stroke: var(--error-color, #db4437); }
-  .pool .plabel-bg { fill: var(--hhm-bg); stroke: var(--divider-color); stroke-width: .8; }
-  .pool .plabel { font-size: 7px; font-weight: 700; fill: var(--secondary-text-color); }
-  .disk .dbody { fill: color-mix(in srgb, var(--secondary-text-color) 18%, var(--hhm-bg)); stroke: var(--divider-color); stroke-width: .8; }
+  .pool .plabel-bg { fill: var(--hhm-bg); stroke: var(--hhm-frame-border); stroke-width: .8; }
+  .pool .plabel { font-size: 7px; font-weight: 700; fill: var(--hhm-text-dim); }
+  .disk .dbody { fill: color-mix(in srgb, var(--hhm-text-dim) 18%, var(--hhm-bg)); stroke: var(--hhm-frame-border); stroke-width: .8; }
   .disk.down .dbody { stroke: var(--error-color, #db4437); }
-  .disk .dtemp { fill: var(--primary-text-color); font-variant-numeric: tabular-nums; }
-  .disk .dled { fill: color-mix(in srgb, var(--secondary-text-color) 30%, var(--hhm-bg)); }
+  .disk .dtemp { fill: var(--hhm-text); font-variant-numeric: tabular-nums; }
+  .disk .dled { fill: color-mix(in srgb, var(--hhm-text-dim) 30%, var(--hhm-bg)); }
   .disk.ok .dled { fill: var(--success-color, #43a047); }
   .disk.warn .dled { fill: var(--warning-color, #ffa600); }
   .disk.down .dled { fill: var(--error-color, #db4437); }
-  .disk .hdd-hub { fill: color-mix(in srgb, var(--secondary-text-color) 35%, var(--hhm-bg)); }
+  .disk .hdd-hub { fill: color-mix(in srgb, var(--hhm-text-dim) 35%, var(--hhm-bg)); }
   .disk .ssd-board { fill: color-mix(in srgb, #2e7d32 35%, var(--hhm-bg)); }
-  .disk .ssd-chip { fill: color-mix(in srgb, var(--secondary-text-color) 45%, var(--hhm-bg)); }
-  .bay .dbody { fill: none; stroke: color-mix(in srgb, var(--secondary-text-color) 45%, var(--hhm-bg)); stroke-dasharray: 2 2; }
-  .led-caption { font-size: 8px; fill: var(--secondary-text-color); }
-  .fan-hole { fill: color-mix(in srgb, #000000 10%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--secondary-text-color) 12%, var(--hhm-bg)); stroke-width: 1; }
-  .fan-screw { fill: color-mix(in srgb, #000000 25%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--secondary-text-color) 25%, var(--hhm-bg)); stroke-width: .6; }
-  .fan-rotor { fill: color-mix(in srgb, var(--secondary-text-color) 7%, var(--hhm-bg)); }
-  .fan-hub { fill: color-mix(in srgb, var(--secondary-text-color) 11%, var(--hhm-bg)); }
-  .port-x { display: none; stroke: color-mix(in srgb, var(--secondary-text-color) 70%, var(--hhm-bg)); stroke-linecap: round; }
+  .disk .ssd-chip { fill: color-mix(in srgb, var(--hhm-text-dim) 45%, var(--hhm-bg)); }
+  .bay .dbody { fill: none; stroke: color-mix(in srgb, var(--hhm-text-dim) 45%, var(--hhm-bg)); stroke-dasharray: 2 2; }
+  .led-caption { font-size: 8px; fill: var(--hhm-text-dim); }
+  .fan-hole { fill: color-mix(in srgb, #000000 10%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--hhm-text-dim) 12%, var(--hhm-bg)); stroke-width: 1; }
+  .fan-screw { fill: color-mix(in srgb, #000000 25%, var(--hhm-bg)); stroke: color-mix(in srgb, var(--hhm-text-dim) 25%, var(--hhm-bg)); stroke-width: .6; }
+  .fan-rotor { fill: color-mix(in srgb, var(--hhm-text-dim) 7%, var(--hhm-bg)); }
+  .fan-hub { fill: color-mix(in srgb, var(--hhm-text-dim) 11%, var(--hhm-bg)); }
+  .port-x { display: none; stroke: color-mix(in srgb, var(--hhm-text-dim) 70%, var(--hhm-bg)); stroke-linecap: round; }
   .port.disabled .port-x { display: inline; }
   .icon-loader { position: absolute; width: 0; height: 0; overflow: hidden; visibility: hidden; }
-  .lnk { fill: none; stroke: color-mix(in srgb, var(--secondary-text-color) 55%, var(--hhm-bg)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .3s; }
+  .lnk { fill: none; stroke: color-mix(in srgb, var(--hhm-text-dim) 55%, var(--hhm-bg)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .3s; }
   .lnk.power { stroke: color-mix(in srgb, #666666 90%, var(--hhm-bg)); }
   .lnk.down { stroke: color-mix(in srgb, var(--error-color, #db4437) 70%, var(--hhm-bg)); stroke-dasharray: 2 6; }
   .lnk.bare { stroke: none; }
-  .rates { fill: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
-  .stage.still-data .lnk.data:not(.down) { stroke: color-mix(in srgb, var(--secondary-text-color) 35%, var(--hhm-bg)); }
+  .rates { fill: var(--hhm-text-dim); font-variant-numeric: tabular-nums; }
+  .stage.still-data .lnk.data:not(.down) { stroke: color-mix(in srgb, var(--hhm-text-dim) 35%, var(--hhm-bg)); }
   .stage.still-power .lnk.power { stroke: color-mix(in srgb, #666666 35%, var(--hhm-bg)); }
-  .toggles { position: absolute; top: 6px; left: 6px; z-index: 4; display: flex; flex-direction: column; gap: 5px; }
-  .toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 10px; color: var(--secondary-text-color); }
+  .toggles { position: absolute; top: 6px; right: 6px; z-index: 4; display: flex; flex-direction: column; gap: 6px; padding: 7px 9px; border-radius: 6px; background: var(--hhm-badge); border: 1px solid var(--hhm-frame-border); }
+  .toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 10px; color: var(--hhm-text); }
   .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .toggle .track { position: relative; width: 26px; height: 14px; border-radius: 7px; background: var(--divider-color, #444); transition: background .2s; }
-  .toggle .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--hhm-bg); transition: transform .2s; }
-  .toggle input:checked + .track { background: var(--primary-color, #03a9f4); }
+  .toggle .track { position: relative; width: 26px; height: 14px; border-radius: 7px; background: color-mix(in srgb, var(--hhm-text-dim) 40%, var(--hhm-badge)); transition: background .2s; }
+  .toggle .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--hhm-text); transition: transform .2s; }
+  .toggle input:checked + .track { background: var(--hhm-accent); }
   .toggle input:checked + .track::after { transform: translateX(12px); }
-  .toggle input:focus-visible + .track { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 2px; }
-  .badge .bframe { fill: var(--hhm-bg); stroke: var(--divider-color); stroke-width: 1; }
-  .badge .btext { fill: var(--primary-text-color); font-variant-numeric: tabular-nums; }
+  .toggle input:focus-visible + .track { outline: 2px solid var(--hhm-accent); outline-offset: 2px; }
+  .badge .bframe { fill: var(--hhm-badge); stroke: var(--hhm-badge-border); stroke-width: 1; }
+  .badge .btext { fill: var(--hhm-text); font-variant-numeric: tabular-nums; }
   .clickable { cursor: pointer; }
+  .bg-line { fill: none; stroke: color-mix(in srgb, #6c9cda 22%, var(--hhm-bg)); stroke-width: .8; }
+  .bg-fine { fill: none; stroke: color-mix(in srgb, #6c9cda 10%, var(--hhm-bg)); stroke-width: .5; }
+  .bg-dot { fill: color-mix(in srgb, var(--hhm-text) 13%, var(--hhm-bg)); }
   .dbg-grid, .dbg-box { pointer-events: none; }
   .dbg-box { fill: none; stroke: #ff4081; stroke-width: .6; stroke-dasharray: 2 2; }
   .dbg-tip { position: absolute; z-index: 5; pointer-events: none; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.8); color: #fff; font: 11px/1.4 var(--hhm-font, monospace); white-space: pre; display: none; }
 `;
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+const own = (table, key) => (typeof key === "string" && Object.hasOwn(table, key) ? table[key] : undefined);
+
+const imageEl = (attrs, parent) => {
+  const image = svgEl("image", attrs, parent);
+  image.addEventListener("error", () => {
+    if (IMAGE_MISSES.has(attrs.href)) return;
+    IMAGE_MISSES.add(attrs.href);
+    console.warn(`ha-homelab-map: image '${attrs.href}' could not be loaded`);
+  });
+  return image;
+};
 
 const svgEl = (tag, attrs = {}, parent = null) => {
   const node = document.createElementNS(SVG_NS, tag);
@@ -218,10 +356,18 @@ const textLength = (node) => {
   }
 };
 
+let storageWarned = false;
+const storageFailed = (error) => {
+  if (storageWarned) return;
+  storageWarned = true;
+  console.warn("ha-homelab-map: browser storage is not available, switches and groups will not be remembered", error);
+};
+
 const storedGroups = () => {
   try {
     return new Set(JSON.parse(window.localStorage.getItem(HIDDEN_GROUPS_KEY) || "[]"));
-  } catch {
+  } catch (error) {
+    storageFailed(error);
     return new Set();
   }
 };
@@ -229,8 +375,8 @@ const storedGroups = () => {
 const storeGroups = (ids) => {
   try {
     window.localStorage.setItem(HIDDEN_GROUPS_KEY, JSON.stringify([...ids]));
-  } catch {
-    return;
+  } catch (error) {
+    storageFailed(error);
   }
 };
 
@@ -238,7 +384,8 @@ const storedOn = (key, fallback = true) => {
   try {
     const value = window.localStorage.getItem(key);
     return value === null ? fallback : value !== "0";
-  } catch {
+  } catch (error) {
+    storageFailed(error);
     return fallback;
   }
 };
@@ -246,12 +393,14 @@ const storedOn = (key, fallback = true) => {
 const storeOn = (key, on) => {
   try {
     window.localStorage.setItem(key, on ? "1" : "0");
-  } catch {
-    return;
+  } catch (error) {
+    storageFailed(error);
   }
 };
 
-const toNumber = (state) => (state && state.state !== "" ? Number(state.state) : NaN);
+const noData = (state) => !state || ["unavailable", "unknown", ""].includes(String(state.state ?? "").trim().toLowerCase());
+const thresholdColor = (hit) => (hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "");
+const toNumber = (state) => (noData(state) ? NaN : Number(state.state));
 const orZero = (value) => (Number.isNaN(value) ? 0 : value);
 
 const RATE_UNITS = {
@@ -263,6 +412,9 @@ const RATE_UNITS = {
   mbps: 125,
   "Gbit/s": 125000,
   gbps: 125000,
+  "kb/s": 1 / 8,
+  "Mb/s": 125,
+  "Gb/s": 125000,
   "B/s": 0.001,
   "kB/s": 1,
   "KB/s": 1,
@@ -273,10 +425,13 @@ const RATE_UNITS = {
   "GiB/s": 1073741.824,
 };
 
+const BIT_UNITS = Object.fromEntries(Object.entries(RATE_UNITS).filter(([unit]) => /bit\/s$|bps$|iB\/s$/.test(unit)).map(([unit, k]) => [unit.toLowerCase(), k]));
+
 const toKBps = (state) => {
   const value = toNumber(state);
-  const unit = state?.attributes?.unit_of_measurement;
-  return value * (RATE_UNITS[unit] ?? RATE_UNITS[String(unit).toLowerCase()] ?? 1);
+  const unit = String(state?.attributes?.unit_of_measurement ?? "").trim();
+  if (!unit) return value;
+  return value * (own(RATE_UNITS, unit) ?? (unit === unit.toLowerCase() ? own(BIT_UNITS, unit) : undefined) ?? NaN);
 };
 
 const formatRate = (kBps) => {
@@ -360,7 +515,27 @@ const fadeBand = ([ax, ay], [bx, by]) => {
   return { from: [ax, ay], to: [bx, by], band: [[ax + nx, ay + ny], [ex + nx, ey + ny], [ex - nx, ey - ny], [ax - nx, ay - ny]] };
 };
 
-const toRgb = (color) => {
+const CSS_COLORS = new Map();
+
+const cssColor = (color) => {
+  if (!CSS_COLORS.has(color)) {
+    let parsed = color;
+    try {
+      const ctx = document.createElement("canvas").getContext("2d");
+      const read = (base) => {
+        ctx.fillStyle = base;
+        ctx.fillStyle = color;
+        return String(ctx.fillStyle);
+      };
+      const dark = read("#000000");
+      if (dark === read("#ffffff")) parsed = dark;
+    } catch {}
+    CSS_COLORS.set(color, parsed);
+  }
+  return CSS_COLORS.get(color);
+};
+
+const parseRgb = (color) => {
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color || "");
   if (hex) {
     const h = hex[1].length === 3 ? hex[1].replace(/./g, (c) => c + c) : hex[1];
@@ -369,6 +544,8 @@ const toRgb = (color) => {
   const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(color || "");
   return rgb ? rgb.slice(1, 4).map(Number) : null;
 };
+
+const toRgb = (color) => parseRgb(color) || (color ? parseRgb(cssColor(color)) : null);
 
 const mixColor = (color, background, amount) => {
   const a = toRgb(color);
@@ -384,7 +561,20 @@ const resolveColor = (value, host) => {
   return own || (match[2] ? resolveColor(match[2].trim(), host) : "#888");
 };
 
-const reducedMotion = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+const themeKey = (hass) => JSON.stringify([hass?.themes?.darkMode, hass?.themes?.theme, hass?.selectedTheme]);
+
+let motionQuery;
+const reducedMotion = () => {
+  if (motionQuery === undefined) motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
+  return Boolean(motionQuery?.matches);
+};
+
+const NUMBER_FORMATS = new Map();
+const formatNumber = (num, decimals, language) => {
+  const key = `${language}|${decimals}`;
+  if (!NUMBER_FORMATS.has(key)) NUMBER_FORMATS.set(key, new Intl.NumberFormat(language, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
+  return NUMBER_FORMATS.get(key).format(num);
+};
 
 const fail = (path, message) => {
   throw new Error(`${CARD_TYPE}: ${path}: ${message}`);
@@ -415,7 +605,7 @@ const validateThresholds = (list, path) => {
     if ((t.above === undefined) === (t.below === undefined)) fail(at, "needs either 'above' or 'below'");
     const limit = t.above ?? t.below;
     if (!isNum(limit)) fail(`${at}.${t.above !== undefined ? "above" : "below"}`, "expected a number");
-    if (typeof t.color !== "string" || !t.color.trim()) fail(`${at}.color`, 'expected red, orange, yellow, green or a colour such as "#e91e63"');
+    if (!own(THRESHOLD_COLORS, t.color) && !isCssColor(t.color)) fail(`${at}.color`, 'expected red, orange, yellow, green or a colour such as "#e91e63"');
   });
 };
 
@@ -423,7 +613,7 @@ const validateItem = (item, path, parent, ctx) => {
   if (!item || typeof item !== "object") fail(path, "expected an item");
   const parentType = parent ? parent.type : "top";
   const allowed = CHILD_TYPES[parentType];
-  if (!ITEM_KEYS[item.type]) fail(`${path}.type`, `expected one of ${Object.keys(ITEM_KEYS).join(", ")}`);
+  if (!own(ITEM_KEYS, item.type)) fail(`${path}.type`, `expected one of ${Object.keys(ITEM_KEYS).join(", ")}`);
   if (!allowed.includes(item.type)) {
     fail(
       `${path}.type`,
@@ -474,7 +664,7 @@ const validateItem = (item, path, parent, ctx) => {
   if (item.type === "label") {
     if (typeof item.text !== "string" && typeof item.text !== "number") fail(`${path}.text`, "required – the text to show");
     if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a font size in px");
-    if (item.color !== undefined && typeof item.color !== "string") fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
+    if (item.color !== undefined && !own(LABEL.colors, item.color) && !isCssColor(item.color)) fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
     for (const key of ["bold", "vertical"]) if (item[key] !== undefined && typeof item[key] !== "boolean") fail(`${path}.${key}`, "expected true or false");
   }
   if (item.type === "led") {
@@ -484,12 +674,19 @@ const validateItem = (item, path, parent, ctx) => {
       if (typeof item.caption !== "string" && typeof item.caption !== "number") fail(`${path}.caption`, "expected a text");
       if (item.size === undefined) fail(`${path}.caption`, "needs 'size' – captions are shown only on LEDs with an explicit size");
     }
-    if (item.vlan !== undefined && !ctx.vlans[item.vlan]) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
-    if (item.color !== undefined && typeof item.color !== "string") fail(`${path}.color`, 'expected a colour such as "#66b771"');
+    if (item.vlan !== undefined && !own(ctx.vlans, item.vlan)) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
+    if (item.color !== undefined && !isCssColor(item.color)) fail(`${path}.color`, 'expected a colour such as "#66b771"');
     if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
     if (item.effect !== undefined && !LED.effects.includes(item.effect)) fail(`${path}.effect`, `expected one of ${LED.effects.join(", ")}`);
   }
   if (["device", "rackdevice", "pool", "hdd", "ssd"].includes(item.type)) validateStatus(item, path);
+  if (item.texture !== undefined && !own(TEXTURES, item.texture)) fail(`${path}.texture`, `expected one of ${Object.keys(TEXTURES).join(", ")}`);
+  if (item.texture_opacity !== undefined) {
+    if (!(isNum(item.texture_opacity) && item.texture_opacity >= 0 && item.texture_opacity <= 1)) {
+      fail(`${path}.texture_opacity`, "expected a number from 0 to 1");
+    }
+    if (item.texture === undefined) fail(`${path}.texture_opacity`, "has no effect without 'texture'");
+  }
   if (item.type === "pool") {
     if (!isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
     if (item.label !== undefined && typeof item.label !== "string" && typeof item.label !== "number") fail(`${path}.label`, "expected a text");
@@ -507,13 +704,14 @@ const validateItem = (item, path, parent, ctx) => {
   if (item.type === "chip") {
     if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a diameter in px");
     if (Boolean(item.icon) === Boolean(item.image)) fail(path, "a chip needs either 'icon' or 'image'");
+    if (item.image !== undefined && !isImageUrl(item.image)) fail(`${path}.image`, "expected an image URL starting with / or http(s)://");
     if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:docker");
-    if (item.small_image !== undefined && typeof item.small_image !== "string") fail(`${path}.small_image`, "expected an image URL");
+    if (item.small_image !== undefined && !isImageUrl(item.small_image)) fail(`${path}.small_image`, "expected an image URL starting with / or http(s)://");
     if (item.small_image !== undefined && item.small_entity !== undefined) fail(path, "a chip can have 'small_image' or 'small_entity', not both");
     for (const key of ["small_entity", "status_entity", "update_entity"]) {
       if (item[key] !== undefined && !isEntity(item[key])) fail(`${path}.${key}`, "expected an entity id");
     }
-    if (item.url !== undefined && typeof item.url !== "string") fail(`${path}.url`, "expected a URL");
+    if (item.url !== undefined && !isLink(item.url)) fail(`${path}.url`, "expected a link; javascript:, data:, vbscript: and file: are not allowed");
   }
   if (item.type === "badge" && item.toggle !== undefined) ctx.toggles.push({ path: `${path}.toggle`, id: item.toggle });
   if (item.type === "group") ctx.groups.add(item.id);
@@ -579,7 +777,7 @@ const validateLine = (line, path, kind, { devices, ports, ids }, vlans) => {
   const flows = kind === "data" ? ["forward", "reverse", "dominant"] : ["forward", "reverse"];
   if (line.flow !== undefined && !flows.includes(line.flow)) fail(`${path}.flow`, `expected one of ${flows.join(", ")}`);
   if (kind !== "data") return;
-  for (const name of line.vlans || []) if (!vlans[name]) fail(`${path}.vlans`, `unknown VLAN '${name}' – add it to the card's 'vlans'`);
+  for (const name of line.vlans || []) if (!own(vlans, name)) fail(`${path}.vlans`, `unknown VLAN '${name}' – add it to the card's 'vlans'`);
   if (line.status !== undefined && !["active", "inactive"].includes(line.status) && !isBinarySensor(line.status)) {
     fail(`${path}.status`, "expected active, inactive or a binary_sensor entity id (e.g. binary_sensor.router_ether1)");
   }
@@ -605,15 +803,22 @@ const validateConfig = (config) => {
   if (!Array.isArray(config.items)) throw new Error(`${CARD_TYPE}: 'items' list is required`);
   const vlans = config.vlans || {};
   if (typeof vlans !== "object" || Array.isArray(vlans)) fail("vlans", "expected a map of name: colour");
+  for (const [name, color] of Object.entries(vlans)) if (!isCssColor(color)) fail(`vlans.${name}`, 'expected a colour such as "#6c9cda"');
   for (const key of ["fit_viewport", "debug", "vlan_toggle", "power_toggle", "animation_toggle", "debug_toggle"]) {
     if (config[key] !== undefined && typeof config[key] !== "boolean") fail(key, "expected true or false");
+  }
+  if (config.background !== undefined && !BACKGROUNDS.includes(config.background) && !isColor(config.background) && !isImageUrl(config.background)) {
+    fail("background", `expected ${BACKGROUNDS.join(", ")}, a colour such as "#1a2230" or an image URL such as /local/background.jpg`);
+  }
+  if (config.toggles_at !== undefined) {
+    if (!isPair(config.toggles_at)) fail("toggles_at", "expected [x, y]");
+    if (!["vlan_toggle", "power_toggle", "animation_toggle", "debug_toggle"].some((key) => config[key])) fail("toggles_at", "has no effect without a switch");
   }
   if (config.font !== undefined && !(typeof config.font === "string" && /^[\w .-]+$/.test(config.font.trim()) && config.font.trim())) {
     fail("font", "expected a font family name such as JetBrains Mono");
   }
-  for (const key of ["line_radius", "scale"]) {
-    if (config[key] !== undefined && !(isNum(config[key]) && config[key] >= 0)) fail(key, "expected a number");
-  }
+  if (config.line_radius !== undefined && !(isNum(config.line_radius) && config.line_radius >= 0)) fail("line_radius", "expected a number");
+  if (config.scale !== undefined && !isSize(config.scale)) fail("scale", "expected a number above 0");
   const ctx = { ids: new Set(), devices: new Set(), ports: new Set(), groups: new Set(), toggles: [], vlans };
   config.items.forEach((item, i) => validateItem(item, `items[${i}]`, null, ctx));
   for (const { path, id } of ctx.toggles) if (!ctx.groups.has(id)) fail(path, `'${id}' is not a group`);
@@ -664,6 +869,11 @@ class HaHomelabMap extends HTMLElement {
   #config = null;
   #hass = null;
   #built = false;
+  #failed = false;
+  #stale = false;
+  #pending = null;
+  #fitFrame = 0;
+  #resizer = null;
   #deps = new Map();
   #frames = [];
   #platterDef = false;
@@ -671,8 +881,22 @@ class HaHomelabMap extends HTMLElement {
   #disks = [];
   #fans = [];
   #cabled = new Set();
+  #defs = null;
+  #textures = new Set();
   #card;
+  #view;
+  #scroller;
+  #reset;
   #stage;
+  #togglesBox = null;
+  #base = 0;
+  #zoom = 1;
+  #origin = [0, 0];
+  #painted = false;
+  #pointers = new Map();
+  #gesture = null;
+  #dragged = false;
+  #lastTap = null;
   #svg = null;
   #canvas = null;
   #ctx = null;
@@ -702,7 +926,13 @@ class HaHomelabMap extends HTMLElement {
   #lastFrame = 0;
   #visible = true;
   #observer = null;
-  #onResize = () => this.#fit();
+  #onResize = () => {
+    if (this.#fitFrame) return;
+    this.#fitFrame = requestAnimationFrame(() => {
+      this.#fitFrame = 0;
+      this.#fit();
+    });
+  };
 
   constructor() {
     super();
@@ -710,7 +940,17 @@ class HaHomelabMap extends HTMLElement {
     const style = document.createElement("style");
     style.textContent = STYLES;
     this.#card = document.createElement("ha-card");
-    this.#stage = htmlEl("div", "stage", this.#card);
+    this.#view = htmlEl("div", "view", this.#card);
+    this.#scroller = htmlEl("div", "scroller", this.#view);
+    this.#stage = htmlEl("div", "stage", this.#scroller);
+    this.#reset = htmlEl("button", "zoom-reset", this.#view);
+    this.#reset.textContent = "⤢";
+    this.#reset.title = "Show the whole map";
+    this.#reset.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      this.#zoomTo(1);
+    });
+    this.#bindZoom();
     this.#iconLoader = htmlEl("div", "icon-loader");
     root.append(style, this.#card, this.#iconLoader);
     this.#card.addEventListener("click", (ev) => {
@@ -722,12 +962,17 @@ class HaHomelabMap extends HTMLElement {
         return;
       }
       if (target.dataset.url) {
-        window.open(target.dataset.url, "_blank", "noopener");
+        if (isLink(target.dataset.url)) window.open(target.dataset.url, "_blank", "noopener");
         return;
       }
       this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: target.dataset.entity }, bubbles: true, composed: true }));
     });
-    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => this.#resizeFx()).observe(this.#stage);
+    this.#card.addEventListener("click", (ev) => {
+      if (!this.#dragged) return;
+      this.#dragged = false;
+      ev.stopPropagation();
+      ev.preventDefault();
+    }, true);
   }
 
   static getStubConfig() {
@@ -746,6 +991,7 @@ class HaHomelabMap extends HTMLElement {
     validateConfig(config);
     this.#config = config;
     this.#built = false;
+    this.#failed = false;
     this.#applyFont();
     if (this.#hass) this.#render();
   }
@@ -754,22 +1000,30 @@ class HaHomelabMap extends HTMLElement {
     const prev = this.#hass;
     this.#hass = hass;
     if (!this.#built) {
-      this.#render();
+      if (!this.#failed) this.#render();
       return;
     }
-    if (!prev) {
-      this.#update();
+    if (themeKey(prev) !== themeKey(hass)) {
+      this.#painted = false;
+      requestAnimationFrame(() => this.#resizeFx());
+    }
+    if (!this.#visible || !this.isConnected) {
+      this.#stale = true;
       return;
     }
     const due = new Set();
     for (const [id, updates] of this.#deps) if (prev.states[id] !== hass.states[id]) { for (const update of updates) due.add(update); }
     if (!due.size) return;
-    for (const update of due) update();
+    this.#batch(due);
+    this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 
   getCardSize() {
-    return 10;
+    if (!this.#viewBox) return 10;
+    const { width, height } = this.#viewBox;
+    const shown = this.#base || width * (this.#config?.scale ?? 1);
+    return Math.max(1, Math.ceil(((shown * height) / width + 16) / 50));
   }
 
   getGridOptions() {
@@ -778,12 +1032,23 @@ class HaHomelabMap extends HTMLElement {
 
   connectedCallback() {
     window.addEventListener("resize", this.#onResize);
-    requestAnimationFrame(this.#onResize);
-    if (this.#built && this.#hass) requestAnimationFrame(() => this.#update());
+    this.#onResize();
+    if (!this.#resizer && typeof ResizeObserver !== "undefined") {
+      this.#resizer = new ResizeObserver(this.#onResize);
+      this.#resizer.observe(this.#view);
+    }
+    if (this.#built && this.#hass) {
+      this.#stale = false;
+      requestAnimationFrame(() => this.#update());
+    }
     this.#applyVisibility();
     if (this.#observer || typeof IntersectionObserver === "undefined") return;
     this.#observer = new IntersectionObserver((entries) => {
       this.#visible = entries[entries.length - 1].isIntersecting;
+      if (this.#visible && this.#stale) {
+        this.#stale = false;
+        this.#update();
+      }
       this.#applyVisibility();
     });
     this.#observer.observe(this);
@@ -791,6 +1056,8 @@ class HaHomelabMap extends HTMLElement {
 
   disconnectedCallback() {
     window.removeEventListener("resize", this.#onResize);
+    this.#resizer?.disconnect();
+    this.#resizer = null;
     this.#observer?.disconnect();
     this.#observer = null;
     this.#applyVisibility();
@@ -812,7 +1079,7 @@ class HaHomelabMap extends HTMLElement {
       return;
     }
     this.#card.style.setProperty("--hhm-font", `"${font}", var(--ha-font-family-body, sans-serif)`);
-    const file = BUNDLED_FONTS[font];
+    const file = own(BUNDLED_FONTS, font);
     if (file && document.fonts && !document.getElementById(`hhm-font-${file}`)) {
       const style = document.createElement("style");
       style.id = `hhm-font-${file}`;
@@ -827,7 +1094,7 @@ class HaHomelabMap extends HTMLElement {
     if (!document.fonts?.load) return;
     Promise.all([document.fonts.load(`10px "${font}"`), document.fonts.load(`bold 10px "${font}"`)])
       .then(() => this.#remeasure())
-      .catch(() => {});
+      .catch((error) => console.warn(`ha-homelab-map: font '${font}' could not be loaded`, error));
   }
 
   #remeasure() {
@@ -835,27 +1102,218 @@ class HaHomelabMap extends HTMLElement {
     for (const badge of this.#badges) badge.measured = 0;
     for (const label of this.#labels) label.measured = 0;
     for (const rate of this.#rates) rate.measured = false;
-    for (const badge of this.#badges) this.#updateBadge(badge);
-    for (const label of this.#labels) this.#layoutLabel(label);
-    for (const rate of this.#rates) this.#updateRates(rate);
+    this.#batch([
+      ...this.#badges.map((badge) => () => this.#updateBadge(badge)),
+      ...this.#labels.map((label) => () => this.#layoutLabel(label)),
+      ...this.#rates.map((rate) => () => this.#updateRates(rate)),
+    ]);
   }
 
   #render() {
     if (!this.#config || !this.#hass) return;
-    this.#build();
-    this.#update();
+    try {
+      this.#build();
+      this.#update();
+    } catch (error) {
+      this.#built = false;
+      this.#failed = true;
+      this.#showError(error);
+    }
+  }
+
+  #showError(error) {
+    console.error("ha-homelab-map:", error);
+    this.#stage.replaceChildren();
+    for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
+    htmlEl("div", "error", this.#stage).textContent = `Homelab Map could not be drawn: ${error?.message ?? error}`;
+  }
+
+  #measure(read, write) {
+    if (this.#pending) this.#pending.push([read, write]);
+    else write(read());
+  }
+
+  #batch(updates) {
+    this.#pending = [];
+    try {
+      for (const update of updates) this.#run(update);
+    } finally {
+      const jobs = this.#pending;
+      this.#pending = null;
+      const values = jobs.map(([read]) => {
+        try {
+          return read();
+        } catch (error) {
+          console.error("ha-homelab-map: measuring failed", error);
+          return 0;
+        }
+      });
+      jobs.forEach(([, write], i) => this.#run(() => write(values[i])));
+    }
+  }
+
+  #run(update) {
+    try {
+      update();
+    } catch (error) {
+      console.error("ha-homelab-map: update failed", error);
+    }
   }
 
   #fit() {
     if (!this.#svg || !this.#viewBox) return;
     const { width, height } = this.#viewBox;
-    let target = width * (this.#config.scale || 1);
+    let target = width * (this.#config.scale ?? 1);
     if (this.#config.fit_viewport && this.isConnected) {
-      const room = window.innerHeight - this.#stage.getBoundingClientRect().top - 16;
+      const room = window.innerHeight - (this.#view.getBoundingClientRect().top || 0) - 16;
       if (room > 120) target = (room * width) / height;
     }
-    const px = `${Math.round(target)}px`;
+    const avail = this.#view.clientWidth || target;
+    this.#base = Math.max(1, Math.min(target, avail));
+    this.#applyZoom();
+  }
+
+  #maxZoom() {
+    return this.#viewBox && this.#base ? Math.max(1, (ZOOM.maxPx * this.#viewBox.width) / this.#base) : 1;
+  }
+
+  #applyZoom() {
+    if (!this.#svg || !this.#viewBox) return;
+    const width = Math.round(this.#base * this.#zoom);
+    const px = `${width}px`;
     if (this.#svg.style.width !== px) this.#svg.style.width = px;
+    const zoomed = this.#zoom > 1.001;
+    this.#scroller.classList.toggle("zoomed", zoomed);
+    this.#view.classList.toggle("zoomed", zoomed);
+    const height = zoomed ? `${Math.round((this.#base * this.#viewBox.height) / this.#viewBox.width)}px` : "";
+    if (this.#scroller.style.height !== height) this.#scroller.style.height = height;
+    if (!zoomed) {
+      this.#scroller.scrollLeft = 0;
+      this.#scroller.scrollTop = 0;
+    }
+    this.#togglesBox?.classList.toggle("compact", (this.#view.clientWidth || Infinity) < ZOOM.compactWidth);
+    this.#resizeFx();
+    this.#placeToggles();
+  }
+
+  #placeToggles() {
+    const box = this.#togglesBox;
+    const at = this.#config?.toggles_at;
+    if (!box || !at || !this.#viewBox) return;
+    const view = this.#view.getBoundingClientRect();
+    const stage = this.#stage.getBoundingClientRect();
+    if (!stage.width) return;
+    const k = stage.width / this.#viewBox.width;
+    const clamp = (value, max) => Math.round(Math.max(0, Math.min(max, value)));
+    const left = (stage.left || 0) - (view.left || 0) + (at[0] - this.#viewBox.minX) * k;
+    const top = (stage.top || 0) - (view.top || 0) + (at[1] - this.#viewBox.minY) * k;
+    box.style.left = `${clamp(left, (view.width || 0) - (box.offsetWidth || 0))}px`;
+    box.style.top = `${clamp(top, (view.height || 0) - (box.offsetHeight || 0))}px`;
+  }
+
+  #zoomTo(zoom, clientX, clientY) {
+    if (!this.#viewBox || !this.#base) return;
+    const next = Math.max(1, Math.min(this.#maxZoom(), zoom));
+    if (Math.abs(next - this.#zoom) < 1e-3) return;
+    const view = this.#scroller.getBoundingClientRect();
+    const stage = this.#stage.getBoundingClientRect();
+    const x = clientX ?? (view.left || 0) + (view.width || 0) / 2;
+    const y = clientY ?? (view.top || 0) + (view.height || 0) / 2;
+    const fx = stage.width ? (x - (stage.left || 0)) / stage.width : 0.5;
+    const fy = stage.height ? (y - (stage.top || 0)) / stage.height : 0.5;
+    this.#zoom = next;
+    this.#applyZoom();
+    const width = this.#base * next;
+    const height = (width * this.#viewBox.height) / this.#viewBox.width;
+    if (next > 1.001) {
+      this.#scroller.scrollLeft = fx * width - (x - (view.left || 0));
+      this.#scroller.scrollTop = fy * height - (y - (view.top || 0));
+    }
+    this.#onScroll();
+  }
+
+  #onScroll = () => {
+    this.#placeFx();
+    this.#placeToggles();
+    if (!this.#frame && !this.#timer) this.#drawFx();
+  };
+
+  #bindZoom() {
+    const sc = this.#scroller;
+    sc.addEventListener("scroll", this.#onScroll, { passive: true });
+    sc.addEventListener("pointerdown", (ev) => {
+      if (ev.pointerType === "mouse" && ev.button !== 0) return;
+      this.#dragged = false;
+      this.#pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      const pts = [...this.#pointers.values()];
+      if (pts.length === 2) {
+        this.#gesture = { kind: "pinch", dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1, zoom: this.#zoom };
+      } else if (pts.length === 1) {
+        this.#gesture = { kind: "pan", x: ev.clientX, y: ev.clientY, left: sc.scrollLeft, top: sc.scrollTop, moved: false };
+      }
+    });
+    sc.addEventListener("pointermove", (ev) => {
+      if (!this.#pointers.has(ev.pointerId)) return;
+      this.#pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      const g = this.#gesture;
+      if (!g) return;
+      const pts = [...this.#pointers.values()];
+      if (g.kind === "pinch" && pts.length >= 2) {
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        this.#dragged = true;
+        this.#zoomTo(g.zoom * (dist / g.dist), (pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+        return;
+      }
+      if (g.kind !== "pan" || this.#zoom <= 1.001) return;
+      const dx = ev.clientX - g.x;
+      const dy = ev.clientY - g.y;
+      if (!g.moved && Math.hypot(dx, dy) > ZOOM.dragPx) {
+        g.moved = true;
+        sc.classList.add("panning");
+        sc.setPointerCapture?.(ev.pointerId);
+      }
+      if (!g.moved) return;
+      this.#dragged = true;
+      sc.scrollLeft = g.left - dx;
+      sc.scrollTop = g.top - dy;
+    });
+    const end = (ev, cancelled) => {
+      if (!this.#pointers.has(ev.pointerId)) return;
+      this.#pointers.delete(ev.pointerId);
+      sc.classList.remove("panning");
+      const g = this.#gesture;
+      if (this.#pointers.size) {
+        this.#gesture = null;
+        return;
+      }
+      this.#gesture = null;
+      if (cancelled || !g || g.kind !== "pan" || g.moved) return;
+      if (ev.target?.closest?.("[data-entity], [data-url], [data-toggle], .toggles, button")) return;
+      const now = performance.now();
+      const last = this.#lastTap;
+      if (last && now - last.t < ZOOM.tapMs && Math.hypot(ev.clientX - last.x, ev.clientY - last.y) < ZOOM.tapPx) {
+        this.#lastTap = null;
+        this.#zoomTo(this.#zoom >= this.#maxZoom() - 0.01 ? 1 : this.#zoom * ZOOM.step, ev.clientX, ev.clientY);
+      } else this.#lastTap = { t: now, x: ev.clientX, y: ev.clientY };
+    };
+    sc.addEventListener("pointerup", (ev) => end(ev, false));
+    sc.addEventListener("pointercancel", (ev) => end(ev, true));
+    sc.addEventListener("wheel", (ev) => {
+      if (!ev.ctrlKey && !ev.metaKey) return;
+      ev.preventDefault();
+      this.#zoomTo(this.#zoom * Math.exp(-Math.max(-50, Math.min(50, ev.deltaY)) * 0.01), ev.clientX, ev.clientY);
+    }, { passive: false });
+    let start = 1;
+    sc.addEventListener("gesturestart", (ev) => {
+      if (this.#pointers.size) return;
+      ev.preventDefault();
+      start = this.#zoom;
+    });
+    sc.addEventListener("gesturechange", (ev) => {
+      if (this.#pointers.size) return;
+      ev.preventDefault();
+      this.#zoomTo(start * ev.scale, ev.clientX, ev.clientY);
+    });
   }
 
   #build() {
@@ -945,8 +1403,12 @@ class HaHomelabMap extends HTMLElement {
     }
 
     this.#stage.replaceChildren();
+    for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
+    this.#painted = false;
+    this.#zoom = 1;
+    this.#togglesBox = null;
     const svg = svgEl("svg", { viewBox: `${minX} ${minY} ${width} ${height}`, role: "img", "aria-label": "Homelab map" }, this.#stage);
-    this.#canvas = htmlEl("canvas", "fx", this.#stage);
+    this.#canvas = htmlEl("canvas", "fx", this.#view);
     this.#ctx = null;
     this.#svg = svg;
     this.#viewBox = { minX, minY, width, height };
@@ -967,27 +1429,25 @@ class HaHomelabMap extends HTMLElement {
     this.#fit();
 
     const defs = svgEl("defs", {}, svg);
+    const hatch = svgEl("pattern", { id: "hhm-hatch", width: 5, height: 5, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+    svgEl("line", { class: "hatch-line", x1: 0, y1: 0, x2: 0, y2: 5 }, hatch);
+    this.#defs = defs;
+    this.#textures = new Set();
+    this.#drawBackground(svg, defs, config.background);
     const racks = svgEl("g", {}, svg);
     const devices = svgEl("g", {}, svg);
     const lineLayer = svgEl("g", {}, svg);
     const badgeLayer = svgEl("g", {}, svg);
-    for (const box of this.#boxes) {
-      if (box.dev.type === "rack") this.#drawRack(racks, box);
-      else this.#drawDevice(devices, box);
-    }
+    for (const box of this.#boxes) box.el = box.dev.type === "rack" ? this.#drawRack(racks, box) : this.#drawDevice(devices, box);
     for (const box of fans) box.el = this.#drawFan(box.dev.type === "fanpanel" ? racks : devices, box);
-    this.#fans.forEach((f, i) => (f.group = fans[i].group));
-    for (const box of storage) {
-      if (box.dev.type === "pool") this.#drawPool(devices, box);
-      else this.#drawDisk(devices, box, defs);
-    }
+    for (const box of storage) box.el = box.dev.type === "pool" ? this.#drawPool(devices, box) : this.#drawDisk(devices, box, defs);
     const radius = config.line_radius ?? DEFAULTS.lineRadius;
     lines.forEach((line, i) => this.#drawLine(lineLayer, line, radius, defs, i));
     for (const line of lines) if (line.kind === "data" && line.cfg.rates_at !== undefined) this.#drawRates(badgeLayer, line);
     for (const led of leds) led.el = this.#drawLed(badgeLayer, led);
     for (const label of labels) label.el = this.#drawLabel(badgeLayer, label);
     this.#cabled = new Set(lines.flatMap(({ cfg }) => [cfg.start_port, cfg.end_port]).filter(Boolean));
-    for (const port of ports) this.#drawPort(badgeLayer, port, portParent.get(port.dev.id));
+    for (const port of ports) port.el = this.#drawPort(badgeLayer, port, portParent.get(port.dev.id));
     for (const chip of chips) chip.el = this.#drawChip(badgeLayer, chip);
     for (const badge of badges) badge.el = this.#drawBadge(badgeLayer, badge);
     this.#groupEls = new Map();
@@ -996,8 +1456,6 @@ class HaHomelabMap extends HTMLElement {
       if (!this.#groupEls.has(p.group)) this.#groupEls.set(p.group, []);
       this.#groupEls.get(p.group).push(p.el);
     }
-    this.#chips.forEach((c, i) => (c.group = chips[i].group));
-    this.#leds.forEach((l, i) => (l.group = leds[i].group));
     this.#applyGroups();
     this.#debugLayer = null;
     this.#debugTip = null;
@@ -1023,10 +1481,79 @@ class HaHomelabMap extends HTMLElement {
     for (const fan of this.#fans) depend([fan.dev.entity], () => this.#updateFan(fan));
     for (const line of this.#lines) depend([line.cfg.rx, line.cfg.tx, isEntity(line.cfg.status) ? line.cfg.status : null], () => this.#updateLine(line));
     this.#built = true;
+    this.#painted = false;
     this.#resizeFx();
     this.#applyVisibility();
-    requestAnimationFrame(this.#onResize);
+    this.#onResize();
   }
+
+  #drawBackground(svg, defs, kind) {
+    if (!kind || kind === "none") return;
+    const { minX, minY, width, height } = this.#viewBox;
+    const area = { x: minX, y: minY, width, height };
+    const layer = svgEl("g", { class: "bg", "pointer-events": "none" }, svg);
+    if (isColor(kind)) {
+      svgEl("rect", { ...area, fill: kind }, layer);
+      return;
+    }
+    if (isImageUrl(kind)) {
+      imageEl({ ...area, href: kind, preserveAspectRatio: "xMidYMid slice" }, layer);
+      return;
+    }
+    const glow = { blueprint: ["#6c9cda", 9, 22], pegboard: ["#ffffff", 4, 22], vignette: ["#ffffff", 6, 35] }[kind];
+    const gradient = svgEl("radialGradient", { id: "hhm-bg-glow", cx: "48%", cy: "42%", r: "78%" }, defs);
+    for (
+      const [offset, style] of [
+        [0, `stop-color: color-mix(in srgb, ${glow[0]} ${glow[1]}%, var(--hhm-bg))`],
+        [0.6, "stop-color: var(--hhm-bg)"],
+        [1, `stop-color: color-mix(in srgb, #000000 ${glow[2]}%, var(--hhm-bg))`],
+      ]
+    ) {
+      svgEl("stop", { offset, style }, gradient);
+    }
+    svgEl("rect", { ...area, fill: "url(#hhm-bg-glow)" }, layer);
+    if (kind === "blueprint") {
+      const pattern = svgEl("pattern", { id: "hhm-bg-grid", width: 50, height: 50, patternUnits: "userSpaceOnUse" }, defs);
+      svgEl("path", { class: "bg-fine", d: "M10 0V50M20 0V50M30 0V50M40 0V50M0 10H50M0 20H50M0 30H50M0 40H50" }, pattern);
+      svgEl("path", { class: "bg-line", d: "M50 0H0V50" }, pattern);
+      svgEl("rect", { ...area, fill: "url(#hhm-bg-grid)" }, layer);
+    } else if (kind === "pegboard") {
+      const pattern = svgEl("pattern", { id: "hhm-bg-dots", width: 12, height: 12, patternUnits: "userSpaceOnUse" }, defs);
+      svgEl("circle", { class: "bg-dot", cx: 6, cy: 6, r: 0.9 }, pattern);
+      svgEl("rect", { ...area, fill: "url(#hhm-bg-dots)" }, layer);
+    }
+  }
+
+  #applyTexture(g, dev, x, y, w, h) {
+    if (!dev.texture) return;
+    const t = TEXTURES[dev.texture];
+    const layer = svgEl("g", { opacity: dev.texture_opacity ?? 1, "pointer-events": "none" }, g);
+    const box = { x: x + 0.7, y: y + 0.7, width: Math.max(0, w - 1.4), height: Math.max(0, h - 1.4), rx: BOX_RADIUS };
+    if (t.tint) svgEl("rect", { ...box, fill: t.tint[0], "fill-opacity": t.tint[1] }, layer);
+    svgEl("rect", { ...box, fill: `url(#${this.#texture(dev.texture)})` }, layer);
+    if (t.accent) svgEl("rect", { x: x + 4, y: y + h - 3, width: Math.max(0, w - 8), height: 1.5, rx: 0.75, fill: t.accent, "fill-opacity": 0.85 }, layer);
+  }
+
+  #texture(name) {
+    const id = `hhm-tex-${name}`;
+    if (this.#textures.has(name)) return id;
+    this.#textures.add(name);
+    const t = TEXTURES[name];
+    if (t.gradient) {
+      const gradient = svgEl("linearGradient", { id, x1: 0, y1: 0, x2: t.vertical ? 0 : 1, y2: t.vertical ? 1 : 0 }, this.#defs);
+      for (const [offset, opacity] of t.gradient) svgEl("stop", { offset, "stop-color": "#ffffff", "stop-opacity": opacity }, gradient);
+      return id;
+    }
+    const pattern = svgEl(
+      "pattern",
+      { id, width: t.w, height: t.h, patternUnits: "userSpaceOnUse", patternTransform: t.rotate ? `rotate(${t.rotate})` : null },
+      this.#defs,
+    );
+    for (const [tag, attrs] of t.marks) svgEl(tag, attrs, pattern);
+    return id;
+  }
+
+
 
   #drawRack(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: "rack", "data-id": dev.id }, parent);
@@ -1043,19 +1570,23 @@ class HaHomelabMap extends HTMLElement {
         }
       }
     }
+    return g;
   }
 
   #drawDevice(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: `dev ${dev.type}`, "data-id": dev.id }, parent);
     svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
+    this.#applyTexture(g, dev, x, y, w, h);
     if (dev.status_entity) {
       g.dataset.entity = dev.status_entity;
       g.classList.add("clickable");
       this.#frames.push({ dev, g, title: svgEl("title", {}, g) });
     }
-    if (dev.type !== "endpoint" || !dev.icon) return;
-    const { size, pad } = ENDPOINT;
-    this.#drawIcon(g, dev.icon, x + pad, y + pad, size - 2 * pad);
+    if (dev.type === "endpoint" && dev.icon) {
+      const { size, pad } = ENDPOINT;
+      this.#drawIcon(g, dev.icon, x + pad, y + pad, size - 2 * pad);
+    }
+    return g;
   }
 
   #drawIcon(parent, name, x, y, size) {
@@ -1075,6 +1606,7 @@ class HaHomelabMap extends HTMLElement {
     const inset = w * 0.12;
     svgEl("line", { class: "port-x", x1: x + inset, y1: y + inset, x2: x + w - inset, y2: y + w - inset, "stroke-width": Math.max(1, w * 0.1) }, g);
     this.#ports.push({ dev, g, title, states: group.states, cabled: this.#cabled.has(dev.id), expected: parseSpeed(dev.speed ?? group.speed ?? PORT.speed) });
+    return g;
   }
 
   #drawPool(parent, { dev, x, y, w, h }) {
@@ -1086,6 +1618,7 @@ class HaHomelabMap extends HTMLElement {
     }
     const title = svgEl("title", {}, g);
     const fill = dev.usage_entity ? svgEl("rect", { class: "pfill", x: x + 1, y: y + h - 1, width: Math.max(0, w - 2), height: 0, rx: 2 }, g) : null;
+    if (fill) svgEl("rect", { class: "phatch", x: x + 1, y: y + 1, width: Math.max(0, w - 2), height: Math.max(0, h - 2), rx: 2, fill: "url(#hhm-hatch)" }, g);
     svgEl("rect", { class: "pbox", x, y, width: w, height: h, rx: 3 }, g);
     if (dev.label !== undefined && dev.label !== "") {
       const text = String(dev.label);
@@ -1094,6 +1627,7 @@ class HaHomelabMap extends HTMLElement {
       svgEl("text", { class: "plabel", x: x + w / 2, y: y + h + 2.5, "text-anchor": "middle" }, g).textContent = text;
     }
     this.#pools.push({ dev, g, title, fill, y: y + 1, h: h - 2 });
+    return g;
   }
 
   #drawDisk(parent, { dev, x, y, w, h }, defs) {
@@ -1140,9 +1674,10 @@ class HaHomelabMap extends HTMLElement {
       disk.temp.style.fontSize = `${size}px`;
     }
     this.#disks.push(disk);
+    return g;
   }
 
-  #drawFan(parent, { dev, x, y, w, h }) {
+  #drawFan(parent, { dev, x, y, w, h, group }) {
     const g = svgEl("g", { class: `fan-item ${dev.type}`, "data-id": dev.id }, parent);
     if (dev.entity) {
       g.dataset.entity = dev.entity;
@@ -1152,6 +1687,7 @@ class HaHomelabMap extends HTMLElement {
     const holes = [];
     if (dev.type === "fanpanel") {
       svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
+      this.#applyTexture(g, dev, x, y, w, h);
       const count = dev.count ?? FAN.count;
       const step = w / count;
       const r = Math.max(2, Math.min(h / 2 - 3, step / 2 - 4));
@@ -1171,7 +1707,7 @@ class HaHomelabMap extends HTMLElement {
       svgEl("circle", { class: "fan-hub", cx, cy, r: (r - 2) * 0.28 }, g);
       return { el, cx, cy, angle };
     });
-    this.#fans.push({ dev, g, title, rotors, rps: dev.entity ? 0 : FAN.minRps });
+    this.#fans.push({ dev, group, g, title, rotors, rps: dev.entity ? 0 : FAN.minRps });
     return g;
   }
 
@@ -1185,26 +1721,26 @@ class HaHomelabMap extends HTMLElement {
     const raw = String(state?.state ?? "").toLowerCase();
     const value = toNumber(state);
     const [lo, hi] = dev.range ?? FAN.range;
-    const stopped = raw === "off" || value === 0;
+    const missing = noData(state);
+    const stopped = missing || raw === "off" || value === 0;
     let speed = null;
     if (PORT.on.includes(raw) && !Number.isFinite(value)) speed = 1;
     else if (Number.isFinite(value)) speed = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
     fan.rps = stopped ? 0 : FAN.minRps + (speed ?? 0) * (FAN.maxRps - FAN.minRps);
     const hit = this.#threshold(dev, state);
-    const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
+    const color = thresholdColor(hit);
     for (const rotor of fan.rotors) if (rotor.el.style.fill !== color) rotor.el.style.fill = color;
-    const unit = state?.attributes.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
+    const unit = state?.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
     const reading = state ? `${state.state}${Number.isFinite(value) ? unit : ""}` : "missing";
-    const pace = stopped ? "stopped" : speed === null ? "slow (no reading)" : `speed ${Math.round(speed * 100)}%`;
+    const pace = missing ? "stopped (no reading)" : stopped ? "stopped" : speed === null ? "slow" : `speed ${Math.round(speed * 100)}%`;
     const text = `${dev.id} · ${reading} · ${pace}`;
     if (fan.title.textContent !== text) fan.title.textContent = text;
-    this.#applyVisibility();
   }
 
   #updatePool(pool) {
     const { dev } = pool;
     const usage = dev.usage_entity ? this.#state(dev.usage_entity) : null;
-    const used = Number(usage?.state);
+    const used = toNumber(usage);
     const parts = [dev.label ?? dev.id];
     if (pool.fill) {
       const percent = Number.isFinite(used) ? Math.max(0, Math.min(100, used)) : 0;
@@ -1212,9 +1748,10 @@ class HaHomelabMap extends HTMLElement {
       pool.fill.setAttribute("y", pool.y + pool.h - height);
       pool.fill.setAttribute("height", height);
       const hit = this.#threshold(dev, usage);
-      const color = hit ? `color-mix(in srgb, ${THRESHOLD_COLORS[hit.color] ?? hit.color} 55%, var(--hhm-bg))` : "";
+      const color = hit ? `color-mix(in srgb, ${thresholdColor(hit)} 55%, var(--hhm-bg))` : "";
       if (pool.fill.style.fill !== color) pool.fill.style.fill = color;
-      parts.push(Number.isFinite(used) ? `${Math.round(used)}% used` : "usage —");
+      pool.g.classList.toggle("nodata", !Number.isFinite(used));
+      parts.push(Number.isFinite(used) ? `${Math.round(used)}% used` : "usage — (no data)");
     }
     if (dev.status_entity) {
       const status = this.#frameStatus(dev);
@@ -1235,14 +1772,14 @@ class HaHomelabMap extends HTMLElement {
     for (const k of ["ok", "warn", "down"]) disk.g.classList.toggle(k, status === k);
     if (disk.spin) disk.spin.stopped = status === "down";
     const state = dev.temperature ? this.#state(dev.temperature) : null;
-    const value = Number(state?.state);
+    const value = toNumber(state);
     const text = !dev.temperature ? "" : Number.isFinite(value) ? `${Math.round(value)}°` : "—";
     if (disk.temp.textContent !== text) disk.temp.textContent = text;
     const hit = this.#threshold(dev, state);
-    const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
+    const color = thresholdColor(hit);
     if (disk.temp.style.fill !== color) disk.temp.style.fill = color;
     const parts = [dev.id];
-    if (dev.temperature) parts.push(Number.isFinite(value) ? `${value} ${state.attributes.unit_of_measurement ?? "°C"}` : "temperature —");
+    if (dev.temperature) parts.push(Number.isFinite(value) ? `${value} ${state.attributes?.unit_of_measurement ?? "°C"}` : "temperature —");
     if (dev.status_entity) parts.push(status === "ok" ? "healthy" : `${status} (${this.#state(dev.status_entity)?.state ?? "missing"})`);
     const tip = parts.join(" · ");
     if (disk.title.textContent !== tip) disk.title.textContent = tip;
@@ -1251,7 +1788,7 @@ class HaHomelabMap extends HTMLElement {
   #frameStatus(dev) {
     const state = this.#state(dev.status_entity);
     const raw = String(state?.state ?? "");
-    if (!state || ["unavailable", "unknown", ""].includes(raw.toLowerCase())) return "down";
+    if (noData(state)) return "down";
     if (!dev.status_map) return DOWN_STATES.has(raw.toLowerCase()) ? "down" : "ok";
     const words = raw.split(/\s+/);
     const hit = Object.entries(dev.status_map).find(([key]) => words.includes(String(key)));
@@ -1269,7 +1806,7 @@ class HaHomelabMap extends HTMLElement {
   #portStatus(port) {
     const state = this.#state(port.dev.entity);
     const noLink = port.cabled ? "fault" : "inactive";
-    if (!state || ["unavailable", "unknown", ""].includes(String(state.state).toLowerCase())) return [noLink, state ? state.state : "missing"];
+    if (noData(state)) return [noLink, state ? state.state : "missing"];
     const raw = String(state.state);
     const mapped = port.states && Object.entries(port.states).find(([key]) => key.toLowerCase() === raw.toLowerCase());
     if (mapped) return [mapped[1], raw];
@@ -1304,6 +1841,7 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #iconPath(name) {
+    if (Date.now() - (ICON_MISSES.get(name) ?? -Infinity) < ICON_POLL.retryMs) return Promise.resolve(null);
     if (!ICON_PATHS.has(name)) {
       ICON_PATHS.set(
         name,
@@ -1317,7 +1855,11 @@ class HaHomelabMap extends HTMLElement {
             tries += 1;
             if (d || tries > ICON_POLL.tries) {
               el.remove();
-              if (!d) ICON_PATHS.delete(name);
+              if (!d) {
+                ICON_PATHS.delete(name);
+                ICON_MISSES.set(name, Date.now());
+                console.warn(`ha-homelab-map: icon '${name}' could not be loaded`);
+              }
               resolve(d || null);
               return;
             }
@@ -1352,7 +1894,7 @@ class HaHomelabMap extends HTMLElement {
     return g;
   }
 
-  #drawChip(parent, { dev, x, y, w }) {
+  #drawChip(parent, { dev, x, y, w, group }) {
     const g = svgEl("g", { class: "chip", "data-id": dev.id }, parent);
     if (dev.url) {
       g.dataset.url = dev.url;
@@ -1360,30 +1902,30 @@ class HaHomelabMap extends HTMLElement {
     }
     const title = svgEl("title", {}, g);
     const r = w / 2;
-    svgEl("circle", { cx: x + r, cy: y + r, r, fill: CHIP.bg }, g);
+    svgEl("circle", { class: "chip-bg", cx: x + r, cy: y + r, r }, g);
     const inner = w * CHIP.inner;
     const at = (w - inner) / 2;
-    if (dev.image) svgEl("image", { href: dev.image, x: x + at, y: y + at, width: inner, height: inner }, g);
+    if (dev.image) imageEl({ href: dev.image, x: x + at, y: y + at, width: inner, height: inner }, g);
     else this.#drawIcon(g, dev.icon, x + at, y + at, inner);
     const sr = w * CHIP.small;
     const scx = x + r + r * CHIP.smallAt;
     const scy = y + r + r * CHIP.smallAt;
     if (dev.small_image) {
-      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: sr, fill: CHIP.bg }, g);
-      svgEl("image", { href: dev.small_image, x: scx - sr * 0.75, y: scy - sr * 0.75, width: sr * 1.5, height: sr * 1.5 }, g);
+      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: sr }, g);
+      imageEl({ href: dev.small_image, x: scx - sr * 0.75, y: scy - sr * 0.75, width: sr * 1.5, height: sr * 1.5 }, g);
     }
     let count = null;
     if (dev.small_entity) {
       const cg = svgEl("g", {}, g);
       const cr = w * CHIP.count;
-      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: cr, fill: CHIP.bg }, cg);
+      svgEl("circle", { class: "chip-small", cx: scx, cy: scy, r: cr }, cg);
       const fs = cr * 1.5;
       const text = svgEl("text", { class: "chip-count", x: scx, y: scy + fs * 0.36, "text-anchor": "middle" }, cg);
       text.style.fontSize = `${fs}px`;
       cg.style.display = "none";
       count = { g: cg, text, cx: scx, cy: scy, r: cr + 0.5, shown: false };
     }
-    this.#chips.push({ dev, title, count, cx: x + r, cy: y + r, r: r + 1, down: false, update: false });
+    this.#chips.push({ dev, group, title, count, cx: x + r, cy: y + r, r: r + 1, down: false, update: false });
     return g;
   }
 
@@ -1393,7 +1935,7 @@ class HaHomelabMap extends HTMLElement {
     const text = svgEl("text", { x: 0, y: size * 0.8 }, g);
     text.textContent = String(dev.text);
     text.style.fontSize = `${size}px`;
-    text.style.fill = LABEL.colors[dev.color ?? "primary"] ?? dev.color;
+    text.style.fill = own(LABEL.colors, dev.color ?? "primary") ?? dev.color;
     if (dev.bold) text.style.fontWeight = "700";
     const label = { dev, g, text, x, y, size, measured: 0 };
     this.#labels.push(label);
@@ -1402,14 +1944,17 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #layoutLabel(label) {
-    const w = textLength(label.text);
+    this.#measure(() => textLength(label.text), (w) => this.#placeLabel(label, w));
+  }
+
+  #placeLabel(label, w) {
     label.measured = w;
     const length = w || String(label.dev.text).length * label.size * 0.6;
     const transform = label.dev.vertical ? `translate(${label.x},${label.y + length}) rotate(-90)` : `translate(${label.x},${label.y})`;
     if (label.g.getAttribute("transform") !== transform) label.g.setAttribute("transform", transform);
   }
 
-  #drawLed(parent, { dev, x, y, w, h }) {
+  #drawLed(parent, { dev, x, y, w, h, group }) {
     const g = svgEl("g", { class: "led", "data-id": dev.id }, parent);
     const title = svgEl("title", {}, g);
     const color = dev.color || this.#config.vlans[dev.vlan];
@@ -1418,7 +1963,7 @@ class HaHomelabMap extends HTMLElement {
       const caption = svgEl("text", { class: "led-caption", x: x + w / 2, y: y - LED.captionGap, "text-anchor": "middle" }, g);
       caption.textContent = String(dev.caption);
     }
-    this.#leds.push({ dev, title, rect, color, x, y, w, h, lit: true, left: randomIn(LED.on), down: false });
+    this.#leds.push({ dev, group, title, rect, color, x, y, w, h, lit: true, left: randomIn(LED.on), down: false });
     return g;
   }
 
@@ -1449,14 +1994,14 @@ class HaHomelabMap extends HTMLElement {
     if (chip.update) parts.push("update available");
     if (chip.count) {
       const raw = this.#state(dev.small_entity);
-      const num = Number(raw?.state);
+      const num = toNumber(raw);
       const show = Number.isFinite(num) && num > 0;
       const value = !show ? "" : num > 99 ? "99+" : String(Math.round(num));
       if (chip.count.text.textContent !== value) chip.count.text.textContent = value;
       const display = show ? "" : "none";
       if (chip.count.g.style.display !== display) chip.count.g.style.display = display;
       chip.count.shown = show;
-      parts.push(`${raw?.attributes.friendly_name || dev.small_entity}: ${raw ? raw.state : "missing"}`);
+      parts.push(`${raw?.attributes?.friendly_name || dev.small_entity}: ${raw ? raw.state : "missing"}`);
     }
     const text = parts.join(" · ");
     if (chip.title.textContent !== text) chip.title.textContent = text;
@@ -1464,17 +2009,16 @@ class HaHomelabMap extends HTMLElement {
 
   #badgeText(dev) {
     const state = this.#state(dev.entity);
-    const ownUnit = state?.attributes.unit_of_measurement || "";
+    const ownUnit = state?.attributes?.unit_of_measurement || "";
     const unit = dev.units === undefined || dev.units === true ? ownUnit : HIDDEN(dev.units) ? "" : String(dev.units);
     const withUnit = (value) => (!unit ? value : unit === "%" ? `${value}%` : `${value} ${unit}`);
-    const format = (num, decimals) =>
-      new Intl.NumberFormat(this.#hass.locale?.language, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(num);
+    const format = (num, decimals) => formatNumber(num, decimals, this.#hass.locale?.language);
     const reserve = (decimals) => {
       const max = BADGE_MAX[unit];
       if (max === undefined) return "";
       return withUnit(format(max === 100 ? max : max + 1 - 10 ** -decimals, decimals));
     };
-    if (!state || ["unavailable", "unknown", ""].includes(state.state)) return { text: "—", template: reserve(dev.decimals ?? 0) };
+    if (noData(state)) return { text: "—", template: reserve(dev.decimals ?? 0) };
     const num = Number(state.state);
     let value;
     if (Number.isNaN(num)) value = this.#hass.formatEntityState ? this.#hass.formatEntityState(state) : state.state;
@@ -1489,7 +2033,7 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #threshold(dev, state) {
-    if (!dev.thresholds || !state || ["unavailable", "unknown", ""].includes(String(state.state))) return null;
+    if (!dev.thresholds || noData(state)) return null;
     const value = Number(state.state);
     if (!Number.isFinite(value)) return null;
     let hit = null;
@@ -1502,9 +2046,9 @@ class HaHomelabMap extends HTMLElement {
     const changed = badge.text.textContent !== text;
     if (changed) badge.text.textContent = text;
     const state = this.#state(badge.dev.entity);
-    const name = state?.attributes.friendly_name || badge.dev.entity;
+    const name = state?.attributes?.friendly_name || badge.dev.entity;
     const hit = this.#threshold(badge.dev, state);
-    const color = hit ? THRESHOLD_COLORS[hit.color] ?? hit.color : "";
+    const color = thresholdColor(hit);
     for (const node of [badge.text, badge.icon]) if (node && node.style.fill !== color) node.style.fill = color;
     const reached = hit ? ` · ${hit.above !== undefined ? `above ${hit.above}` : `below ${hit.below}`}` : "";
     const tip = `${name}: ${text}${reached}${badge.dev.toggle ? " · click to show/hide" : ""}`;
@@ -1514,11 +2058,13 @@ class HaHomelabMap extends HTMLElement {
       badge.measured = 0;
     }
     if (!changed && badge.measured > 0) return;
-    const estimate = (node) => textLength(node) || node.textContent.length * badge.size * 0.6;
-    const w = textLength(badge.text);
+    this.#measure(() => [textLength(badge.text), template ? textLength(badge.probe) : 0], ([w, probeW]) => this.#placeBadge(badge, w, probeW));
+  }
+
+  #placeBadge(badge, w, probeW) {
     badge.measured = w;
-    const textW = w || estimate(badge.text);
-    const width = Math.max(textW, template ? estimate(badge.probe) : 0);
+    const textW = w || badge.text.textContent.length * badge.size * 0.6;
+    const width = Math.max(textW, badge.probe.textContent ? probeW || badge.probe.textContent.length * badge.size * 0.6 : 0);
     const transform = width > textW ? `translate(${(width - textW) / 2},0)` : "";
     if ((badge.content.getAttribute("transform") || "") !== transform) {
       if (transform) badge.content.setAttribute("transform", transform);
@@ -1538,7 +2084,16 @@ class HaHomelabMap extends HTMLElement {
       ["debug", "Debug", config.debug_toggle],
     ].filter(([, , on]) => on);
     if (toggles.length) {
-      const box = htmlEl("div", "toggles", this.#stage);
+      const box = htmlEl("div", config.toggles_at ? "toggles placed" : "toggles", this.#view);
+      this.#togglesBox = box;
+      const menu = htmlEl("button", "toggle-menu", box);
+      menu.textContent = "⚙";
+      menu.title = "Switches";
+      menu.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        box.classList.toggle("open");
+        this.#placeToggles();
+      });
       for (const [kind, text] of toggles) {
         if (kind !== "debug") this.#animate[kind] = storedOn(TOGGLE_KEYS[kind]);
         const label = htmlEl("label", "toggle", box);
@@ -1567,6 +2122,12 @@ class HaHomelabMap extends HTMLElement {
     else this.#hiddenGroups.add(id);
     storeGroups(this.#hiddenGroups);
     this.#applyGroups();
+    if (this.#hiddenGroups.has(id)) return;
+    this.#batch([
+      ...this.#badges.filter((badge) => !badge.measured).map((badge) => () => this.#updateBadge(badge)),
+      ...this.#labels.filter((label) => !label.measured).map((label) => () => this.#layoutLabel(label)),
+      ...this.#rates.filter((rate) => !rate.measured).map((rate) => () => this.#updateRates(rate)),
+    ]);
   }
 
   #applyGroups() {
@@ -1577,6 +2138,7 @@ class HaHomelabMap extends HTMLElement {
     for (const badge of this.#badges) {
       if (badge.dev.toggle) badge.text.style.fontWeight = this.#hiddenGroups.has(badge.dev.toggle) ? "700" : "";
     }
+    this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 
@@ -1623,7 +2185,7 @@ class HaHomelabMap extends HTMLElement {
       path.setAttribute("mask", `url(#${id})`);
     }
     const vlanColors = kind === "data" ? (cfg.vlans || []).map((name) => this.#config.vlans[name]) : [];
-    const colors = kind === "power" ? [POWER_COLOR] : vlanColors.length ? vlanColors : ["var(--primary-color)"];
+    const colors = kind === "power" ? [POWER_COLOR] : vlanColors.length ? vlanColors : ["var(--hhm-accent)"];
     const dashed = vlanColors.length > 0;
     const flow = cfg.flow ? this.#addFlow(d, colors, dashed, kind) : null;
     if (flow) flow.fade = fade;
@@ -1667,7 +2229,10 @@ class HaHomelabMap extends HTMLElement {
       changed = true;
     }
     if (!changed) return;
-    const measured = rate.spans.map(({ span }) => textLength(span));
+    this.#measure(() => rate.spans.map(({ span }) => textLength(span)), (measured) => this.#placeRates(rate, measured));
+  }
+
+  #placeRates(rate, measured) {
     rate.measured = measured.every((w) => w > 0);
     const block = Math.max(...measured.map((w, i) => w || rate.spans[i].span.textContent.length * rate.size * 0.55));
     const x = rate.mode === "after" ? rate.gap : rate.mode === "before" ? -rate.gap - block : -block / 2;
@@ -1704,7 +2269,7 @@ class HaHomelabMap extends HTMLElement {
     for (const b of badges) {
       svgEl("circle", { cx: b.x, cy: b.y, r: 1.5, fill: "#ff4081" }, layer);
     }
-    const tip = htmlEl("div", "dbg-tip", this.#stage);
+    const tip = htmlEl("div", "dbg-tip", this.#view);
     this.#debugTip = tip;
     svg.addEventListener("mousemove", (ev) => {
       const ctm = svg.getScreenCTM?.();
@@ -1714,7 +2279,7 @@ class HaHomelabMap extends HTMLElement {
       const local = hit ? ` · ${hit.dev.id}: ${Math.round(pt.x - hit.x)}, ${Math.round(pt.y - hit.y)}` : "";
       const item = ev.target?.closest?.("[data-id]")?.dataset.id;
       tip.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}${local}${item ? `\n${item}` : ""}`;
-      const rect = this.#stage.getBoundingClientRect();
+      const rect = this.#view.getBoundingClientRect();
       tip.style.left = `${ev.clientX - rect.left + 12}px`;
       tip.style.top = `${ev.clientY - rect.top + 12}px`;
       tip.style.display = "block";
@@ -1731,17 +2296,20 @@ class HaHomelabMap extends HTMLElement {
 
   #update() {
     if (!this.#built || !this.#hass) return;
-    for (const badge of this.#badges) this.#updateBadge(badge);
-    for (const chip of this.#chips) this.#updateChip(chip);
-    for (const led of this.#leds) this.#updateLed(led);
-    for (const rate of this.#rates) this.#updateRates(rate);
-    for (const label of this.#labels) if (!label.measured) this.#layoutLabel(label);
-    for (const port of this.#ports) this.#updatePort(port);
-    for (const frame of this.#frames) this.#updateFrame(frame);
-    for (const pool of this.#pools) this.#updatePool(pool);
-    for (const disk of this.#disks) this.#updateDisk(disk);
-    for (const fan of this.#fans) this.#updateFan(fan);
-    for (const line of this.#lines) this.#updateLine(line);
+    const updates = [];
+    for (const badge of this.#badges) updates.push(() => this.#updateBadge(badge));
+    for (const chip of this.#chips) updates.push(() => this.#updateChip(chip));
+    for (const led of this.#leds) updates.push(() => this.#updateLed(led));
+    for (const rate of this.#rates) updates.push(() => this.#updateRates(rate));
+    for (const label of this.#labels) if (!label.measured) updates.push(() => this.#layoutLabel(label));
+    for (const port of this.#ports) updates.push(() => this.#updatePort(port));
+    for (const frame of this.#frames) updates.push(() => this.#updateFrame(frame));
+    for (const pool of this.#pools) updates.push(() => this.#updatePool(pool));
+    for (const disk of this.#disks) updates.push(() => this.#updateDisk(disk));
+    for (const fan of this.#fans) updates.push(() => this.#updateFan(fan));
+    for (const line of this.#lines) updates.push(() => this.#updateLine(line));
+    this.#batch(updates);
+    this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
 
@@ -1768,11 +2336,17 @@ class HaHomelabMap extends HTMLElement {
     this.#frame = requestAnimationFrame(this.#tick);
   };
 
+  #needsFrames() {
+    if (!this.#animate.motion) return false;
+    return this.#flows.some((flow) => !flow.off && this.#animate[flow.kind]) ||
+      this.#leds.some((led) => this.#ledMoving(led) && !this.#isHidden(led)) ||
+      this.#disks.some(({ spin }) => spin && !spin.stopped) ||
+      this.#fans.some((fan) => fan.rps > 0 && !this.#isHidden(fan)) ||
+      this.#chips.some((chip) => (chip.down || chip.update) && !this.#isHidden(chip));
+  }
+
   #applyVisibility() {
-    const moving = this.#animate.motion &&
-      (this.#flows.length > 0 || this.#leds.some((led) => led.dev.effect !== "none") || this.#disks.some((d) => d.spin) || this.#fans.length > 0);
-    const animated = moving || (this.#animate.motion && this.#chips.some((c) => c.dev.status_entity || c.dev.update_entity));
-    const run = this.#visible && this.isConnected && this.#built && animated && !reducedMotion();
+    const run = this.#visible && this.isConnected && this.#built && !reducedMotion() && this.#needsFrames();
     if (run && !this.#frame && !this.#timer) {
       this.#lastFrame = performance.now();
       this.#frame = requestAnimationFrame(this.#tick);
@@ -1820,22 +2394,37 @@ class HaHomelabMap extends HTMLElement {
     return this.#ctx;
   }
 
+  #placeFx() {
+    if (!this.#canvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, FX.maxRatio);
+    const stage = this.#stage.getBoundingClientRect();
+    const view = this.#view.getBoundingClientRect();
+    this.#origin = [((stage.left || 0) - (view.left || 0)) * dpr, ((stage.top || 0) - (view.top || 0)) * dpr];
+  }
+
   #resizeFx() {
     if (!this.#canvas || !this.#viewBox) return;
-    const rect = this.#stage.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const width = Math.round(rect.width * dpr);
-    const height = Math.round(rect.height * dpr);
-    if (!width || !height) return;
+    const view = this.#view.getBoundingClientRect();
+    const stage = this.#stage.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, FX.maxRatio);
+    const width = Math.round(view.width * dpr);
+    const height = Math.round(view.height * dpr);
+    if (!width || !height || !stage.width) return;
     if (this.#canvas.width !== width) this.#canvas.width = width;
     if (this.#canvas.height !== height) this.#canvas.height = height;
-    this.#scale = (rect.width / this.#viewBox.width) * dpr;
+    this.#scale = (stage.width / this.#viewBox.width) * dpr;
+    this.#placeFx();
+    if (this.#painted) {
+      this.#drawFx();
+      return;
+    }
+    this.#painted = true;
     for (const flow of this.#flows) {
       flow.paint = flow.colors.map((c) => resolveColor(c, this));
       flow.faded = null;
     }
     const background = resolveColor("var(--hhm-bg, #1c1c1c)", this);
-    const grey = resolveColor("var(--secondary-text-color, #9b9b9b)", this);
+    const grey = resolveColor("var(--hhm-text-dim, #9b9b9b)", this);
     this.#ledPaint = { dark: mixColor(grey, background, LED.dark) };
     for (const led of this.#leds) {
       led.off = mixColor(resolveColor(led.color, this), background, LED.dim);
@@ -1889,7 +2478,7 @@ class HaHomelabMap extends HTMLElement {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
     const k = this.#scale;
-    ctx.setTransform(k, 0, 0, k, -this.#viewBox.minX * k, -this.#viewBox.minY * k);
+    ctx.setTransform(k, 0, 0, k, this.#origin[0] - this.#viewBox.minX * k, this.#origin[1] - this.#viewBox.minY * k);
     ctx.lineWidth = FX.lineWidth;
     ctx.lineJoin = "round";
     for (const flow of this.#flows) {

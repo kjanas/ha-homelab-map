@@ -99,6 +99,35 @@ expect("dominant needs rx tx", { items: two, datalines: [L({ flow: "dominant", r
 expect("status not binary", { items: two, datalines: [L({ status: "sensor.a" })] }, "datalines[0].status");
 expect("power has no status", { items: two, powerlines: [L({ status: "active" })] }, "powerlines[0].status: unknown property");
 expect("line id clashes with item", { items: two, datalines: [L({ id: "a" })] }, "duplicate id 'a'");
+try {
+  validateConfig({ items: [], visibility: [{ condition: "screen", media_query: "(min-width: 0px)" }], card_mod: { style: "" }, layout_options: {}, grid_options: {}, view_layout: {} });
+  print("ok   dashboard keys (visibility, card_mod, layout_options, grid_options, view_layout)");
+} catch (e) {
+  print(`FAIL dashboard keys: ${e.message}`);
+  failed++;
+}
+expect("chip javascript url", { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url: "javascript:alert(1)" }] }, "items[0].url: expected a link");
+try {
+  validateConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url: "obsidian://open?vault=x" }] });
+  print("ok   chip app link (obsidian://)");
+} catch (e) {
+  print(`FAIL chip app link: ${e.message}`);
+  failed++;
+}
+expect("chip protocol-relative image", { items: [{ type: "chip", id: "c", at: [0, 0], image: "//evil.example/x.svg" }] }, "items[0].image: expected an image URL");
+expect("chip data small_image", { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", small_image: "data:image/svg+xml,x" }] }, "items[0].small_image: expected an image URL");
+expect("vlan colour not a colour", { items: [], vlans: { LAN: 123 } }, "vlans.LAN: expected a colour");
+expect("led colour url()", { items: [{ type: "led", id: "e", at: [0, 0], color: "url(https://x/y)" }] }, "items[0].color: expected a colour");
+expect("label colour with css", { items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "red; display: none" }] }, "items[0].color: expected primary, secondary");
+expect("threshold colour empty", { items: [B({ thresholds: [{ above: 1, color: " " }] })] }, "items[0].thresholds[0].color: expected red");
+try {
+  validateConfig({ vlans: { LAN: "tomato", IoT: "hsl(120, 50%, 40%)" }, items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "var(--accent-color)" }, B({ thresholds: [{ above: 1, color: "yellow" }] })] });
+  print("ok   named, hsl() and var() colours accepted");
+} catch (e) {
+  print(`FAIL colour names: ${e.message}`);
+  failed++;
+}
+expect("scale zero", { items: [], scale: 0 }, "scale: expected a number above 0");
 expect("toggle not boolean", { items: [], vlan_toggle: "yes" }, "vlan_toggle: expected true or false");
 expect("power toggle not boolean", { items: [], power_toggle: 1 }, "power_toggle: expected true or false");
 const C = (extra = {}) => ({ type: "chip", id: "c1", at: [0, 0], icon: "mdi:docker", ...extra });
@@ -114,6 +143,10 @@ const E = (extra = {}) => ({ type: "led", id: "e1", at: [0, 0], color: "#66b771"
 expect("led neither", { items: [{ type: "led", id: "e", at: [0, 0] }] }, "a led needs either 'vlan' or 'color'");
 expect("led both", { items: [E({ vlan: "LAN" })], vlans: { LAN: "#fff" } }, "a led needs either 'vlan' or 'color'");
 expect("led unknown vlan", { items: [E({ color: undefined, vlan: "IoT" })], vlans: { LAN: "#fff" } }, "items[0].vlan: unknown VLAN 'IoT'");
+expect("led vlan named like a built-in", { items: [E({ color: undefined, vlan: "toString" })], vlans: { LAN: "#fff" } }, "items[0].vlan: unknown VLAN 'toString'");
+expect("line vlan named like a built-in", { items: two, datalines: [L({ vlans: ["constructor"] })] }, "datalines[0].vlans: unknown VLAN 'constructor'");
+expect("texture named like a built-in", { items: [D({ texture: "constructor" })] }, "items[0].texture: expected one of");
+expect("type named like a built-in", { items: [{ type: "toString", id: "x" }] }, "items[0].type: expected one of");
 expect("led bad effect", { items: [E({ effect: "pulse" })] }, "items[0].effect: expected one of flicker, blink, none");
 expect("led bad size", { items: [E({ size: 3 })] }, "items[0].size: expected [width, height] in px");
 expect("led bad entity", { items: [E({ entity: "on" })] }, "items[0].entity: expected an entity id");
@@ -164,6 +197,17 @@ try {
 expect("debug_toggle not boolean", { items: [], debug_toggle: "yes" }, "debug_toggle: expected true or false");
 expect("animation_toggle not boolean", { items: [], animation_toggle: 1 }, "animation_toggle: expected true or false");
 expect("led caption without size", { items: [{ type: "led", id: "e", at: [0, 0], color: "#fff", caption: "LAN" }] }, "items[0].caption: needs 'size'");
+expect("look removed", { items: [], look: "depth" }, "card.look: unknown property");
+expect("background bad", { items: [], background: "stars" }, "background: expected none, blueprint, pegboard, vignette");
+expect(
+  "texture bad",
+  { items: [D({ texture: "dell" })] },
+  "items[0].texture: expected one of hex, mesh, slots, grille, carbon, ribbed, brushed, glass, tpl, mtk, dll, hpe, unf",
+);
+expect("toggles_at shape", { debug_toggle: true, toggles_at: [10], items: [D()] }, "toggles_at: expected [x, y]");
+expect("toggles_at without switch", { toggles_at: [10, 10], items: [D()] }, "toggles_at: has no effect without a switch");
+expect("texture_opacity without texture", { items: [D({ texture_opacity: 0.5 })] }, "items[0].texture_opacity: has no effect without 'texture'");
+expect("texture_opacity range", { items: [D({ texture: "hex", texture_opacity: 2 })] }, "items[0].texture_opacity: expected a number from 0 to 1");
 expect("font not a name", { items: [], font: 12 }, "font: expected a font family name");
 expect("font with quotes", { items: [], font: 'x"; color: red' }, "font: expected a font family name");
 expect(
@@ -295,6 +339,278 @@ if (queuedFrames["1"] === queuedFrames["0"] + 1) print("ok   animations switch o
 else {
   print(`FAIL animations switch: frames on ${queuedFrames["1"]}, off ${queuedFrames["0"]}`);
   failed++;
+}
+{
+  frames.splice(0);
+  const ic = new CardClass();
+  ic.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", status_entity: "binary_sensor.up" }] });
+  ic.connectedCallback();
+  const up = (state) => ({ states: { "binary_sensor.up": { entity_id: "binary_sensor.up", state, attributes: {} } } });
+  ic.hass = up("on");
+  const idle = frames.length;
+  ic.hass = up("off");
+  const down = frames.length;
+  ic.disconnectedCallback();
+  frames.splice(0);
+  if (down === idle + 1) print("ok   no animation loop while nothing moves, starts when a chip goes down");
+  else {
+    print(`FAIL idle loop: frames idle ${idle}, down ${down}`);
+    failed++;
+  }
+}
+{
+  frames.splice(0);
+  const strokes = [];
+  const getContext = Node_.prototype.getContext;
+  Node_.prototype.getContext = () => new Proxy({}, {
+    get: (t, k) => (k in t ? t[k] : () => ({ addColorStop: () => {} })),
+    set: (t, k, v) => {
+      if (k === "strokeStyle") strokes.push(v);
+      t[k] = v;
+      return true;
+    },
+  });
+  let red = "#111111";
+  const css = getComputedStyle;
+  getComputedStyle = () => ({ getPropertyValue: (name) => (name === "--error-color" ? red : "") });
+  const tc = new CardClass();
+  tc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", status_entity: "binary_sensor.up" }] });
+  const hs = (dark) => ({ themes: { darkMode: dark, theme: "default" }, states: { "binary_sensor.up": { entity_id: "binary_sensor.up", state: "off", attributes: {} } } });
+  const run = () => { for (const f of frames.splice(0)) f(0); };
+  tc.hass = hs(true);
+  run();
+  const before = strokes.at(-1);
+  red = "#222222";
+  tc.hass = hs(true);
+  run();
+  const same = strokes.at(-1);
+  tc.hass = hs(false);
+  run();
+  const after = strokes.at(-1);
+  getComputedStyle = css;
+  Node_.prototype.getContext = getContext;
+  frames.splice(0);
+  if (before === "#111111" && same === "#111111" && after === "#222222") print("ok   theme switch re-resolves canvas colours");
+  else {
+    print(`FAIL theme switch: ${before} ${same} ${after}`);
+    failed++;
+  }
+}
+{
+  const getContext = Node_.prototype.getContext;
+  const named = { tomato: "#ff6347", "hsl(120, 100%, 25%)": "#008000" };
+  Node_.prototype.getContext = () => {
+    let fill = "#000000";
+    return { set fillStyle(v) { if (named[v] || /^#/.test(v)) fill = named[v] || v; }, get fillStyle() { return fill; } };
+  };
+  const got = [mixColor("tomato", "#000000", 0.5), mixColor("hsl(120, 100%, 25%)", "#000000", 1), mixColor("nonsense", "#000000", 0.5)].join(" ");
+  Node_.prototype.getContext = getContext;
+  if (got === "rgb(128,50,36) rgb(0,128,0) nonsense") print("ok   named and hsl() colours mix like hex colours");
+  else {
+    print(`FAIL colour names: ${got}`);
+    failed++;
+  }
+}
+{
+  const r = (state, unit) => toKBps({ state, attributes: unit === undefined ? {} : { unit_of_measurement: unit } });
+  const got = [r("8", "Mbit/s"), r("8", "mbit/s"), r("8", "Mb/s"), r("8", "MB/s"), r("8"), r("8", "B"), r("8", "MBps"), r("8", "mbps")].map(String).join(" ");
+  if (got === "1000 1000 1000 8000 8 NaN NaN 1000") print("ok   rate units (case, Mb/s, no unit = kB/s, unknown = —)");
+  else {
+    print(`FAIL rate units: ${got}`);
+    failed++;
+  }
+}
+{
+  window.devicePixelRatio = 3;
+  frames.splice(0);
+  const dc = new CardClass();
+  dc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server" }] });
+  dc.hass = { states: {} };
+  dc.connectedCallback();
+  for (const f of frames.splice(0)) f(0);
+  const canvas = dc.shadowRoot.querySelectorAll("canvas")[0];
+  dc.disconnectedCallback();
+  delete window.devicePixelRatio;
+  if (canvas && canvas.width === 1620 * 2) print("ok   canvas density capped at 2x");
+  else {
+    print(`FAIL canvas density: ${canvas && canvas.width}`);
+    failed++;
+  }
+}
+{
+  const measure = Node_.prototype.getComputedTextLength;
+  Node_.prototype.getComputedTextLength = function () {
+    for (let n = this; n; n = n.parentNode) if (n.style && n.style._p && n.style._p.display === "none") return 0;
+    return this.textContent.length * 5.5;
+  };
+  window.localStorage = { getItem: (k) => (k === HIDDEN_GROUPS_KEY ? JSON.stringify(["g1"]) : null), setItem: () => {} };
+  const gc = new CardClass();
+  gc.setConfig({ items: [D({ size: [200, 100], items: [G([B({ id: "inner", entity: "sensor.inner", show_border: true })]), B({ id: "switch", at: [0, 60], entity: "sensor.inner", toggle: "g1" })] })] });
+  gc.hass = { states: { "sensor.inner": { entity_id: "sensor.inner", state: "123456", attributes: {} } } };
+  const frameW = () => gc.shadowRoot.querySelectorAll("rect").filter((r) => /\bbframe\b/.test(r.attrs.class || "")).map((r) => r.attrs.width)[0];
+  const hiddenW = frameW();
+  const target = gc.shadowRoot.querySelectorAll("g").find((g) => g.dataset && g.dataset.toggle === "g1");
+  gc.shadowRoot.querySelectorAll("ha-card")[0].dispatch("click", { target: { closest: () => target }, stopPropagation() {}, preventDefault() {} });
+  const shownW = frameW();
+  Node_.prototype.getComputedTextLength = measure;
+  delete window.localStorage;
+  if (Number(shownW) > Number(hiddenW)) print("ok   badges in a hidden group are measured when the group is shown");
+  else {
+    print(`FAIL hidden group badge width: hidden ${hiddenW}, shown ${shownW}`);
+    failed++;
+  }
+}
+{
+  let seen = null;
+  IntersectionObserver = class {
+    constructor(fn) { seen = fn; }
+    observe() {}
+    disconnect() {}
+  };
+  frames.splice(0);
+  const vc = new CardClass();
+  vc.setConfig({ items: [B({ entity: "sensor.v" })] });
+  const st = (v) => ({ states: { "sensor.v": { entity_id: "sensor.v", state: v, attributes: {} } } });
+  vc.hass = st("1");
+  vc.connectedCallback();
+  for (const f of frames.splice(0)) f(0);
+  const text = () => vc.shadowRoot.querySelectorAll("text").map((t) => t.textContent).filter((t) => /^\d+$/.test(t))[0];
+  seen([{ isIntersecting: false }]);
+  vc.hass = st("2");
+  const hidden = text();
+  seen([{ isIntersecting: true }]);
+  const shown = text();
+  vc.disconnectedCallback();
+  delete globalThis.IntersectionObserver;
+  frames.splice(0);
+  if (hidden === "1" && shown === "2") print("ok   off-screen card skips updates and catches up when shown");
+  else {
+    print(`FAIL off-screen updates: hidden ${hidden}, shown ${shown}`);
+    failed++;
+  }
+}
+{
+  const oc = new CardClass();
+  oc.setConfig({ items: [0, 1, 2].map((i) => B({ id: `o${i}`, at: [0, i * 20], entity: `sensor.o${i}`, show_border: true })) });
+  const st = (v) => ({ states: Object.fromEntries([0, 1, 2].map((i) => [`sensor.o${i}`, { entity_id: `sensor.o${i}`, state: v, attributes: {} }])) });
+  oc.hass = st("1");
+  const order = [];
+  const measure = Node_.prototype.getComputedTextLength;
+  const setAttr = Node_.prototype.setAttribute;
+  Node_.prototype.getComputedTextLength = function () { order.push("r"); return measure.call(this); };
+  Node_.prototype.setAttribute = function (k, v) { if (k === "width" || k === "transform") order.push("w"); return setAttr.call(this, k, v); };
+  oc.hass = st("12345");
+  Node_.prototype.getComputedTextLength = measure;
+  Node_.prototype.setAttribute = setAttr;
+  const seq = order.join("");
+  if (/^r+w+$/.test(seq)) print("ok   one state update measures all text before writing layout");
+  else {
+    print(`FAIL measure order: ${seq}`);
+    failed++;
+  }
+}
+{
+  const log = [];
+  let notify = null;
+  ResizeObserver = class {
+    constructor(fn) { notify = fn; log.push("new"); }
+    observe() { log.push("observe"); }
+    disconnect() { log.push("disconnect"); }
+  };
+  frames.splice(0);
+  const rc = new CardClass();
+  rc.setConfig({ items: [D()] });
+  rc.hass = { states: {} };
+  for (const f of frames.splice(0)) f(0);
+  rc.connectedCallback();
+  const connected = frames.length;
+  notify([]);
+  notify([]);
+  const queued = frames.length - connected;
+  for (const f of frames.splice(0)) f(0);
+  rc.disconnectedCallback();
+  rc.connectedCallback();
+  rc.disconnectedCallback();
+  delete globalThis.ResizeObserver;
+  frames.splice(0);
+  const got = `${queued} ${log.join(",")}`;
+  if (got === "0 new,observe,disconnect,new,observe,disconnect") print("ok   resizes coalesce into one frame, observer follows connect/disconnect");
+  else {
+    print(`FAIL resize handling: ${got}`);
+    failed++;
+  }
+}
+{
+  const timer = setTimeout;
+  setTimeout = (fn) => { fn(); return 1; };
+  const create = document.createElement;
+  let icons = 0;
+  document.createElement = function (tag) { if (tag === "ha-icon") icons++; return create.call(this, tag); };
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(m);
+  for (let i = 0; i < 2; i++) {
+    const ic = new CardClass();
+    ic.setConfig({ items: [B({ icon: "mdi:no-such-icon" })] });
+    ic.hass = { states: {} };
+    drainMicrotasks();
+  }
+  setTimeout = timer;
+  document.createElement = create;
+  console.warn = warn;
+  if (icons === 1 && warned.filter((m) => String(m).includes("no-such-icon")).length === 1) print("ok   a missing icon is looked up once, then skipped for a while");
+  else {
+    print(`FAIL missing icon: ${icons} lookups, ${warned.length} warnings`);
+    failed++;
+  }
+}
+{
+  const sc = new CardClass();
+  const before = sc.getCardSize();
+  sc.setConfig({ items: [{ type: "device", id: "tall", at: [0, 0], size: [100, 1000] }] });
+  sc.hass = { states: {} };
+  const small = new CardClass();
+  small.setConfig({ items: [{ type: "device", id: "flat", at: [0, 0], size: [1000, 40] }] });
+  small.hass = { states: {} };
+  const got = `${before} ${sc.getCardSize() > 10} ${small.getCardSize() < 10}`;
+  if (got === "10 true true") print("ok   getCardSize follows the map height");
+  else {
+    print(`FAIL getCardSize: ${got} (${sc.getCardSize()}, ${small.getCardSize()})`);
+    failed++;
+  }
+}
+{
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(String(m));
+  const mc = new CardClass();
+  mc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], image: "/local/missing.svg" }, { type: "chip", id: "c2", at: [20, 0], image: "/local/missing.svg" }] });
+  mc.hass = { states: {} };
+  for (const image of mc.shadowRoot.querySelectorAll("image")) image.dispatch("error", {});
+  console.warn = warn;
+  const hits = warned.filter((m) => m.includes("/local/missing.svg"));
+  if (hits.length === 1) print("ok   a missing image is reported once");
+  else {
+    print(`FAIL missing image: ${hits.length} warnings`);
+    failed++;
+  }
+}
+{
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(String(m));
+  storageWarned = false;
+  window.localStorage = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
+  storedOn("x");
+  storeOn("x", true);
+  storedGroups();
+  delete window.localStorage;
+  console.warn = warn;
+  if (warned.filter((m) => m.includes("browser storage")).length === 1) print("ok   blocked storage is reported once");
+  else {
+    print(`FAIL blocked storage: ${warned.length} warnings`);
+    failed++;
+  }
 }
 delete window.localStorage;
 const portCard = new CardClass();
@@ -565,10 +881,53 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
   fc.hass = { states: st("unavailable", "400") };
   const c = info();
   const got = [a, b, c].join(" | ");
-  const want = "3:speed 50%:- 1:speed 50%:- | 3:speed 0%:- 1:stopped:red | 3:slow (no reading):- 1:speed 13%:red";
+  const want = "3:speed 50%:- 1:speed 50%:- | 3:speed 0%:- 1:stopped:red | 3:stopped (no reading):- 1:speed 13%:red";
   if (got === want) print("ok   fan speed mapping, stopped, no reading, thresholds");
   else {
     print(`FAIL fans: ${got}`);
+    failed++;
+  }
+}
+{
+  const ic = new CardClass();
+  ic.setConfig({ items: [B({ id: "bad", entity: "sensor.bad" }), B({ id: "good", at: [0, 40], entity: "sensor.good" })] });
+  const states = { "sensor.good": { entity_id: "sensor.good", state: "21" } };
+  Object.defineProperty(states, "sensor.bad", { enumerable: true, get: () => { throw new Error("broken entity"); } });
+  const logged = [];
+  const error = console.error;
+  console.error = (...a) => logged.push(a.join(" "));
+  ic.hass = { states };
+  console.error = error;
+  const texts = ic.shadowRoot.querySelectorAll("text").map((t) => t.textContent);
+  const box = ic.shadowRoot.querySelectorAll("div").find((d) => d.attrs.class === "error");
+  if (texts.includes("21") && !box && logged.length === 1) print("ok   one failing element does not stop the others");
+  else {
+    print(`FAIL update isolation: texts ${texts} error box ${Boolean(box)} logged ${logged.length}`);
+    failed++;
+  }
+}
+{
+  const nc = new CardClass();
+  nc.setConfig({ items: [{ type: "pool", id: "p", at: [0, 0], size: [80, 60], usage_entity: "sensor.used", items: [{ type: "hdd", id: "d", at: [4, 4], temperature: "sensor.temp" }] }] });
+  nc.hass = { states: { "sensor.used": { entity_id: "sensor.used", state: "", attributes: {} }, "sensor.temp": { entity_id: "sensor.temp", state: "", attributes: {} } } };
+  const titles = nc.shadowRoot.querySelectorAll("title").map((t) => t.textContent).join(" | ");
+  const temps = nc.shadowRoot.querySelectorAll("text").map((t) => t.textContent).join(" ");
+  const hatched = nc.shadowRoot.querySelectorAll("g").some((g) => /\bpool\b/.test(g.attrs.class || "") && /\bnodata\b/.test(g.attrs.class));
+  if (hatched && titles.includes("usage —") && titles.includes("temperature —") && temps.includes("—") && !temps.includes("0°")) print("ok   empty states show — instead of 0");
+  else {
+    print(`FAIL empty states: ${titles} / ${temps}`);
+    failed++;
+  }
+}
+{
+  const host = readFile(CARD).split("const STYLES = `")[1].split(":host {")[1].split("}")[0];
+  const loops = [...host.matchAll(/(--[\w-]+):\s*([^;]+);/g)].filter(([, name, value]) => value.includes(`var(${name})`) || value.includes(`var(${name},`)).map(
+    ([, name]) => name,
+  );
+  const undefinedRefs = [...host.matchAll(/var\((--hhm-[\w-]+)/g)].map((m) => m[1]).filter((name) => !new RegExp(`^\\s*${name}:`, "m").test(host));
+  if (!loops.length && !undefinedRefs.length) print("ok   :host colour defaults resolve (no self-references)");
+  else {
+    print(`FAIL :host defaults: self ${loops} undefined ${undefinedRefs}`);
     failed++;
   }
 }

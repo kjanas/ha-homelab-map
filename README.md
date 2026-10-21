@@ -32,7 +32,9 @@ You place everything yourself with pixel coordinates, so the map looks exactly l
 - **Storage** – ZFS/RAID pools with a usage fill, HDDs with spinning platters, SSDs, empty bays, temperatures and health LEDs.
 - **Fans** – rack fan panels and single fans whose speed follows a temperature or RPM sensor.
 - **VLAN LEDs** with captions, labels, and a bundled **JetBrains Mono** font for a technical look.
-- **Built for daily use** – switches for VLANs / Power / Animations / Debug, a debug grid with coordinates and item ids, clear error messages, animation paused when the card is out of view, and updates only for items whose entities changed.
+- **Looks** – decorative backgrounds (blueprint, pegboard, vignette, a colour or your own image) and device textures, including styles inspired by TP-Link Omada, MikroTik, UniFi, Dell and HPE hardware.
+- **Pan & zoom** – pinch, wheel or double-tap to zoom and drag to move, so a big map stays usable on a phone.
+- **Built for daily use** – switches for VLANs / Power / Animations / Debug (folded into a ⚙ button on narrow screens), a debug grid with coordinates and item ids, clear error messages, animation paused when the card is out of view, and updates only for items whose entities changed.
 
 ## Installation
 

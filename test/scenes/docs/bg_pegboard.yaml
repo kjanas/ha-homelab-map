@@ -1,0 +1,29 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+vlans: {LAN: "#6c9cda", IoT: "#66b771"}
+background: pegboard
+items:
+  - type: rack
+    id: rack
+    at: [10, 10]
+    units: 3
+    items:
+      - type: rackdevice
+        id: router
+        u: 1
+        units: 2
+        items:
+          - {type: chip, id: router_logo, at: [5, 4], size: 16, image: /local/router.svg}
+          - {type: label, id: router_name, at: [26, 6], text: Router, size: 12, bold: true}
+          - {type: badge, id: router_cpu, at: [186, 36], entity: sensor.router_cpu, icon: "mdi:cpu-64-bit", size: 10, show_border: true}
+          - {type: badge, id: router_temp, at: [232, 36], entity: sensor.router_temperature, icon: "mdi:thermometer", size: 10, decimals: 1, show_border: true}
+      - {type: rackdevice, id: ups, u: 3, items: [{type: label, id: ups_name, at: [26, 8], text: UPS, size: 12, bold: true}]}
+  - type: device
+    id: ap
+    at: [420, 32]
+    size: [140, 40]
+    items:
+      - {type: label, id: ap_name, at: [10, 6], text: AP, size: 12, bold: true}
+      - {type: badge, id: ap_clients, at: [10, 21], entity: sensor.ap_clients, icon: "mdi:account", size: 10, show_border: true}
+datalines:
+  - {id: router-ap, start_device: router, start_edge: right, end_device: ap, end_edge: left, vlans: [LAN, IoT], flow: forward}

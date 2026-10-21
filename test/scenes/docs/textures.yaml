@@ -1,0 +1,17 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+items:
+  - {type: device, id: hex, at: [0, 0], size: [150, 40], texture: hex, items: [{type: label, id: l1, at: [8, 6], text: hex, size: 11, bold: true}]}
+  - {type: device, id: mesh, at: [170, 0], size: [150, 40], texture: mesh, items: [{type: label, id: l2, at: [8, 6], text: mesh, size: 11, bold: true}]}
+  - {type: device, id: slots, at: [340, 0], size: [150, 40], texture: slots, items: [{type: label, id: l3, at: [8, 6], text: slots, size: 11, bold: true}]}
+  - {type: device, id: grille, at: [0, 60], size: [150, 40], texture: grille, items: [{type: label, id: l4, at: [8, 6], text: grille, size: 11, bold: true}]}
+  - {type: device, id: carbon, at: [170, 60], size: [150, 40], texture: carbon, items: [{type: label, id: l5, at: [8, 6], text: carbon, size: 11, bold: true}]}
+  - {type: device, id: ribbed, at: [340, 60], size: [150, 40], texture: ribbed, items: [{type: label, id: l6, at: [8, 6], text: ribbed, size: 11, bold: true}]}
+  - {type: device, id: brushed, at: [0, 120], size: [150, 40], texture: brushed, items: [{type: label, id: l7, at: [8, 6], text: brushed, size: 11, bold: true}]}
+  - {type: device, id: faint, at: [170, 120], size: [150, 40], texture: hex, texture_opacity: 0.4, items: [{type: label, id: l8, at: [8, 6], text: "hex · 0.4", size: 11, bold: true}]}
+  - {type: device, id: glass, at: [340, 120], size: [150, 40], texture: glass, items: [{type: label, id: l9, at: [8, 6], text: glass, size: 11, bold: true}]}
+  - {type: device, id: tpl, at: [0, 180], size: [150, 40], texture: tpl, items: [{type: label, id: l10, at: [8, 6], text: tpl, size: 11, bold: true}]}
+  - {type: device, id: mtk, at: [170, 180], size: [150, 40], texture: mtk, items: [{type: label, id: l11, at: [8, 6], text: mtk, size: 11, bold: true}]}
+  - {type: device, id: unf, at: [340, 180], size: [150, 40], texture: unf, items: [{type: label, id: l12, at: [8, 6], text: unf, size: 11, bold: true}]}
+  - {type: device, id: dll, at: [0, 240], size: [150, 40], texture: dll, items: [{type: label, id: l13, at: [8, 6], text: dll, size: 11, bold: true}]}
+  - {type: device, id: hpe, at: [170, 240], size: [150, 40], texture: hpe, items: [{type: label, id: l14, at: [8, 6], text: hpe, size: 11, bold: true}]}

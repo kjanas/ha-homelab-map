@@ -43,13 +43,16 @@ Everything is placed by hand with pixel coordinates. The card does no automatic 
 type: custom:ha-homelab-map
 line_radius: 6            # px, every line corner
 font: JetBrains Mono      # optional; bundled; falls back to the theme font
+background: blueprint     # optional; none | blueprint | pegboard | vignette | "#rrggbb" | image URL (/local/…)
 vlans: {LAN: "#6c9cda", IoT: "#66b771"}   # name → colour, used by datalines and LEDs
 scale: 1                  # or fit_viewport: true (fills window height; scale ignored)
-vlan_toggle: true         # optional switches in the top-left corner
+vlan_toggle: true         # optional switches on a panel in the top-right corner (⚙ button below 520 px)
 power_toggle: true
 animation_toggle: true    # off = cables, LEDs and disks freeze; chip rings stay lit (red wins over green)
 debug_toggle: true
+toggles_at: [860, 20]     # optional; top-left corner of the switches panel in map px (default: top-right corner); needs a switch
 debug: false              # overlay; with debug_toggle = starting position
+# visibility, grid_options, layout_options, view_layout, card_mod – dashboard keys, accepted and ignored
 items: []                 # required
 datalines: []
 powerlines: []
@@ -60,27 +63,29 @@ powerlines: []
 | type | Keys (`id` and `type` always) | Notes |
 | --- | --- | --- |
 | `rack` | `at`, `units`, `items` | 347 px wide, `20 + units × 32` px tall |
-| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `items` | inside a rack only; no `at` |
-| `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `items` | |
+| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at` |
+| `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
 | `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
 | `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
-| `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both |
+| `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both; `image`/`small_image` must start with `/` or `http(s)://`; `url` may be any link except `javascript:`, `data:`, `vbscript:`, `file:` |
 | `led` | `at`, `vlan` **or** `color`, `size: [w, h]` (default [3, 8]), `entity`, `effect` (`flicker` default, `blink`, `none`), `caption` | dark grey while `entity` is down; `caption` = text centred above the LED (8 px, secondary colour), only allowed together with an explicit `size` |
 | `label` | `at`, `text`, `size` (default 10), `bold`, `color` (`primary` default, `secondary`, or a colour), `vertical` | not clickable |
 | `group` | `at`, `items` | invisible; shown/hidden by a badge with `toggle` |
 | `ports` | `at`, `size` (icon px, default 12), `speed` (expected link speed, default `1Gbps`), `icon` (default `mdi:ethernet`), `states`, `items` | container for `port` items |
-| `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
+| `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`; hatched when the usage entity has no data), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
 | `hdd` / `ssd` | `at`, `size` (default `[27, 36]`), `temperature`, `status_entity`, `status_map`, `thresholds` | disk: temperature at the bottom (`41°`, coloured by `thresholds`), status LED top-right (green/orange/red); an HDD's platter spins unless its status is down, an SSD shows a chip board |
 | `bay` | `at`, `size` | empty drive bay, dashed outline |
-| `fanpanel` | `u`, `units` (default 2), `count` (default 4), `entity`, `range`, `thresholds` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
+| `fanpanel` | `u`, `units` (default 2), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
 | `fan` | `at`, `size` (square side, default 24), `entity`, `range`, `thresholds` | a single fan placed anywhere, drawn as a square chassis with 4 corner screw holes |
 | `port` | `at` (relative to its `ports`), `entity`, `speed` (overrides the container's) | white = up at expected speed or faster, orange = slower, dimmed = no link; `icon` comes from the container only |
 
 **Port colours:** white = active (link at the expected speed or faster), orange = warn (slower, or half duplex when the other end could do full duplex – a device that only supports half duplex is fine), dimmed = no link on a port with no cable on the map, **red = fault** (no link on a port where a map cable ends – a cable is expected – or an SFP fault), **crossed-out** = disabled. Port entities, best first: the MikroTik integration's `binary_sensor.<device>_<iface>_connection` (its `enabled`, `status`, `rate`, `full_duplex` and SFP attributes give all five states); a speed text (`1Gbps`, `100Mbps`, `10 Gbit/s`) or a bare number (read in the entity's unit, or Mbps); an on/off entity. For other devices put a `states` map on the `ports` container – state → `active` | `warn` | `inactive` | `fault` | `disabled`, case-insensitive – e.g. NVR channels `{recording: active, online: warn, offline: fault, empty: inactive}`; states not in the map fall back to the rules above.
 
-**Badge thresholds** – the one way to flag a problem value: `thresholds: [{above: 70, color: orange}, {above: 85, color: red}]` or `{below: 20, color: red}`. Reached means equal or beyond; when several are reached the last one in the list wins (list mild → severe); `above` and `below` can be mixed. The icon and value text take the colour; nothing blinks or hides. Colours: `red`, `orange`, `green` (theme error/warning/success), `yellow`, or any CSS colour. Compared against the raw entity number in its own unit; non-numeric or unavailable states are never coloured. Don't put thresholds on values that are normally at their limit (an NVR disk is always ~100 % full).
+**Textures** (`device`, `rackdevice`, `fanpanel`): `texture` puts a faint pattern on the whole front, under the content – `hex`, `mesh`, `slots`, `grille`, `carbon`, `ribbed`, `brushed`, `glass`, or vendor-inspired `tpl` (TP-Link Omada), `mtk` (MikroTik), `unf` (UniFi), `dll` (Dell), `hpe` (HPE), which add a tint and a coloured line along the bottom (no logos). `texture_opacity` (0–1, default 1) needs `texture`. Purely decorative – don't use it to show status.
 
-**Fan speed** (`fanpanel`, `fan`): the `entity` value is mapped over `range: [slow, fast]` (default `[0, 100]`; e.g. a temperature `[27, 35]` or RPM `[0, 3000]`) – at or below `slow` the fan turns slowly, at or above `fast` quickly. `on` = full speed; `0` or `off` = stopped; unavailable = slow; no `entity` = always slow. Whether a stopped or slow fan is a fault is up to the user: `thresholds` colour the rotor (e.g. `{below: 500, color: red}` for RPM). Rotors freeze with the Animations switch.
+**Badge thresholds** – the one way to flag a problem value: `thresholds: [{above: 70, color: orange}, {above: 85, color: red}]` or `{below: 20, color: red}`. Reached means equal or beyond; when several are reached the last one in the list wins (list mild → severe); `above` and `below` can be mixed. The icon and value text take the colour; nothing blinks or hides. Colours: `red`, `orange`, `green` (theme error/warning/success), `yellow`, or any CSS colour (hex, name, `rgb()`/`hsl()`, `var(--…)`; `url(…)` and numbers are rejected). Compared against the raw entity number in its own unit; non-numeric or unavailable states are never coloured. Don't put thresholds on values that are normally at their limit (an NVR disk is always ~100 % full).
+
+**Fan speed** (`fanpanel`, `fan`): the `entity` value is mapped over `range: [slow, fast]` (default `[0, 100]`; e.g. a temperature `[27, 35]` or RPM `[0, 3000]`) – at or below `slow` the fan turns slowly, at or above `fast` quickly. `on` = full speed; `0`, `off`, unavailable, unknown or a missing entity = stopped; no `entity` = always slow. Whether a stopped or slow fan is a fault is up to the user: `thresholds` colour the rotor (e.g. `{below: 500, color: red}` for RPM). Rotors freeze with the Animations switch.
 
 **Device frame status** (`device`, `rackdevice`): with `status_entity` the frame outline turns red (down) or orange (warn); OK keeps the normal outline. Without `status_map`: down for `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or a missing entity, anything else is OK (so a CPU-load sensor means "reachable"). With `status_map` (`{LB: down, OB: warn, OL: ok}`), the state is matched per word (`OL CHRG` matches `OL`), the first listed key wins, and an unlisted state is `warn`. Clicking the device (outside its badges, chips and ports) opens Home Assistant's more-info for `status_entity`; devices without it are not clickable, and devices never take a `url` (only chips do). Don't use the same entity as the device's logo chip `status_entity` – that shows the same thing twice.
 

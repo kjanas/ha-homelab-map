@@ -36,13 +36,7 @@ window.devicePixelRatio = 1;
 window.addEventListener = () => {};
 window.removeEventListener = () => {};
 window.innerHeight = 4000;
-const flagText = (() => {
-  try {
-    return readFile(FLAGSFILE);
-  } catch (e) {
-    return "";
-  }
-})();
+const flagText = FLAGSFILE ? readFile(FLAGSFILE) : "";
 const store = Object.assign({}, JSON.parse(flagText.trim() || "{}"));
 window.localStorage = {
   getItem: (k) => (k in store ? store[k] : null),
@@ -341,27 +335,29 @@ function svg(n) {
 }
 const backSvg = stage.children.find((c) => c.tag === "svg" && /back/.test(c.attrs.class || ""));
 const mainSvg = stage.children.find((c) => c.tag === "svg");
-const canvases = stage.children.filter((c) => c.tag === "canvas");
+const canvases = card.shadowRoot.querySelectorAll("canvas");
 const fans = canvases.find((c) => /fans/.test(c.attrs.class || ""));
 const fx = canvases.find((c) => !/fans/.test(c.attrs.class || ""));
 let [vx, vy, vw, vh] = mainSvg.attrs.viewBox.split(" ").map(Number);
-if (TOGGLES) {
-  vx -= 130;
-  vw += 130;
-}
-const css = readFile(CARD).split("const STYLES = `")[1].split("`;")[0].replace(/:host\s*\{[^}]*\}/, "").replace(/ha-card[^{]*\{[^}]*\}/, "");
-const theme = Object.entries(THEME).map(([k, v]) => `${k}:${v}`).join(";") + ";--hlm-fs-title:12px;--hlm-fs-text:10px;--hlm-fs-small:8px";
+if (TOGGLES && !cfg.toggles_at) vw += 130;
+const css = readFile(CARD).split("const STYLES = `")[1].split("`;")[0].replace(/:host\s*\{/, "svg {").replace(/\n\s*ha-card\s*\{[^}]*\}/, "");
+const theme = Object.entries({ ...THEME, ...card.style._p }).map(([k, v]) => `${k}:${v}`).join(";") +
+  ";--hlm-fs-title:12px;--hlm-fs-text:10px;--hlm-fs-small:8px";
 const toggles = [];
 if (TOGGLES) {
   const labels = card.shadowRoot.querySelectorAll("label").filter((l) => l.style._p.display !== "none");
+  const pw = 112;
+  const px = cfg.toggles_at ? cfg.toggles_at[0] : vx + vw - 6 - pw;
+  const py = cfg.toggles_at ? cfg.toggles_at[1] : vy + 6;
+  toggles.push(`<rect x="${px}" y="${py}" width="${pw}" height="${labels.length * 20 + 10}" rx="6" fill="#1c1c1c" stroke="rgba(225,225,225,0.12)"/>`);
   labels.forEach((l, i) => {
     const on = l.children.find((c) => c.tag === "input").checked;
     const txt = l.children.filter((c) => c.tag === "span").map((c) => c.textContent).join("");
-    const y = vy + 6 + i * 19;
+    const y = py + 8 + i * 20;
     toggles.push(
-      `<g><rect x="${vx + 6}" y="${y}" width="26" height="14" rx="7" fill="${on ? "#03a9f4" : "rgba(225,225,225,0.12)"}"/><circle cx="${
-        vx + 6 + (on ? 19 : 7)
-      }" cy="${y + 7}" r="5" fill="#1c1c1c"/><text x="${vx + 38}" y="${y + 11}" font-size="10" font-family="${FAMILY}" fill="#9b9b9b">${txt}</text></g>`,
+      `<g><rect x="${px + 9}" y="${y}" width="26" height="14" rx="7" fill="${on ? "#03a9f4" : "#4a4a4a"}"/><circle cx="${px + 9 + (on ? 19 : 7)}" cy="${
+        y + 7
+      }" r="5" fill="#e1e1e1"/><text x="${px + 41}" y="${y + 11}" font-size="10" font-family="${FAMILY}" fill="#e1e1e1">${txt}</text></g>`,
     );
   });
 }
@@ -369,7 +365,7 @@ const scale = +SCALE || 2;
 print(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vx} ${vy} ${vw} ${vh}" width="${Math.round(vw * scale)}" height="${
     Math.round(vh * scale)
-  }" style="${theme}"><style>${css} svg{display:inline}</style><rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" fill="#1c1c1c"/><g class="${
+  }" style="${theme}"><style>${css} svg{display:inline;max-width:100%}</style><rect x="${vx}" y="${vy}" width="${vw}" height="${vh}" style="fill:var(--hhm-bg)"/><g class="${
     esc(stage.attrs.class || "stage")
   }">${backSvg ? backSvg.children.map(svg).join("") : ""}${fans && fans._ctx ? fans._ctx.out.join("") : ""}<g class="main" font-family="${FAMILY}">${
     mainSvg.children.map(svg).join("")

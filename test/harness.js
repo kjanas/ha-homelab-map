@@ -106,8 +106,16 @@ class Node_ {
     this.children.push(c);
     return c;
   }
-  addEventListener() {
+  remove() {
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((c) => c !== this);
+    this.parentNode = null;
+  }
+  addEventListener(type, fn) {
     this.listeners++;
+    (this.handlers = this.handlers || []).push([type, fn]);
+  }
+  dispatch(type, ev) {
+    for (const [t, fn] of this.handlers || []) if (t === type) fn(ev);
   }
   append(...n) {
     for (const c of n) this.appendChild(c);
@@ -163,6 +171,9 @@ class Shadow extends Node_ {
   }
 }
 class HTMLElement {
+  constructor() {
+    this.style = styleProxy();
+  }
   attachShadow() {
     this.shadowRoot = new Shadow("#shadow");
     return this.shadowRoot;
