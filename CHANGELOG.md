@@ -27,6 +27,7 @@
 - A card that is off-screen or on another dashboard view skips state updates and catches up once when it becomes visible again.
 - Badge, label and rate widths are measured together before any layout is changed, so one state update causes one browser layout instead of one per badge.
 - Window and card resizes are combined into one re-fit per frame, and the resize observer is released when the card is removed.
+- An icon that can't be loaded is reported once in the browser console and not looked up again for a minute, instead of being polled for 10 seconds on every redraw.
 
 ## 0.101.0 – alpha
 

@@ -540,6 +540,30 @@ else {
     failed++;
   }
 }
+{
+  const timer = setTimeout;
+  setTimeout = (fn) => { fn(); return 1; };
+  const create = document.createElement;
+  let icons = 0;
+  document.createElement = function (tag) { if (tag === "ha-icon") icons++; return create.call(this, tag); };
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(m);
+  for (let i = 0; i < 2; i++) {
+    const ic = new CardClass();
+    ic.setConfig({ items: [B({ icon: "mdi:no-such-icon" })] });
+    ic.hass = { states: {} };
+    drainMicrotasks();
+  }
+  setTimeout = timer;
+  document.createElement = create;
+  console.warn = warn;
+  if (icons === 1 && warned.filter((m) => String(m).includes("no-such-icon")).length === 1) print("ok   a missing icon is looked up once, then skipped for a while");
+  else {
+    print(`FAIL missing icon: ${icons} lookups, ${warned.length} warnings`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });

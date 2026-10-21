@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.30";
+const VERSION = "0.101.31";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -57,7 +57,8 @@ const CHILD_TYPES = {
   pool: ["hdd", "ssd", "bay"],
 };
 const ICON_PATHS = new Map();
-const ICON_POLL = Object.freeze({ ms: 50, tries: 200 });
+const ICON_MISSES = new Map();
+const ICON_POLL = Object.freeze({ ms: 50, tries: 200, retryMs: 60000 });
 const TOGGLE_KEYS = {
   data: "ha-homelab-map:animate-vlans",
   power: "ha-homelab-map:animate-power",
@@ -1838,6 +1839,7 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #iconPath(name) {
+    if (Date.now() - (ICON_MISSES.get(name) ?? -Infinity) < ICON_POLL.retryMs) return Promise.resolve(null);
     if (!ICON_PATHS.has(name)) {
       ICON_PATHS.set(
         name,
@@ -1851,7 +1853,11 @@ class HaHomelabMap extends HTMLElement {
             tries += 1;
             if (d || tries > ICON_POLL.tries) {
               el.remove();
-              if (!d) ICON_PATHS.delete(name);
+              if (!d) {
+                ICON_PATHS.delete(name);
+                ICON_MISSES.set(name, Date.now());
+                console.warn(`ha-homelab-map: icon '${name}' could not be loaded`);
+              }
               resolve(d || null);
               return;
             }
