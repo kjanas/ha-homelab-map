@@ -613,6 +613,18 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
   }
 }
 {
+  const nc = new CardClass();
+  nc.setConfig({ items: [{ type: "pool", id: "p", at: [0, 0], size: [80, 60], usage_entity: "sensor.used", items: [{ type: "hdd", id: "d", at: [4, 4], temperature: "sensor.temp" }] }] });
+  nc.hass = { states: { "sensor.used": { entity_id: "sensor.used", state: "", attributes: {} }, "sensor.temp": { entity_id: "sensor.temp", state: "", attributes: {} } } };
+  const titles = nc.shadowRoot.querySelectorAll("title").map((t) => t.textContent).join(" | ");
+  const temps = nc.shadowRoot.querySelectorAll("text").map((t) => t.textContent).join(" ");
+  if (titles.includes("usage —") && titles.includes("temperature —") && temps.includes("—") && !temps.includes("0°")) print("ok   empty states show — instead of 0");
+  else {
+    print(`FAIL empty states: ${titles} / ${temps}`);
+    failed++;
+  }
+}
+{
   const host = readFile(CARD).split("const STYLES = `")[1].split(":host {")[1].split("}")[0];
   const loops = [...host.matchAll(/(--[\w-]+):\s*([^;]+);/g)].filter(([, name, value]) => value.includes(`var(${name})`) || value.includes(`var(${name},`)).map(
     ([, name]) => name,

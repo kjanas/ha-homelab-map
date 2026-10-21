@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.17";
+const VERSION = "0.101.18";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -376,7 +376,8 @@ const storeOn = (key, on) => {
   }
 };
 
-const toNumber = (state) => (state && state.state !== "" ? Number(state.state) : NaN);
+const noData = (state) => !state || ["unavailable", "unknown", ""].includes(String(state.state ?? "").trim().toLowerCase());
+const toNumber = (state) => (noData(state) ? NaN : Number(state.state));
 const orZero = (value) => (Number.isNaN(value) ? 0 : value);
 
 const RATE_UNITS = {
@@ -1646,7 +1647,7 @@ class HaHomelabMap extends HTMLElement {
   #updatePool(pool) {
     const { dev } = pool;
     const usage = dev.usage_entity ? this.#state(dev.usage_entity) : null;
-    const used = Number(usage?.state);
+    const used = toNumber(usage);
     const parts = [dev.label ?? dev.id];
     if (pool.fill) {
       const percent = Number.isFinite(used) ? Math.max(0, Math.min(100, used)) : 0;
@@ -1677,7 +1678,7 @@ class HaHomelabMap extends HTMLElement {
     for (const k of ["ok", "warn", "down"]) disk.g.classList.toggle(k, status === k);
     if (disk.spin) disk.spin.stopped = status === "down";
     const state = dev.temperature ? this.#state(dev.temperature) : null;
-    const value = Number(state?.state);
+    const value = toNumber(state);
     const text = !dev.temperature ? "" : Number.isFinite(value) ? `${Math.round(value)}°` : "—";
     if (disk.temp.textContent !== text) disk.temp.textContent = text;
     const hit = this.#threshold(dev, state);
@@ -1693,7 +1694,7 @@ class HaHomelabMap extends HTMLElement {
   #frameStatus(dev) {
     const state = this.#state(dev.status_entity);
     const raw = String(state?.state ?? "");
-    if (!state || ["unavailable", "unknown", ""].includes(raw.toLowerCase())) return "down";
+    if (noData(state)) return "down";
     if (!dev.status_map) return DOWN_STATES.has(raw.toLowerCase()) ? "down" : "ok";
     const words = raw.split(/\s+/);
     const hit = Object.entries(dev.status_map).find(([key]) => words.includes(String(key)));
@@ -1711,7 +1712,7 @@ class HaHomelabMap extends HTMLElement {
   #portStatus(port) {
     const state = this.#state(port.dev.entity);
     const noLink = port.cabled ? "fault" : "inactive";
-    if (!state || ["unavailable", "unknown", ""].includes(String(state.state).toLowerCase())) return [noLink, state ? state.state : "missing"];
+    if (noData(state)) return [noLink, state ? state.state : "missing"];
     const raw = String(state.state);
     const mapped = port.states && Object.entries(port.states).find(([key]) => key.toLowerCase() === raw.toLowerCase());
     if (mapped) return [mapped[1], raw];
@@ -1891,7 +1892,7 @@ class HaHomelabMap extends HTMLElement {
     if (chip.update) parts.push("update available");
     if (chip.count) {
       const raw = this.#state(dev.small_entity);
-      const num = Number(raw?.state);
+      const num = toNumber(raw);
       const show = Number.isFinite(num) && num > 0;
       const value = !show ? "" : num > 99 ? "99+" : String(Math.round(num));
       if (chip.count.text.textContent !== value) chip.count.text.textContent = value;
@@ -1916,7 +1917,7 @@ class HaHomelabMap extends HTMLElement {
       if (max === undefined) return "";
       return withUnit(format(max === 100 ? max : max + 1 - 10 ** -decimals, decimals));
     };
-    if (!state || ["unavailable", "unknown", ""].includes(state.state)) return { text: "—", template: reserve(dev.decimals ?? 0) };
+    if (noData(state)) return { text: "—", template: reserve(dev.decimals ?? 0) };
     const num = Number(state.state);
     let value;
     if (Number.isNaN(num)) value = this.#hass.formatEntityState ? this.#hass.formatEntityState(state) : state.state;
@@ -1931,7 +1932,7 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #threshold(dev, state) {
-    if (!dev.thresholds || !state || ["unavailable", "unknown", ""].includes(String(state.state))) return null;
+    if (!dev.thresholds || noData(state)) return null;
     const value = Number(state.state);
     if (!Number.isFinite(value)) return null;
     let hit = null;

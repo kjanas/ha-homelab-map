@@ -14,6 +14,7 @@
 - An error while drawing the map shows a message in the card instead of leaving it blank, and one element that fails to update no longer stops the others.
 - Names such as `constructor` or `toString` in `type`, `texture`, `vlan` or a line's `vlans` are now rejected as unknown instead of passing validation and breaking the card.
 - The card accepts the dashboard's own keys `visibility`, `layout_options` and `card_mod` instead of rejecting them as unknown.
+- An empty entity state is shown as `—` on disks, pools and chip counts instead of being read as 0; unavailable, unknown and empty states are recognised the same way everywhere.
 
 ## 0.101.0 – alpha
 
