@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.34";
+const VERSION = "0.101.35";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -402,6 +402,7 @@ const storeOn = (key, on) => {
 };
 
 const noData = (state) => !state || ["unavailable", "unknown", ""].includes(String(state.state ?? "").trim().toLowerCase());
+const thresholdColor = (hit) => (hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "");
 const toNumber = (state) => (noData(state) ? NaN : Number(state.state));
 const orZero = (value) => (Number.isNaN(value) ? 0 : value);
 
@@ -1451,7 +1452,6 @@ class HaHomelabMap extends HTMLElement {
     const badgeLayer = svgEl("g", {}, svg);
     for (const box of this.#boxes) box.el = box.dev.type === "rack" ? this.#drawRack(racks, box) : this.#drawDevice(devices, box);
     for (const box of fans) box.el = this.#drawFan(box.dev.type === "fanpanel" ? racks : devices, box);
-    this.#fans.forEach((f, i) => (f.group = fans[i].group));
     for (const box of storage) box.el = box.dev.type === "pool" ? this.#drawPool(devices, box) : this.#drawDisk(devices, box, defs);
     const radius = config.line_radius ?? DEFAULTS.lineRadius;
     lines.forEach((line, i) => this.#drawLine(lineLayer, line, radius, defs, i));
@@ -1468,8 +1468,6 @@ class HaHomelabMap extends HTMLElement {
       if (!this.#groupEls.has(p.group)) this.#groupEls.set(p.group, []);
       this.#groupEls.get(p.group).push(p.el);
     }
-    this.#chips.forEach((c, i) => (c.group = chips[i].group));
-    this.#leds.forEach((l, i) => (l.group = leds[i].group));
     this.#applyGroups();
     this.#debugLayer = null;
     this.#debugTip = null;
@@ -1698,7 +1696,7 @@ class HaHomelabMap extends HTMLElement {
     return g;
   }
 
-  #drawFan(parent, { dev, x, y, w, h }) {
+  #drawFan(parent, { dev, x, y, w, h, group }) {
     const g = svgEl("g", { class: `fan-item ${dev.type}`, "data-id": dev.id }, parent);
     if (dev.entity) {
       g.dataset.entity = dev.entity;
@@ -1730,7 +1728,7 @@ class HaHomelabMap extends HTMLElement {
       svgEl("circle", { class: "fan-hub", cx, cy, r: (r - 2) * 0.28 }, g);
       return { el, cx, cy, angle };
     });
-    this.#fans.push({ dev, g, title, rotors, rps: dev.entity ? 0 : FAN.minRps });
+    this.#fans.push({ dev, group, g, title, rotors, rps: dev.entity ? 0 : FAN.minRps });
     return g;
   }
 
@@ -1750,7 +1748,7 @@ class HaHomelabMap extends HTMLElement {
     else if (Number.isFinite(value)) speed = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
     fan.rps = stopped ? 0 : FAN.minRps + (speed ?? 0) * (FAN.maxRps - FAN.minRps);
     const hit = this.#threshold(dev, state);
-    const color = hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "";
+    const color = thresholdColor(hit);
     for (const rotor of fan.rotors) if (rotor.el.style.fill !== color) rotor.el.style.fill = color;
     const unit = state?.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
     const reading = state ? `${state.state}${Number.isFinite(value) ? unit : ""}` : "missing";
@@ -1770,7 +1768,7 @@ class HaHomelabMap extends HTMLElement {
       pool.fill.setAttribute("y", pool.y + pool.h - height);
       pool.fill.setAttribute("height", height);
       const hit = this.#threshold(dev, usage);
-      const color = hit ? `color-mix(in srgb, ${own(THRESHOLD_COLORS, hit.color) ?? hit.color} 55%, var(--hhm-bg))` : "";
+      const color = hit ? `color-mix(in srgb, ${thresholdColor(hit)} 55%, var(--hhm-bg))` : "";
       if (pool.fill.style.fill !== color) pool.fill.style.fill = color;
       parts.push(Number.isFinite(used) ? `${Math.round(used)}% used` : "usage —");
     }
@@ -1797,7 +1795,7 @@ class HaHomelabMap extends HTMLElement {
     const text = !dev.temperature ? "" : Number.isFinite(value) ? `${Math.round(value)}°` : "—";
     if (disk.temp.textContent !== text) disk.temp.textContent = text;
     const hit = this.#threshold(dev, state);
-    const color = hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "";
+    const color = thresholdColor(hit);
     if (disk.temp.style.fill !== color) disk.temp.style.fill = color;
     const parts = [dev.id];
     if (dev.temperature) parts.push(Number.isFinite(value) ? `${value} ${state.attributes?.unit_of_measurement ?? "°C"}` : "temperature —");
@@ -1915,7 +1913,7 @@ class HaHomelabMap extends HTMLElement {
     return g;
   }
 
-  #drawChip(parent, { dev, x, y, w }) {
+  #drawChip(parent, { dev, x, y, w, group }) {
     const g = svgEl("g", { class: "chip", "data-id": dev.id }, parent);
     if (dev.url) {
       g.dataset.url = dev.url;
@@ -1946,7 +1944,7 @@ class HaHomelabMap extends HTMLElement {
       cg.style.display = "none";
       count = { g: cg, text, cx: scx, cy: scy, r: cr + 0.5, shown: false };
     }
-    this.#chips.push({ dev, title, count, cx: x + r, cy: y + r, r: r + 1, down: false, update: false });
+    this.#chips.push({ dev, group, title, count, cx: x + r, cy: y + r, r: r + 1, down: false, update: false });
     return g;
   }
 
@@ -1975,7 +1973,7 @@ class HaHomelabMap extends HTMLElement {
     if (label.g.getAttribute("transform") !== transform) label.g.setAttribute("transform", transform);
   }
 
-  #drawLed(parent, { dev, x, y, w, h }) {
+  #drawLed(parent, { dev, x, y, w, h, group }) {
     const g = svgEl("g", { class: "led", "data-id": dev.id }, parent);
     const title = svgEl("title", {}, g);
     const color = dev.color || this.#config.vlans[dev.vlan];
@@ -1984,7 +1982,7 @@ class HaHomelabMap extends HTMLElement {
       const caption = svgEl("text", { class: "led-caption", x: x + w / 2, y: y - LED.captionGap, "text-anchor": "middle" }, g);
       caption.textContent = String(dev.caption);
     }
-    this.#leds.push({ dev, title, rect, color, x, y, w, h, lit: true, left: randomIn(LED.on), down: false });
+    this.#leds.push({ dev, group, title, rect, color, x, y, w, h, lit: true, left: randomIn(LED.on), down: false });
     return g;
   }
 
@@ -2070,7 +2068,7 @@ class HaHomelabMap extends HTMLElement {
     const state = this.#state(badge.dev.entity);
     const name = state?.attributes?.friendly_name || badge.dev.entity;
     const hit = this.#threshold(badge.dev, state);
-    const color = hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "";
+    const color = thresholdColor(hit);
     for (const node of [badge.text, badge.icon]) if (node && node.style.fill !== color) node.style.fill = color;
     const reached = hit ? ` · ${hit.above !== undefined ? `above ${hit.above}` : `below ${hit.below}`}` : "";
     const tip = `${name}: ${text}${reached}${badge.dev.toggle ? " · click to show/hide" : ""}`;
