@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.102.0 – unreleased
+## 0.102.0 – alpha
 
 - `background` – `blueprint`, `pegboard`, `vignette`, a colour or an image URL behind the map.
 - Pan & zoom – pinch, ctrl/⌘ + wheel, trackpad pinch or double-tap to zoom (up to 4 screen px per map px), drag to move, ⤢ to reset.
