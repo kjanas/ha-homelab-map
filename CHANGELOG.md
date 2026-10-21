@@ -25,6 +25,7 @@
 - `scale: 0` is rejected instead of silently meaning 1; the docs now say that the map never gets wider than the card.
 - Badges, labels and rates in a group that starts hidden get their real width when the group is shown, instead of keeping an estimate until their value changes.
 - A card that is off-screen or on another dashboard view skips state updates and catches up once when it becomes visible again.
+- Badge, label and rate widths are measured together before any layout is changed, so one state update causes one browser layout instead of one per badge.
 
 ## 0.101.0 – alpha
 

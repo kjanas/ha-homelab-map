@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.28";
+const VERSION = "0.101.29";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -842,6 +842,7 @@ class HaHomelabMap extends HTMLElement {
   #built = false;
   #failed = false;
   #stale = false;
+  #pending = null;
   #deps = new Map();
   #frames = [];
   #platterDef = false;
@@ -978,7 +979,7 @@ class HaHomelabMap extends HTMLElement {
     const due = new Set();
     for (const [id, updates] of this.#deps) if (prev.states[id] !== hass.states[id]) { for (const update of updates) due.add(update); }
     if (!due.size) return;
-    for (const update of due) this.#run(update);
+    this.#batch(due);
     this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
@@ -1057,9 +1058,11 @@ class HaHomelabMap extends HTMLElement {
     for (const badge of this.#badges) badge.measured = 0;
     for (const label of this.#labels) label.measured = 0;
     for (const rate of this.#rates) rate.measured = false;
-    for (const badge of this.#badges) this.#updateBadge(badge);
-    for (const label of this.#labels) this.#layoutLabel(label);
-    for (const rate of this.#rates) this.#updateRates(rate);
+    this.#batch([
+      ...this.#badges.map((badge) => () => this.#updateBadge(badge)),
+      ...this.#labels.map((label) => () => this.#layoutLabel(label)),
+      ...this.#rates.map((rate) => () => this.#updateRates(rate)),
+    ]);
   }
 
   #render() {
@@ -1079,6 +1082,30 @@ class HaHomelabMap extends HTMLElement {
     this.#stage.replaceChildren();
     for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
     htmlEl("div", "error", this.#stage).textContent = `Homelab Map could not be drawn: ${error?.message ?? error}`;
+  }
+
+  #measure(read, write) {
+    if (this.#pending) this.#pending.push([read, write]);
+    else write(read());
+  }
+
+  #batch(updates) {
+    this.#pending = [];
+    try {
+      for (const update of updates) this.#run(update);
+    } finally {
+      const jobs = this.#pending;
+      this.#pending = null;
+      const values = jobs.map(([read]) => {
+        try {
+          return read();
+        } catch (error) {
+          console.error("ha-homelab-map: measuring failed", error);
+          return 0;
+        }
+      });
+      jobs.forEach(([, write], i) => this.#run(() => write(values[i])));
+    }
   }
 
   #run(update) {
@@ -1896,7 +1923,10 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #layoutLabel(label) {
-    const w = textLength(label.text);
+    this.#measure(() => textLength(label.text), (w) => this.#placeLabel(label, w));
+  }
+
+  #placeLabel(label, w) {
     label.measured = w;
     const length = w || String(label.dev.text).length * label.size * 0.6;
     const transform = label.dev.vertical ? `translate(${label.x},${label.y + length}) rotate(-90)` : `translate(${label.x},${label.y})`;
@@ -2008,11 +2038,13 @@ class HaHomelabMap extends HTMLElement {
       badge.measured = 0;
     }
     if (!changed && badge.measured > 0) return;
-    const estimate = (node) => textLength(node) || node.textContent.length * badge.size * 0.6;
-    const w = textLength(badge.text);
+    this.#measure(() => [textLength(badge.text), template ? textLength(badge.probe) : 0], ([w, probeW]) => this.#placeBadge(badge, w, probeW));
+  }
+
+  #placeBadge(badge, w, probeW) {
     badge.measured = w;
-    const textW = w || estimate(badge.text);
-    const width = Math.max(textW, template ? estimate(badge.probe) : 0);
+    const textW = w || badge.text.textContent.length * badge.size * 0.6;
+    const width = Math.max(textW, badge.probe.textContent ? probeW || badge.probe.textContent.length * badge.size * 0.6 : 0);
     const transform = width > textW ? `translate(${(width - textW) / 2},0)` : "";
     if ((badge.content.getAttribute("transform") || "") !== transform) {
       if (transform) badge.content.setAttribute("transform", transform);
@@ -2071,9 +2103,11 @@ class HaHomelabMap extends HTMLElement {
     storeGroups(this.#hiddenGroups);
     this.#applyGroups();
     if (this.#hiddenGroups.has(id)) return;
-    for (const badge of this.#badges) if (!badge.measured) this.#run(() => this.#updateBadge(badge));
-    for (const label of this.#labels) if (!label.measured) this.#run(() => this.#layoutLabel(label));
-    for (const rate of this.#rates) if (!rate.measured) this.#run(() => this.#updateRates(rate));
+    this.#batch([
+      ...this.#badges.filter((badge) => !badge.measured).map((badge) => () => this.#updateBadge(badge)),
+      ...this.#labels.filter((label) => !label.measured).map((label) => () => this.#layoutLabel(label)),
+      ...this.#rates.filter((rate) => !rate.measured).map((rate) => () => this.#updateRates(rate)),
+    ]);
   }
 
   #applyGroups() {
@@ -2175,7 +2209,10 @@ class HaHomelabMap extends HTMLElement {
       changed = true;
     }
     if (!changed) return;
-    const measured = rate.spans.map(({ span }) => textLength(span));
+    this.#measure(() => rate.spans.map(({ span }) => textLength(span)), (measured) => this.#placeRates(rate, measured));
+  }
+
+  #placeRates(rate, measured) {
     rate.measured = measured.every((w) => w > 0);
     const block = Math.max(...measured.map((w, i) => w || rate.spans[i].span.textContent.length * rate.size * 0.55));
     const x = rate.mode === "after" ? rate.gap : rate.mode === "before" ? -rate.gap - block : -block / 2;
@@ -2239,17 +2276,19 @@ class HaHomelabMap extends HTMLElement {
 
   #update() {
     if (!this.#built || !this.#hass) return;
-    for (const badge of this.#badges) this.#run(() => this.#updateBadge(badge));
-    for (const chip of this.#chips) this.#run(() => this.#updateChip(chip));
-    for (const led of this.#leds) this.#run(() => this.#updateLed(led));
-    for (const rate of this.#rates) this.#run(() => this.#updateRates(rate));
-    for (const label of this.#labels) if (!label.measured) this.#run(() => this.#layoutLabel(label));
-    for (const port of this.#ports) this.#run(() => this.#updatePort(port));
-    for (const frame of this.#frames) this.#run(() => this.#updateFrame(frame));
-    for (const pool of this.#pools) this.#run(() => this.#updatePool(pool));
-    for (const disk of this.#disks) this.#run(() => this.#updateDisk(disk));
-    for (const fan of this.#fans) this.#run(() => this.#updateFan(fan));
-    for (const line of this.#lines) this.#run(() => this.#updateLine(line));
+    const updates = [];
+    for (const badge of this.#badges) updates.push(() => this.#updateBadge(badge));
+    for (const chip of this.#chips) updates.push(() => this.#updateChip(chip));
+    for (const led of this.#leds) updates.push(() => this.#updateLed(led));
+    for (const rate of this.#rates) updates.push(() => this.#updateRates(rate));
+    for (const label of this.#labels) if (!label.measured) updates.push(() => this.#layoutLabel(label));
+    for (const port of this.#ports) updates.push(() => this.#updatePort(port));
+    for (const frame of this.#frames) updates.push(() => this.#updateFrame(frame));
+    for (const pool of this.#pools) updates.push(() => this.#updatePool(pool));
+    for (const disk of this.#disks) updates.push(() => this.#updateDisk(disk));
+    for (const fan of this.#fans) updates.push(() => this.#updateFan(fan));
+    for (const line of this.#lines) updates.push(() => this.#updateLine(line));
+    this.#batch(updates);
     this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }

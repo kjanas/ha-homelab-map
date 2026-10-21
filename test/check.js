@@ -489,6 +489,26 @@ else {
     failed++;
   }
 }
+{
+  const oc = new CardClass();
+  oc.setConfig({ items: [0, 1, 2].map((i) => B({ id: `o${i}`, at: [0, i * 20], entity: `sensor.o${i}`, show_border: true })) });
+  const st = (v) => ({ states: Object.fromEntries([0, 1, 2].map((i) => [`sensor.o${i}`, { entity_id: `sensor.o${i}`, state: v, attributes: {} }])) });
+  oc.hass = st("1");
+  const order = [];
+  const measure = Node_.prototype.getComputedTextLength;
+  const setAttr = Node_.prototype.setAttribute;
+  Node_.prototype.getComputedTextLength = function () { order.push("r"); return measure.call(this); };
+  Node_.prototype.setAttribute = function (k, v) { if (k === "width" || k === "transform") order.push("w"); return setAttr.call(this, k, v); };
+  oc.hass = st("12345");
+  Node_.prototype.getComputedTextLength = measure;
+  Node_.prototype.setAttribute = setAttr;
+  const seq = order.join("");
+  if (/^r+w+$/.test(seq)) print("ok   one state update measures all text before writing layout");
+  else {
+    print(`FAIL measure order: ${seq}`);
+    failed++;
+  }
+}
 delete window.localStorage;
 const portCard = new CardClass();
 portCard.setConfig({ items: [D({ items: [PS([P({ entity: "sensor.cam_link" })], { speed: "100Mbps" })] })] });
