@@ -398,7 +398,7 @@ A rack panel with fans, and single fans you can place anywhere.
 | `thresholds` | | Colour of the rotor – you decide whether a stopped or slow fan is a fault |
 | `texture`, `texture_opacity` (`fanpanel`) | | A pattern on the panel – see [textures](#textures) |
 
-`on` = full speed, `0` or `off` = stopped, unavailable or no `entity` = slow. The rotors stop with the **Animations** switch.
+`on` = full speed; `0`, `off`, an unavailable or unknown state or a missing entity = stopped; no `entity` at all = slow. The rotors stop with the **Animations** switch.
 
 ## Lines
 

@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.36";
+const VERSION = "0.101.37";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -1753,7 +1753,8 @@ class HaHomelabMap extends HTMLElement {
     const raw = String(state?.state ?? "").toLowerCase();
     const value = toNumber(state);
     const [lo, hi] = dev.range ?? FAN.range;
-    const stopped = raw === "off" || value === 0;
+    const missing = noData(state);
+    const stopped = missing || raw === "off" || value === 0;
     let speed = null;
     if (PORT.on.includes(raw) && !Number.isFinite(value)) speed = 1;
     else if (Number.isFinite(value)) speed = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
@@ -1763,7 +1764,7 @@ class HaHomelabMap extends HTMLElement {
     for (const rotor of fan.rotors) if (rotor.el.style.fill !== color) rotor.el.style.fill = color;
     const unit = state?.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
     const reading = state ? `${state.state}${Number.isFinite(value) ? unit : ""}` : "missing";
-    const pace = stopped ? "stopped" : speed === null ? "slow (no reading)" : `speed ${Math.round(speed * 100)}%`;
+    const pace = missing ? "stopped (no reading)" : stopped ? "stopped" : speed === null ? "slow" : `speed ${Math.round(speed * 100)}%`;
     const text = `${dev.id} · ${reading} · ${pace}`;
     if (fan.title.textContent !== text) fan.title.textContent = text;
   }

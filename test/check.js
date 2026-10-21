@@ -881,7 +881,7 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
   fc.hass = { states: st("unavailable", "400") };
   const c = info();
   const got = [a, b, c].join(" | ");
-  const want = "3:speed 50%:- 1:speed 50%:- | 3:speed 0%:- 1:stopped:red | 3:slow (no reading):- 1:speed 13%:red";
+  const want = "3:speed 50%:- 1:speed 50%:- | 3:speed 0%:- 1:stopped:red | 3:stopped (no reading):- 1:speed 13%:red";
   if (got === want) print("ok   fan speed mapping, stopped, no reading, thresholds");
   else {
     print(`FAIL fans: ${got}`);
