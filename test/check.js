@@ -106,6 +106,16 @@ try {
   print(`FAIL dashboard keys: ${e.message}`);
   failed++;
 }
+expect("chip javascript url", { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url: "javascript:alert(1)" }] }, "items[0].url: expected a link");
+try {
+  validateConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url: "obsidian://open?vault=x" }] });
+  print("ok   chip app link (obsidian://)");
+} catch (e) {
+  print(`FAIL chip app link: ${e.message}`);
+  failed++;
+}
+expect("chip protocol-relative image", { items: [{ type: "chip", id: "c", at: [0, 0], image: "//evil.example/x.svg" }] }, "items[0].image: expected an image URL");
+expect("chip data small_image", { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", small_image: "data:image/svg+xml,x" }] }, "items[0].small_image: expected an image URL");
 expect("toggle not boolean", { items: [], vlan_toggle: "yes" }, "vlan_toggle: expected true or false");
 expect("power toggle not boolean", { items: [], power_toggle: 1 }, "power_toggle: expected true or false");
 const C = (extra = {}) => ({ type: "chip", id: "c1", at: [0, 0], icon: "mdi:docker", ...extra });

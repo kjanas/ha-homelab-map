@@ -20,6 +20,7 @@
 - Colour names and `hsl()` colours work like hex colours for LED flicker and faded cable ends (these used to be invisible or grey).
 - Rate units: bit units are also recognised in lower case (`mbit/s`), `kb/s`, `Mb/s` and `Gb/s` are read as bits, and a sensor with an unknown unit shows `—` instead of being silently read as kB/s.
 - The animation layer is drawn at most at 2× screen density, which cuts its memory and drawing work on 3× phones and tablets without a visible difference.
+- A chip's `url` can no longer be a `javascript:`, `data:`, `vbscript:` or `file:` link (app links such as `obsidian://` still work), and `image` / `small_image` must be image URLs starting with `/` or `http(s)://`, like the background.
 
 ## 0.101.0 – alpha
 

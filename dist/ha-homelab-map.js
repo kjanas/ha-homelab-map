@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.101.23";
+const VERSION = "0.101.24";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -191,7 +191,8 @@ const TEXTURES = Object.freeze({
 });
 const BACKGROUNDS = ["none", "blueprint", "pegboard", "vignette"];
 const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
-const isImageUrl = (value) => typeof value === "string" && /^(\/|https?:\/\/)\S+$/.test(value);
+const isImageUrl = (value) => typeof value === "string" && /^(\/(?!\/)|https?:\/\/)\S+$/i.test(value);
+const isLink = (value) => typeof value === "string" && /^\S+$/.test(value) && !/^(javascript|data|vbscript|file):/i.test(value);
 const DEPTH = Object.freeze({ big: { dy: 2.2, blur: 2.2, alpha: 0.55 }, small: { dy: 1, blur: 0.9, alpha: 0.5 } });
 const ZOOM = Object.freeze({ maxPx: 4, step: 2.5, tapMs: 320, tapPx: 30, dragPx: 6, compactWidth: 520 });
 const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2, maxRatio: 2 });
@@ -670,13 +671,14 @@ const validateItem = (item, path, parent, ctx) => {
   if (item.type === "chip") {
     if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a diameter in px");
     if (Boolean(item.icon) === Boolean(item.image)) fail(path, "a chip needs either 'icon' or 'image'");
+    if (item.image !== undefined && !isImageUrl(item.image)) fail(`${path}.image`, "expected an image URL starting with / or http(s)://");
     if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:docker");
-    if (item.small_image !== undefined && typeof item.small_image !== "string") fail(`${path}.small_image`, "expected an image URL");
+    if (item.small_image !== undefined && !isImageUrl(item.small_image)) fail(`${path}.small_image`, "expected an image URL starting with / or http(s)://");
     if (item.small_image !== undefined && item.small_entity !== undefined) fail(path, "a chip can have 'small_image' or 'small_entity', not both");
     for (const key of ["small_entity", "status_entity", "update_entity"]) {
       if (item[key] !== undefined && !isEntity(item[key])) fail(`${path}.${key}`, "expected an entity id");
     }
-    if (item.url !== undefined && typeof item.url !== "string") fail(`${path}.url`, "expected a URL");
+    if (item.url !== undefined && !isLink(item.url)) fail(`${path}.url`, "expected a link; javascript:, data:, vbscript: and file: are not allowed");
   }
   if (item.type === "badge" && item.toggle !== undefined) ctx.toggles.push({ path: `${path}.toggle`, id: item.toggle });
   if (item.type === "group") ctx.groups.add(item.id);
@@ -919,7 +921,7 @@ class HaHomelabMap extends HTMLElement {
         return;
       }
       if (target.dataset.url) {
-        window.open(target.dataset.url, "_blank", "noopener");
+        if (isLink(target.dataset.url)) window.open(target.dataset.url, "_blank", "noopener");
         return;
       }
       this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: target.dataset.entity }, bubbles: true, composed: true }));
