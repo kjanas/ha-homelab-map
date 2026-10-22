@@ -14,5 +14,7 @@ for y in $D/*.yaml; do
   echo -n "$n "
 done
 echo
+rm -rf $R/out/docs-images && mkdir $R/out/docs-images
+for n in $names; do cp $R/out/$n.png $R/out/docs-images/$n.png; done
 rm -f $R/../docs/images/*.png(N)
-for n in $names; do cp $R/out/$n.png $R/../docs/images/$n.png; done
+mv $R/out/docs-images/*.png $R/../docs/images/

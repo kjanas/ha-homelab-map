@@ -59,7 +59,7 @@ const CHILD_TYPES = {
 const ICON_PATHS = new Map();
 const ICON_MISSES = new Map();
 const IMAGE_MISSES = new Set();
-const ICON_POLL = Object.freeze({ ms: 50, tries: 200, retryMs: 60000 });
+const ICON_POLL = Object.freeze({ ms: 50, tries: 200, retryMs: 60000, retries: 5 });
 const TOGGLE_KEYS = {
   data: "ha-homelab-map:animate-vlans",
   power: "ha-homelab-map:animate-power",
@@ -200,8 +200,9 @@ const isPlainUrl = (value) => typeof value === "string" && value !== "" && ![...
 const isImageUrl = (value) => isPlainUrl(value) && /^(\/(?!\/)|https?:\/\/)/i.test(value);
 const isLink = (value) => {
   if (!isPlainUrl(value)) return false;
+  if (/^(([a-z0-9-]+\.)+[a-z0-9-]+|localhost):\d+(\/|$)/i.test(value)) return false;
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
-  return scheme ? !UNSAFE_SCHEMES.includes(scheme[1].toLowerCase()) : value.startsWith("/");
+  return scheme ? !UNSAFE_SCHEMES.includes(scheme[1].toLowerCase()) : value.startsWith("/") && !value.startsWith("//");
 };
 const ZOOM = Object.freeze({ maxPx: 4, step: 2.5, tapMs: 320, tapPx: 30, dragPx: 6, compactWidth: 520 });
 const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2, maxRatio: 2 });
@@ -431,8 +432,12 @@ const storeOn = (key, on) => {
 
 const noData = (state) => !state || ["unavailable", "unknown", ""].includes(String(state.state ?? "").trim().toLowerCase());
 const thresholdColor = (hit) => (hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "");
-const finite = (value) => (Number.isFinite(value) ? value : NaN);
-const toNumber = (state) => (noData(state) ? NaN : finite(Number(state.state)));
+const NUMERIC = /^\s*[-+]?(\d+(\.\d*)?|\.\d+)(e[-+]?\d+)?\s*$/i;
+const parseNumber = (raw) => {
+  const value = Number(raw);
+  return NUMERIC.test(String(raw ?? "")) && Number.isFinite(value) ? value : NaN;
+};
+const toNumber = (state) => (noData(state) ? NaN : parseNumber(state.state));
 
 const WARNED = new Set();
 const warnOnce = (key, message) => {
@@ -570,8 +575,9 @@ const cssColor = (color) => {
       };
       const dark = read("#000000");
       if (dark === read("#ffffff")) parsed = dark;
+      else warnOnce(`colour:${color}`, `colour '${color}' could not be read for animations, it is used as it is`);
     } catch (error) {
-      warnOnce("canvas-colour", `colours could not be resolved for animations (${error?.message ?? error})`);
+      warnOnce(`colour:${color}`, `colour '${color}' could not be resolved for animations (${error?.message ?? error})`);
     }
     CSS_COLORS.set(color, parsed);
   }
@@ -675,6 +681,24 @@ let motionQuery;
 const reducedMotion = () => {
   if (motionQuery === undefined) motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)") ?? null;
   return Boolean(motionQuery?.matches);
+};
+
+const NUMBER_LOCALES = Object.freeze({ comma_decimal: "en-US", decimal_comma: "de-DE", space_comma: "fr-FR", none: "en-US" });
+const numberLocale = (locale) => (locale?.number_format === "system" ? undefined : own(NUMBER_LOCALES, locale?.number_format) ?? locale?.language);
+
+const fontAvailable = (font) => {
+  try {
+    const ctx = document.createElement("canvas").getContext("2d");
+    const sample = "mmmmmmmmmmlli10WQ";
+    return ["monospace", "serif"].some((base) => {
+      ctx.font = `40px ${base}`;
+      const fallback = ctx.measureText(sample).width;
+      ctx.font = `40px "${font}", ${base}`;
+      return ctx.measureText(sample).width !== fallback;
+    });
+  } catch {
+    return true;
+  }
 };
 
 const NUMBER_FORMATS = new Map();
@@ -960,9 +984,6 @@ const validateLine = (line, path, kind, { devices, ports, ids }, vlans) => {
   for (const key of ["rates_placement", "rates_size"]) {
     if (line[key] !== undefined && at === undefined) fail(`${path}.${key}`, "has no effect without 'rates_at'");
   }
-  for (const key of ["rx", "tx"]) {
-    if (line[key] !== undefined && line.flow === undefined && at === undefined) fail(`${path}.${key}`, "has no effect without 'flow' or 'rates_at'");
-  }
 };
 
 const validateConfig = (config) => {
@@ -1087,6 +1108,8 @@ class HaHomelabMap extends HTMLElement {
   #groupEls = new Map();
   #hiddenGroups = storedGroups();
   #failedUpdates = new Set();
+  #current = undefined;
+  #iconTimers = new Set();
   #locale = "";
   #animate = { data: true, power: true, motion: true };
   #lines = [];
@@ -1126,7 +1149,7 @@ class HaHomelabMap extends HTMLElement {
     root.append(style, this.#card, this.#iconLoader);
     this.#card.addEventListener("click", (ev) => this.#activate(ev));
     this.#card.addEventListener("keydown", (ev) => {
-      if (ev.key !== "Enter" && ev.key !== " ") return;
+      if (ev.repeat || (ev.key !== "Enter" && ev.key !== " ")) return;
       if (this.#activate(ev)) ev.preventDefault();
     });
     this.#card.addEventListener("click", (ev) => {
@@ -1166,6 +1189,7 @@ class HaHomelabMap extends HTMLElement {
     this.#built = false;
     this.#failed = false;
     this.#hiddenGroups = storedGroups();
+    for (const key of WARNED) if (key.startsWith("missing:")) WARNED.delete(key);
     this.#applyFont();
     if (this.#hass) this.#render();
   }
@@ -1191,6 +1215,7 @@ class HaHomelabMap extends HTMLElement {
     }
     const due = new Set();
     for (const [id, updates] of this.#deps) if (prev.states[id] !== hass.states[id]) { for (const update of updates) due.add(update); }
+    if (prev.states !== hass.states) this.#reportMissing();
     if (!due.size) return;
     this.#batch(due);
     this.#applyVisibility();
@@ -1273,7 +1298,7 @@ class HaHomelabMap extends HTMLElement {
     Promise.all([document.fonts.load(`10px "${font}"`), document.fonts.load(`bold 10px "${font}"`)])
       .then(
         (loaded) => {
-          if (!loaded.some((faces) => faces?.length) && document.fonts.check && !document.fonts.check(`10px "${font}"`)) {
+          if (!loaded.some((faces) => faces?.length) && !fontAvailable(font)) {
             warnOnce(`font:${font}`, `font '${font}' is not installed and not bundled, the theme font is used instead`);
           }
           this.#remeasure();
@@ -1291,9 +1316,9 @@ class HaHomelabMap extends HTMLElement {
     for (const label of this.#labels) label.measured = 0;
     for (const rate of this.#rates) rate.measured = false;
     this.#batch([
-      ...this.#badges.map((badge) => () => this.#updateBadge(badge)),
-      ...this.#labels.map((label) => () => this.#layoutLabel(label)),
-      ...this.#rates.map((rate) => () => this.#updateRates(rate)),
+      ...this.#badges.map((badge) => job(badge.dev.id, () => this.#updateBadge(badge))),
+      ...this.#labels.map((label) => job(label.dev.id, () => this.#layoutLabel(label))),
+      ...this.#rates.map((rate) => job(`${rate.cfg.id} rates`, () => this.#updateRates(rate))),
     ]);
   }
 
@@ -1318,7 +1343,7 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #measure(read, write) {
-    if (this.#pending) this.#pending.push([read, write]);
+    if (this.#pending) this.#pending.push([read, write, this.#current]);
     else write(read());
   }
 
@@ -1329,27 +1354,39 @@ class HaHomelabMap extends HTMLElement {
     } finally {
       const jobs = this.#pending;
       this.#pending = null;
-      const values = jobs.map(([read]) => {
+      const values = jobs.map(([read, , id]) => {
         try {
           return read();
         } catch (error) {
-          console.error("ha-homelab-map: measuring failed", error);
+          this.#reportFailure("measuring", id, error);
           return 0;
         }
       });
-      jobs.forEach(([, write], i) => this.#run(() => write(values[i])));
+      jobs.forEach(([, write, id], i) => this.#run(job(id, () => write(values[i]))));
     }
   }
 
   #run(update) {
+    const outer = this.#current;
+    this.#current = update.id;
     try {
       update();
     } catch (error) {
-      const id = update.id ?? "an item";
-      if (this.#failedUpdates.has(id)) return;
-      this.#failedUpdates.add(id);
-      console.error(`ha-homelab-map: updating '${id}' failed`, error);
+      this.#reportFailure("updating", update.id, error);
+    } finally {
+      this.#current = outer;
     }
+  }
+
+  #reportFailure(what, id, error) {
+    if (!id) {
+      console.error(`ha-homelab-map: ${what} failed`, error);
+      return;
+    }
+    const key = `${what}|${id}|${error?.message ?? error}`;
+    if (this.#failedUpdates.has(key)) return;
+    this.#failedUpdates.add(key);
+    console.error(`ha-homelab-map: ${what} '${id}' failed`, error);
   }
 
   #fit() {
@@ -1564,6 +1601,8 @@ class HaHomelabMap extends HTMLElement {
     const { minX, minY, width, height } = viewBox;
     this.#stage.replaceChildren();
     for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
+    for (const timer of this.#iconTimers) clearTimeout(timer);
+    this.#iconTimers = new Set();
     this.#painted = false;
     this.#zoom = 1;
     this.#togglesBox = null;
@@ -1766,15 +1805,23 @@ class HaHomelabMap extends HTMLElement {
   #drawIcon(parent, name, x, y, size) {
     const path = svgEl("path", { class: "mdi", transform: `translate(${x},${y}) scale(${size / 24})`, "data-icon": name }, parent);
     this.#iconPath(name).then((d) => {
-      if (d) {
-        path.setAttribute("d", d);
-        return;
-      }
-      setTimeout(() => {
-        if (path.isConnected) this.#iconPath(name).then((retry) => retry && path.setAttribute("d", retry));
-      }, ICON_POLL.retryMs);
+      if (d) path.setAttribute("d", d);
+      else this.#retryIcon(path, name, 1);
     });
     return path;
+  }
+
+  #retryIcon(path, name, attempt) {
+    if (attempt > ICON_POLL.retries) return;
+    const timer = setTimeout(() => {
+      this.#iconTimers.delete(timer);
+      if (path.getAttribute("d")) return;
+      this.#iconPath(name).then((d) => {
+        if (d) path.setAttribute("d", d);
+        else this.#retryIcon(path, name, attempt + 1);
+      });
+    }, ICON_POLL.retryMs);
+    this.#iconTimers.add(timer);
   }
 
   #drawPort(parent, { dev, x, y, w }, group) {
@@ -1969,6 +2016,7 @@ class HaHomelabMap extends HTMLElement {
     }
     if (noData(state)) return "down";
     if (!dev.status_map) return DOWN_STATES.has(raw) ? "down" : "ok";
+    warnOnce(`map:${dev.status_entity}:${raw}`, `'${dev.status_entity}' is '${state.state}', which is not in the status_map of '${dev.id}' – shown as warn`);
     return "warn";
   }
 
@@ -2208,14 +2256,14 @@ class HaHomelabMap extends HTMLElement {
     const ownUnit = state?.attributes?.unit_of_measurement || "";
     const unit = dev.units === undefined || dev.units === true ? ownUnit : HIDDEN(dev.units) ? "" : String(dev.units);
     const withUnit = (value) => (!unit ? value : unit === "%" ? `${value}%` : `${value} ${unit}`);
-    const format = (num, decimals) => formatNumber(num, decimals, this.#hass.locale?.language);
+    const format = (num, decimals) => formatNumber(num, decimals, numberLocale(this.#hass.locale));
     const reserve = (decimals) => {
       const max = own(BADGE_MAX, unit);
       if (max === undefined) return "";
       return withUnit(format(max === 100 ? max : max + 1 - 10 ** -decimals, decimals));
     };
     if (noData(state)) return { text: "—", template: reserve(dev.decimals ?? 0) };
-    const num = finite(Number(state.state));
+    const num = parseNumber(state.state);
     let value;
     if (Number.isNaN(num)) value = this.#hass.formatEntityState ? this.#hass.formatEntityState(state) : state.state;
     else if (dev.decimals !== undefined) value = format(num, dev.decimals);
@@ -2231,7 +2279,7 @@ class HaHomelabMap extends HTMLElement {
 
   #threshold(dev, state) {
     if (!dev.thresholds || noData(state)) return null;
-    const value = Number(state.state);
+    const value = parseNumber(state.state);
     if (!Number.isFinite(value)) return null;
     let hit = null;
     for (const t of dev.thresholds) if (t.above !== undefined ? value >= t.above : value <= t.below) hit = t;
@@ -2323,9 +2371,9 @@ class HaHomelabMap extends HTMLElement {
     this.#applyGroups();
     if (this.#hiddenGroups.has(id)) return;
     this.#batch([
-      ...this.#badges.filter((badge) => !badge.measured).map((badge) => () => this.#updateBadge(badge)),
-      ...this.#labels.filter((label) => !label.measured).map((label) => () => this.#layoutLabel(label)),
-      ...this.#rates.filter((rate) => !rate.measured).map((rate) => () => this.#updateRates(rate)),
+      ...this.#badges.filter((badge) => !badge.measured).map((badge) => job(badge.dev.id, () => this.#updateBadge(badge))),
+      ...this.#labels.filter((label) => !label.measured).map((label) => job(label.dev.id, () => this.#layoutLabel(label))),
+      ...this.#rates.filter((rate) => !rate.measured).map((rate) => job(`${rate.cfg.id} rates`, () => this.#updateRates(rate))),
     ]);
   }
 
@@ -2419,10 +2467,21 @@ class HaHomelabMap extends HTMLElement {
     this.#rates.push({ cfg, spans, mode, gap, size });
   }
 
+  #rate(entityId) {
+    if (!entityId) return { value: NaN, text: "" };
+    const state = this.#state(entityId);
+    const value = toKBps(state);
+    if (!Number.isNaN(value)) return { value, text: formatRate(value) };
+    if (!Number.isFinite(toNumber(state))) return { value, text: "— (no data)" };
+    const unit = state.attributes?.unit_of_measurement;
+    warnOnce(`unit:${entityId}:${unit}`, `'${entityId}' is in '${unit}', which is not a known rate unit – use e.g. bit/s, Mbit/s, kB/s or MB/s`);
+    return { value, text: `— (unknown unit '${unit}')` };
+  }
+
   #updateRates(rate) {
     let changed = !rate.measured;
     for (const { key, arrow, span } of rate.spans) {
-      const value = toKBps(this.#state(rate.cfg[key]));
+      const { value } = this.#rate(rate.cfg[key]);
       const text = `${arrow} ${Number.isNaN(value) ? "—" : formatRate(value)}`;
       if (span.textContent === text) continue;
       span.textContent = text;
@@ -2510,14 +2569,15 @@ class HaHomelabMap extends HTMLElement {
     const status = cfg.status ?? "active";
     const down = kind === "data" && (status === "inactive" || (isEntity(status) && !this.#isUp(status)));
     path.classList.toggle("down", down);
-    const rx = cfg.rx ? toKBps(this.#state(cfg.rx)) : NaN;
-    const tx = cfg.tx ? toKBps(this.#state(cfg.tx)) : NaN;
+    const readings = { rx: this.#rate(cfg.rx), tx: this.#rate(cfg.tx) };
+    const rx = readings.rx.value;
+    const tx = readings.tx.value;
     const metered = kind === "data" && Boolean(cfg.rx || cfg.tx);
     const blind = metered && ["rx", "tx"].every((key) => !cfg[key] || Number.isNaN(key === "rx" ? rx : tx));
     const parts = [cfg.id];
     if (isEntity(status)) parts.push(down ? `down (${this.#state(status)?.state ?? "missing"})` : "up");
     else if (status === "inactive") parts.push("inactive");
-    for (const [key, value] of [["rx", rx], ["tx", tx]]) if (cfg[key]) parts.push(`${key} ${Number.isNaN(value) ? "— (no data)" : formatRate(value)}`);
+    for (const key of ["rx", "tx"]) if (cfg[key]) parts.push(`${key} ${readings[key].text}`);
     if (blind && flow) parts.push("animation stopped: no traffic data");
     const text = parts.join(" · ");
     if (line.title.textContent !== text) line.title.textContent = text;
@@ -2560,6 +2620,7 @@ class HaHomelabMap extends HTMLElement {
 
   #loop(now) {
     this.#frame = 0;
+    if (!this.#built) return;
     this.#timer = setTimeout(this.#resume, 1000 / FX.fps - 4);
     const dt = Math.min(0.25, (now - this.#lastFrame) / 1000);
     this.#lastFrame = now;

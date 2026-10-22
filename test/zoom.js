@@ -91,6 +91,25 @@ for (const t of [20000, 20200]) {
 log("double-tap at max → reset");
 const want = "390/0,0 975/450,225 1455/721,385 2909/1640,919 2909/1720,959 suppressed true 4160/2503,1415 390/0,0";
 print(seen.join(" ") === want ? "ok   pan & zoom (double-tap, ctrl+wheel, pinch, drag, click suppression, max, reset)" : `FAIL pan & zoom: ${seen.join(" ")}`);
+h.wheel(ev({ ctrlKey: true, deltaY: -40, clientX: 100, clientY: 100 }));
+const mouse = (o) => ev({ pointerType: "mouse", ...o });
+const scrolled = () => `${Math.round(scroller.scrollLeft || 0)},${Math.round(scroller.scrollTop || 0)}`;
+const before = scrolled();
+h.pointerdown(mouse({ pointerId: 5, clientX: 100, clientY: 100 }));
+h.pointerleave(mouse({ pointerId: 5, clientX: 100, clientY: 100 }));
+h.pointermove(mouse({ pointerId: 5, clientX: 20, clientY: 20 }));
+const afterLeave = scrolled();
+h.pointerdown(mouse({ pointerId: 6, clientX: 100, clientY: 100 }));
+h.pointermove(mouse({ pointerId: 6, clientX: 80, clientY: 100 }));
+const panned = scrolled();
+h.lostpointercapture(mouse({ pointerId: 6 }));
+h.pointermove(mouse({ pointerId: 6, clientX: 20, clientY: 100 }));
+const afterLost = scrolled();
+print(
+  before === afterLeave && panned !== before && afterLost === panned
+    ? "ok   a mouse press that leaves the card or loses capture stops panning"
+    : `FAIL stale pan: ${before} ${afterLeave} ${panned} ${afterLost}`,
+);
 const placed = (at) => {
   const c = new CardClass();
   c.setConfig({ debug_toggle: true, toggles_at: at, items: [{ type: "device", id: "a", at: [0, 0], size: [1000, 500] }] });

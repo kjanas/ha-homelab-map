@@ -8,6 +8,7 @@ mkdir -p $R/out
 grep -q '^<svg' $R/out/$NAME.svg || { echo "$NAME: render failed: $(head -c 300 $R/out/$NAME.svg)" >&2; exit 1; }
 W=$(grep -o 'width="[0-9]*"' $R/out/$NAME.svg | head -1 | grep -o '[0-9]*'); HH=$(grep -o 'height="[0-9]*"' $R/out/$NAME.svg | head -1 | grep -o '[0-9]*')
 S=$(( W > HH ? W : HH ))
+rm -f $R/out/$NAME.svg.png
 qlmanage -t -s $S -o $R/out $R/out/$NAME.svg >/dev/null 2>&1 &
 QL=$!; for i in {1..40}; do [ -s $R/out/$NAME.svg.png ] && break; sleep 0.25; done; kill $QL 2>/dev/null || true
 [ -s $R/out/$NAME.svg.png ] || { echo "$NAME: qlmanage did not produce a PNG" >&2; exit 1; }

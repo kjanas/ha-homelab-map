@@ -5,26 +5,25 @@
 ### Fixes
 
 - An entity id that does not exist in Home Assistant is reported once in the browser console instead of silently looking like an outage.
-- `status_map` can now map `unavailable` and `unknown` (e.g. `{unavailable: warn}`), and its keys match regardless of case.
+- `status_map` can now map `unavailable` and `unknown` (e.g. `{unavailable: warn}`), its keys match regardless of case, and a state it doesn't list is reported once in the console.
 - A chip's `small_entity` shows `?` while it has no data instead of disappearing, and the tooltip says when the `update_entity` is unavailable.
 - A state that is neither up nor a usual down state on a chip or LED (e.g. `online`) is reported once in the console, since it is drawn as down.
-- Hovering a cable shows its status and rates; while its `rx`/`tx` sensors have no data the tooltip says so.
-- `rx` and `tx` without `flow` or `rates_at` are rejected, since they had no effect.
+- Hovering a cable shows its status and rates; the tooltip says when its `rx`/`tx` sensors have no data or an unknown unit, and an unknown unit is reported once in the console.
 - A line's `vlans` given as text or a map gets a clear error instead of `unknown VLAN 'L'` or a JavaScript error.
 - Rackdevices and fan panels can no longer share a U in the same rack.
 - Empty `items`, `datalines` and `powerlines` (YAML `null`) are accepted like empty lists.
-- Links: a chip's `url` needs a scheme or a leading `/`, and `blob:` and `about:` links, control characters and `\` are rejected; image URLs reject `\`, so `/\host` can no longer reach another site.
-- Badges reserve the right width for values with a thousands separator (`1,234 W`), the reserve table ignores names such as `constructor`, and `Infinity` is no longer read as a number.
+- Links: a chip's `url` needs a scheme or a single leading `/` (`nas.lan:5000` and `//host` are rejected), and `blob:` and `about:` links, control characters and `\` are rejected; image URLs reject `\`, so `/\host` can no longer reach another site.
+- Badges reserve the right width for values with a thousands separator (`1,234 W`) and follow the Home Assistant number format (e.g. decimal comma), the reserve table ignores names such as `constructor`, and `Infinity`, `0x10`, `0b11` and `0o7` are no longer read as numbers.
 - Changing the Home Assistant language or number format refreshes the badges right away.
 - A bare port rate of `0.0` means no link instead of a slow link, and a MikroTik port without a readable rate is shown as a warning with the reason.
 - Two cards (or the dashboard and the editor preview) hiding different groups no longer undo each other's choice.
-- Icons are looked up outside the card, so removing a card while an icon loads no longer leaves the icon blank on other cards, and a failed icon is retried once after a minute.
-- Clicking a label or LED on a device with `status_entity` opens the device's dialog. Everything clickable can be reached with Tab and opened with Enter or Space.
-- An error while redrawing stops the animation loop, a failing item is named in the console and logged once instead of on every update, and a font that is not available is reported.
+- Icons are looked up outside the card, so removing a card while an icon loads no longer leaves the icon blank on other cards, and a failed icon is retried every minute, up to five times.
+- Clicking a label or LED on a device with `status_entity` opens the device's dialog. Badges, chips with a link, ports, devices, disks, pools and fans can be reached with Tab and opened with Enter or Space (a held key doesn't repeat).
+- An error while redrawing stops the animation loop, a failing item is named in the console and each distinct error is logged once instead of on every update, a font that is not available is reported, and a colour the animations can't read is reported.
 - A pool `usage_entity` that is not in % is reported in the console and its tooltip shows the real unit.
 - Mouse drags that end outside the card no longer leave the map panning on hover.
 - CI now runs `deno lint`, `deno fmt --check` and the test suite, with every GitHub action pinned to a commit.
-- The docs screenshot script renders everything before replacing the images and works on a fresh clone.
+- The docs screenshot script renders everything before replacing the images, never reuses a stale render, and works on a fresh clone.
 
 ## 0.102.0 – alpha
 

@@ -1059,7 +1059,21 @@ check("chip links (https, relative path, app scheme)", ["https://grafana.example
 expect("vlan colour misspelled", { items: [], vlans: { LAN: "bluee" } }, "vlans.LAN: expected a colour");
 expect("line vlans as text", { items: two, vlans: { LAN: "#fff" }, datalines: [L({ vlans: "LAN" })] }, "datalines[0].vlans: expected a list of VLAN names");
 expect("line vlans as map", { items: two, vlans: { LAN: "#fff" }, datalines: [L({ vlans: { LAN: 1 } })] }, "datalines[0].vlans: expected a list of VLAN names");
-expect("rx without flow or rates", { items: two, datalines: [L({ rx: "sensor.r" })] }, "datalines[0].rx: has no effect without 'flow' or 'rates_at'");
+expect("chip url host and port without a scheme", chipUrl("nas.lan:5000/x"), "items[0].url: expected a link");
+expect("chip protocol-relative url", chipUrl("//evil.example/x"), "items[0].url: expected a link");
+check("tel: and localhost links", [isLink("tel:123456"), isLink("localhost:8123"), isLink("http://localhost:8123")].join(" "), "true false true");
+check(
+  "numbers: hex, binary, octal and Infinity are not numbers",
+  ["0x10", "0b11", "0o7", "Infinity", "1e400", "1e3", " -2.5 "].map(parseNumber).join(" "),
+  "NaN NaN NaN NaN NaN 1000 -2.5",
+);
+try {
+  validateConfig({ items: two, datalines: [L({ rx: "sensor.r", tx: "sensor.t" })] });
+  print("ok   rx/tx without flow or rates accepted (shown in the cable tooltip)");
+} catch (e) {
+  print(`FAIL rx/tx tooltip only: ${e.message}`);
+  failed++;
+}
 expect(
   "rackdevices overlap",
   { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 2 }, { type: "rackdevice", id: "y", u: 2 }])] },
@@ -1221,18 +1235,20 @@ try {
       prevented++;
     },
   });
-  card.dispatch("keydown", {
-    key: "a",
-    target: { closest: () => g("badge") },
-    stopPropagation() {},
-    preventDefault() {
-      prevented++;
-    },
-  });
+  for (const extra of [{ key: "a" }, { key: " " }, { key: "Enter", repeat: true }]) {
+    card.dispatch("keydown", {
+      ...extra,
+      target: { closest: () => g("badge") },
+      stopPropagation() {},
+      preventDefault() {
+        prevented++;
+      },
+    });
+  }
   check(
-    "labels and LEDs open the device, Enter activates a focusable badge",
+    "labels and LEDs open the device, Enter and Space activate a focusable badge, held keys don't repeat",
     `${opened.join(",")} ${prevented} ${g("badge").attrs.tabindex} ${g("badge").attrs.role}`,
-    "sensor.dev,sensor.dev,sensor.b 1 0 button",
+    "sensor.dev,sensor.dev,sensor.b,sensor.b 2 0 button",
   );
 }
 {
@@ -1262,10 +1278,15 @@ try {
   console.error = error;
   Node_.prototype.getContext = getContext;
   const box = ec.shadowRoot.querySelectorAll("div").find((d) => d.attrs.class === "error");
+  const timer = setTimeout;
+  let rearmed = 0;
+  setTimeout = () => ++rearmed;
+  for (const f of frames.splice(0)) f(1000);
+  setTimeout = timer;
   ec.disconnectedCallback();
   cancelAnimationFrame = cancel;
   frames.splice(0);
-  check("a failed rebuild shows the error and stops the animation loop", `${Boolean(box)} ${cancelled > 0}`, "true true");
+  check("a failed rebuild shows the error and stops the animation loop", `${Boolean(box)} ${cancelled > 0} ${rearmed}`, "true true 0");
 }
 {
   const uc = new CardClass();
@@ -1284,6 +1305,90 @@ try {
   uc.hass = { locale: { language: "de" }, states };
   console.error = error;
   check("a failing item is named and logged once", `${logged.length} ${logged[0]?.includes("'flaky'")}`, "1 true");
+}
+{
+  const rc = new CardClass();
+  rc.setConfig({ items: two, datalines: [L({ flow: "forward", rx: "sensor.rx", tx: "sensor.tx" })] });
+  const warned = captureWarnings(() => {
+    rc.hass = {
+      states: S({
+        "sensor.rx": { state: "8", attributes: { unit_of_measurement: "MBps" } },
+        "sensor.tx": { state: "8", attributes: { unit_of_measurement: "Mbit/s" } },
+      }),
+    };
+  });
+  const title = rc.shadowRoot.querySelectorAll("path").find((p) => /\blnk\b/.test(p.attrs.class || "")).children.find((c) => c.tag === "title").textContent;
+  check(
+    "an unknown rate unit is named, not shown as no data",
+    `${title} / ${warned.some((m) => m.includes("'MBps'"))}`,
+    "l · rx — (unknown unit 'MBps') · tx 8.0M / true",
+  );
+}
+{
+  WARNED.clear();
+  const sm = new CardClass();
+  sm.setConfig({ items: [D({ status_entity: "sensor.ups", status_map: { OL: "ok" } })] });
+  const warned = captureWarnings(() => {
+    sm.hass = { states: S({ "sensor.ups": "BYPASS" }) };
+    sm.hass = { states: S({ "sensor.ups": "BYPASS" }) };
+  });
+  check("a state missing from status_map is reported once", warned.filter((m) => m.includes("'BYPASS'")).length, 1);
+}
+{
+  const dc = new CardClass();
+  dc.setConfig({ items: [B({ entity: "sensor.v", icon: "none" })] });
+  dc.hass = {
+    locale: { language: "en", number_format: "decimal_comma" },
+    formatEntityState: (st) => `${st.state.replace(".", ",")} ${st.attributes.unit_of_measurement}`,
+    states: S({ "sensor.v": { state: "12.5", attributes: { unit_of_measurement: "V" } } }),
+  };
+  const probe = dc.shadowRoot.querySelectorAll("text").find((t) => t.attrs.visibility === "hidden").textContent;
+  check("badge reserve follows the number format, not only the language", probe, "999,9 V");
+}
+{
+  const timer = setTimeout;
+  const pending = [];
+  setTimeout = (fn) => {
+    pending.push(fn);
+    return pending.length;
+  };
+  const now = Date.now;
+  let clock = 1e12;
+  Date.now = () => clock;
+  ICON_MISSES.clear();
+  ICON_PATHS.clear();
+  const create = document.createElement;
+  let icons = 0;
+  document.createElement = function (tag) {
+    const el = create.call(this, tag);
+    if (tag === "ha-icon") {
+      el.setAttribute = function (k, v) {
+        Node_.prototype.setAttribute.call(this, k, v);
+        if (k !== "icon" || v !== "mdi:late-icon") return;
+        icons++;
+        if (icons === 3) this.shadowRoot = { querySelector: () => ({ path: "M0 0" }) };
+      };
+    }
+    return el;
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  const ic = new CardClass();
+  ic.setConfig({ items: [B({ icon: "mdi:late-icon" })] });
+  ic.hass = { states: {} };
+  for (let round = 0; round < 5000; round++) {
+    drainMicrotasks();
+    if (!pending.length) break;
+    clock += 61000;
+    for (const fn of pending.splice(0)) fn();
+  }
+  drainMicrotasks();
+  console.warn = warn;
+  document.createElement = create;
+  setTimeout = timer;
+  Date.now = now;
+  const path = ic.shadowRoot.querySelectorAll("path").find((p) => p.attrs["data-icon"] === "mdi:late-icon");
+  check("a missing icon is retried until it loads", `${icons} ${path && path.attrs.d}`, "3 M0 0");
 }
 check("the demo map draws canvas animation", calls > 0, true);
 {

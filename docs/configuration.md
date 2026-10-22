@@ -254,7 +254,7 @@ items:
 | Option | Description |
 | --- | --- |
 | `status_entity` | Any entity. Without `status_map`, the device is down when the entity is `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or missing, and OK otherwise – so a CPU-load sensor means "reachable" |
-| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked, ignoring case (`OB DISCHRG` matches `OB`), and the first listed key wins. A state that is not listed is `warn`, except `unavailable`, `unknown` and a missing entity, which are `down` unless the map lists them (e.g. `{unavailable: warn}`) |
+| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked, ignoring case (`OB DISCHRG` matches `OB`), and the first listed key wins. A state that is not listed is `warn` and is reported once in the browser console. `unavailable` and `unknown` are `down` unless the map lists them (e.g. `{unavailable: warn}`); a missing entity is always `down` |
 
 ### Textures
 
@@ -392,7 +392,7 @@ From left: running; stopped (red ring); running with an update (green ring); sto
 | `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count. While it is unavailable the tooltip says the update status is unknown |
 | `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to. An image URL like `image` |
 | `small_entity` | | A small number at the lower right, e.g. pending OS updates. Hidden at 0, `99+` above 99, `?` while the entity has no data. Not together with `small_image` |
-| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work. A link needs a scheme or a leading `/` (`grafana.example.com` alone is rejected); `javascript:`, `data:`, `vbscript:`, `file:`, `blob:` and `about:` links, spaces, control characters and `\` are rejected |
+| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work. A link needs a scheme or a leading `/` (`grafana.example.com` or `nas.lan:5000` alone is rejected, `//host` too); `javascript:`, `data:`, `vbscript:`, `file:`, `blob:` and `about:` links, spaces, control characters and `\` are rejected |
 
 The screenshots in this documentation show a letter where your logo image would be – no logos are shipped with the card. Images under `config/www/` are available as `/local/…`; e.g. `config/www/ha-homelab-map/logos/grafana.svg` is `/local/ha-homelab-map/logos/grafana.svg`. With the **Animations** switch off, the rings stay lit (red wins over green).
 
@@ -878,8 +878,7 @@ datalines:
 Sensors with the current data rate. `rx` is what the **start** device receives, `tx` what it sends.
 
 - More traffic makes the animation faster. With no traffic, it stops.
-- They need `flow` or `rates_at` – on their own they would have no effect and are rejected.
-- Hovering the cable shows both values; while the sensors have no data it says so, and the animation stops.
+- Hovering the cable shows both values – also without `flow` or `rates_at`. While the sensors have no data, or their unit is not a known rate unit, the tooltip says so and the animation stops.
 - With `flow: dominant`, the direction follows the bigger of the two.
 
 Interface counters are often measured on the other device: a router port reports what the *router* sends and receives. The access point at the other end receives what the router sends, so swap them:
@@ -890,7 +889,7 @@ rx: sensor.router_ether2_tx
 tx: sensor.router_ether2_rx
 ```
 
-The unit is read from each sensor and converted: `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, the short forms `bps`, `kbps`, `Mbps`, `Gbps` and `kb/s`, `Mb/s`, `Gb/s` for bits; bit units and `KiB/s`–`GiB/s` are also recognised in lower case (`mbit/s`, `mbps`). A sensor without a unit is read as kB/s; a sensor with any other unit shows `—`.
+The unit is read from each sensor and converted (an unknown unit is reported once in the browser console): `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, the short forms `bps`, `kbps`, `Mbps`, `Gbps` and `kb/s`, `Mb/s`, `Gb/s` for bits; bit units and `KiB/s`–`GiB/s` are also recognised in lower case (`mbit/s`, `mbps`). A sensor without a unit is read as kB/s; a sensor with any other unit shows `—`.
 
 ### Rates
 
@@ -981,7 +980,7 @@ The map can be zoomed and moved, which helps on a phone:
 - **move**: drag with one finger or the mouse while zoomed in;
 - **reset**: the ⤢ button in the bottom-right corner, shown while zoomed in.
 
-Zooming stops at 4 screen px per map px. Everything is vector graphics, so text and lines stay sharp at any zoom. The zoom is not remembered after a reload. Taps and clicks on badges, chips and devices work as usual; a click at the end of a drag is ignored. Everything clickable can also be reached with Tab and opened with Enter or Space.
+Zooming stops at 4 screen px per map px. Everything is vector graphics, so text and lines stay sharp at any zoom. The zoom is not remembered after a reload. Taps and clicks on badges, chips and devices work as usual; a click at the end of a drag is ignored. Badges, chips with a `url`, ports, devices, disks, pools and fans can also be reached with Tab and opened with Enter or Space.
 
 ## Font
 
