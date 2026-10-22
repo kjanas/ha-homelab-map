@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.102.0";
+const VERSION = "0.102.1";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -195,12 +195,14 @@ const isCssColor = (value) =>
   (typeof CSS === "undefined" || !CSS.supports || CSS.supports("color", value));
 const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
 const UNSAFE_SCHEMES = ["javascript", "data", "vbscript", "file", "blob", "about"];
+const PHONE_SCHEMES = ["tel", "sms", "fax", "callto"];
 const isUnsafeUrlChar = (char) => char.codePointAt(0) <= 32 || (char.codePointAt(0) >= 127 && char.codePointAt(0) <= 160) || char === "\\";
 const isPlainUrl = (value) => typeof value === "string" && value !== "" && ![...value].some(isUnsafeUrlChar);
 const isImageUrl = (value) => isPlainUrl(value) && /^(\/(?!\/)|https?:\/\/)/i.test(value);
 const isLink = (value) => {
   if (!isPlainUrl(value)) return false;
-  if (/^(([a-z0-9-]+\.)+[a-z0-9-]+|localhost):\d+(\/|$)/i.test(value)) return false;
+  const hostPort = /^([a-z0-9-]+(\.[a-z0-9-]+)*):\d{1,5}(\/|$)/i.exec(value);
+  if (hostPort && !PHONE_SCHEMES.includes(hostPort[1].toLowerCase())) return false;
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
   return scheme ? !UNSAFE_SCHEMES.includes(scheme[1].toLowerCase()) : value.startsWith("/") && !value.startsWith("//");
 };
@@ -346,6 +348,7 @@ const makeClickable = (el, key, value) => {
 };
 
 const job = (id, update) => Object.assign(update, { id });
+const ACTIVATABLE = "[data-toggle], [data-url], [data-entity]";
 
 let sharedIconHost = null;
 const iconHost = (fallback) => {
@@ -706,15 +709,18 @@ const fontAvailable = (font) => {
       ctx.font = `40px "${font}", ${base}`;
       return ctx.measureText(sample).width !== fallback;
     });
-  } catch {
+  } catch (error) {
+    warnOnce("font-probe", `font availability could not be checked (${error?.message ?? error})`);
     return true;
   }
 };
 
 const NUMBER_FORMATS = new Map();
-const formatNumber = (num, decimals, language) => {
-  const key = `${language}|${decimals}`;
-  if (!NUMBER_FORMATS.has(key)) NUMBER_FORMATS.set(key, new Intl.NumberFormat(language, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
+const formatNumber = (num, decimals, language, grouping = true) => {
+  const key = `${language}|${decimals}|${grouping}`;
+  if (!NUMBER_FORMATS.has(key)) {
+    NUMBER_FORMATS.set(key, new Intl.NumberFormat(language, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: grouping }));
+  }
   return NUMBER_FORMATS.get(key).format(num);
 };
 
@@ -1119,7 +1125,8 @@ class HaHomelabMap extends HTMLElement {
   #hiddenGroups = storedGroups();
   #failedUpdates = new Set();
   #current = undefined;
-  #iconTimers = new Set();
+  #iconTimers = new Map();
+  #iconWaiting = new Set();
   #locale = "";
   #animate = { data: true, power: true, motion: true };
   #lines = [];
@@ -1159,7 +1166,11 @@ class HaHomelabMap extends HTMLElement {
     root.append(style, this.#card, this.#iconLoader);
     this.#card.addEventListener("click", (ev) => this.#activate(ev));
     this.#card.addEventListener("keydown", (ev) => {
-      if (ev.repeat || (ev.key !== "Enter" && ev.key !== " ")) return;
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      if (ev.repeat) {
+        if (ev.target?.closest?.(ACTIVATABLE)) ev.preventDefault();
+        return;
+      }
       if (this.#activate(ev)) ev.preventDefault();
     });
     this.#card.addEventListener("click", (ev) => {
@@ -1171,7 +1182,7 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #activate(ev) {
-    const target = ev.target?.closest?.("[data-toggle], [data-url], [data-entity]");
+    const target = ev.target?.closest?.(ACTIVATABLE);
     if (!target) return false;
     ev.stopPropagation();
     if (target.dataset.toggle) this.#toggleGroup(target.dataset.toggle);
@@ -1245,6 +1256,9 @@ class HaHomelabMap extends HTMLElement {
 
   connectedCallback() {
     window.addEventListener("resize", this.#onResize);
+    const waiting = [...this.#iconWaiting];
+    this.#iconWaiting = new Set();
+    for (const [path, name] of waiting) if (!path.getAttribute("d")) this.#retryIcon(path, name, 1);
     this.#onResize();
     if (!this.#resizer && typeof ResizeObserver !== "undefined") {
       this.#resizer = new ResizeObserver(this.#onResize);
@@ -1273,6 +1287,11 @@ class HaHomelabMap extends HTMLElement {
     this.#resizer = null;
     this.#observer?.disconnect();
     this.#observer = null;
+    for (const [timer, icon] of this.#iconTimers) {
+      clearTimeout(timer);
+      this.#iconWaiting.add(icon);
+    }
+    this.#iconTimers = new Map();
     this.#applyVisibility();
   }
 
@@ -1389,14 +1408,10 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #reportFailure(what, id, error) {
-    if (!id) {
-      console.error(`ha-homelab-map: ${what} failed`, error);
-      return;
-    }
-    const key = `${what}|${id}|${error?.message ?? error}`;
+    const key = `${what}|${id ?? ""}|${error?.message ?? error}`;
     if (this.#failedUpdates.has(key)) return;
     this.#failedUpdates.add(key);
-    console.error(`ha-homelab-map: ${what} '${id}' failed`, error);
+    console.error(id ? `ha-homelab-map: ${what} '${id}' failed` : `ha-homelab-map: ${what} failed`, error);
   }
 
   #fit() {
@@ -1611,8 +1626,9 @@ class HaHomelabMap extends HTMLElement {
     const { minX, minY, width, height } = viewBox;
     this.#stage.replaceChildren();
     for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
-    for (const timer of this.#iconTimers) clearTimeout(timer);
-    this.#iconTimers = new Set();
+    for (const timer of this.#iconTimers.keys()) clearTimeout(timer);
+    this.#iconTimers = new Map();
+    this.#iconWaiting = new Set();
     this.#painted = false;
     this.#zoom = 1;
     this.#togglesBox = null;
@@ -1814,24 +1830,33 @@ class HaHomelabMap extends HTMLElement {
 
   #drawIcon(parent, name, x, y, size) {
     const path = svgEl("path", { class: "mdi", transform: `translate(${x},${y}) scale(${size / 24})`, "data-icon": name }, parent);
+    const stage = this.#svg;
     this.#iconPath(name).then((d) => {
       if (d) path.setAttribute("d", d);
-      else this.#retryIcon(path, name, 1);
+      else if (stage === this.#svg) this.#retryIcon(path, name, 1);
     });
     return path;
   }
 
   #retryIcon(path, name, attempt) {
-    if (attempt > ICON_POLL.retries) return;
+    if (attempt > ICON_POLL.retries) {
+      warnOnce(`icon-gave-up:${name}`, `icon '${name}' could not be loaded after ${ICON_POLL.retries} retries, giving up until the card is redrawn`);
+      return;
+    }
+    if (!this.isConnected) {
+      this.#iconWaiting.add([path, name]);
+      return;
+    }
+    const stage = this.#svg;
     const timer = setTimeout(() => {
       this.#iconTimers.delete(timer);
-      if (path.getAttribute("d")) return;
+      if (path.getAttribute("d") || stage !== this.#svg) return;
       this.#iconPath(name).then((d) => {
         if (d) path.setAttribute("d", d);
-        else this.#retryIcon(path, name, attempt + 1);
+        else if (stage === this.#svg) this.#retryIcon(path, name, attempt + 1);
       });
     }, ICON_POLL.retryMs);
-    this.#iconTimers.add(timer);
+    this.#iconTimers.set(timer, [path, name]);
   }
 
   #drawPort(parent, { dev, x, y, w }, group) {
@@ -2020,13 +2045,13 @@ class HaHomelabMap extends HTMLElement {
     const state = this.#state(dev.status_entity);
     const raw = String(state?.state ?? "").trim().toLowerCase();
     if (dev.status_map) {
-      const words = raw.split(/\s+/);
+      const words = [raw, ...raw.split(/\s+/)];
       const hit = Object.entries(dev.status_map).find(([key]) => words.some((word) => matchesKey(key, word)));
       if (hit) return hit[1];
     }
     if (noData(state)) return "down";
     if (!dev.status_map) return DOWN_STATES.has(raw) ? "down" : "ok";
-    warnOnce(`map:${dev.status_entity}:${raw}`, `'${dev.status_entity}' is '${state.state}', which is not in the status_map of '${dev.id}' – shown as warn`);
+    warnOnce(`map:${dev.id}`, `'${dev.status_entity}' is '${state.state}', which is not in the status_map of '${dev.id}' – shown as warn (reported once)`);
     return "warn";
   }
 
@@ -2045,6 +2070,9 @@ class HaHomelabMap extends HTMLElement {
     const raw = String(state.state);
     const mapped = port.states && Object.entries(port.states).find(([key]) => matchesKey(key, raw.toLowerCase()));
     if (mapped) return [mapped[1], raw];
+    if (port.states) {
+      warnOnce(`states:${port.dev.id}`, `port '${port.dev.id}' is '${raw}', which is not in its ports states map – using the default rules (reported once)`);
+    }
     const a = state.attributes;
     if (a.enabled !== undefined && a.status !== undefined) {
       if (a.enabled === false || a.enabled === "false") return ["disabled", "disabled"];
@@ -2266,7 +2294,7 @@ class HaHomelabMap extends HTMLElement {
     const ownUnit = state?.attributes?.unit_of_measurement || "";
     const unit = dev.units === undefined || dev.units === true ? ownUnit : HIDDEN(dev.units) ? "" : String(dev.units);
     const withUnit = (value) => (!unit ? value : unit === "%" ? `${value}%` : `${value} ${unit}`);
-    const format = (num, decimals) => formatNumber(num, decimals, numberLocale(this.#hass.locale));
+    const format = (num, decimals) => formatNumber(num, decimals, numberLocale(this.#hass.locale), this.#hass.locale?.number_format !== "none");
     const reserve = (decimals) => {
       const max = own(BADGE_MAX, unit);
       if (max === undefined) return "";

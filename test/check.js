@@ -1246,9 +1246,9 @@ try {
     });
   }
   check(
-    "labels and LEDs open the device, Enter and Space activate a focusable badge, held keys don't repeat",
+    "labels and LEDs open the device, Enter and Space activate a focusable badge, held keys don't repeat but don't scroll",
     `${opened.join(",")} ${prevented} ${g("badge").attrs.tabindex} ${g("badge").attrs.role}`,
-    "sensor.dev,sensor.dev,sensor.b,sensor.b 2 0 button",
+    "sensor.dev,sensor.dev,sensor.b,sensor.b 3 0 button",
   );
 }
 {
@@ -1414,6 +1414,167 @@ try {
     `${look("on", "on")} ${look("off", "off")} ${look("true", "false")}`,
     "ok/up down/fault ok/fault",
   );
+}
+expect("chip url single-label host and port", chipUrl("nas:8080/admin"), "items[0].url: expected a link");
+check("phone links with short numbers", [isLink("tel:12345"), isLink("sms:112")].join(" "), "true true");
+{
+  WARNED.clear();
+  const mc = new CardClass();
+  mc.setConfig({ items: [B({ entity: "sensor.later" })] });
+  mc.hass = { states: S({ "sensor.later": "1" }) };
+  const warned = captureWarnings(() => {
+    mc.hass = { states: S({ "sensor.other": "1" }) };
+  });
+  check("an entity removed after the first render is reported", warned.filter((m) => m.includes("'sensor.later' does not exist")).length, 1);
+}
+{
+  const ec = new CardClass();
+  const logged = [];
+  const error = console.error;
+  console.error = (...a) => logged.push(a.join(" "));
+  ec.setConfig({ items: [B({ id: "flaky", entity: "sensor.bad" })] });
+  let message = "first";
+  const states = {};
+  Object.defineProperty(states, "sensor.bad", {
+    enumerable: true,
+    get: () => {
+      throw new Error(message);
+    },
+  });
+  for (const [language, next] of [["en", "first"], ["de", "first"], ["fr", "second"], ["pl", "second"]]) {
+    message = next;
+    ec.hass = { locale: { language }, states };
+  }
+  console.error = error;
+  check("each distinct failure of an item is logged once", logged.filter((m) => m.includes("'flaky'")).length, 2);
+}
+{
+  WARNED.clear();
+  const getContext = Node_.prototype.getContext;
+  let installed = false;
+  Node_.prototype.getContext = () => {
+    let font = "";
+    return {
+      set font(v) {
+        font = v;
+      },
+      get font() {
+        return font;
+      },
+      measureText: () => ({ width: installed && font.includes('"Foo Sans"') ? 99 : 50 }),
+    };
+  };
+  document.fonts = { load: () => Promise.resolve([]) };
+  const fc = new CardClass();
+  const missing = captureWarnings(() => {
+    fc.setConfig({ items: [], font: "Foo Sans" });
+    drainMicrotasks();
+  });
+  WARNED.clear();
+  installed = true;
+  const present = captureWarnings(() => {
+    fc.setConfig({ items: [], font: "Foo Sans" });
+    drainMicrotasks();
+  });
+  delete document.fonts;
+  Node_.prototype.getContext = getContext;
+  check(
+    "a font that is neither bundled nor installed is reported",
+    `${missing.filter((m) => m.includes("'Foo Sans' is not installed")).length} ${present.filter((m) => m.includes("Foo Sans")).length}`,
+    "1 0",
+  );
+}
+{
+  const timer = setTimeout;
+  const clear = clearTimeout;
+  const pending = new Map();
+  let id = 0;
+  setTimeout = (fn, ms) => {
+    pending.set(++id, [fn, ms]);
+    return id;
+  };
+  clearTimeout = (t) => pending.delete(t);
+  const now = Date.now;
+  let clock = 2e12;
+  Date.now = () => clock;
+  ICON_MISSES.clear();
+  ICON_PATHS.clear();
+  const create = document.createElement;
+  let lookups = 0;
+  document.createElement = function (tag) {
+    const el = create.call(this, tag);
+    if (tag === "ha-icon") {
+      el.setAttribute = function (k, v) {
+        Node_.prototype.setAttribute.call(this, k, v);
+        if (k === "icon" && v === "mdi:never-icon") lookups++;
+      };
+    }
+    return el;
+  };
+  const run = (onlyPolls) => {
+    for (let round = 0; round < 5000; round++) {
+      drainMicrotasks();
+      const due = [...pending.entries()].filter(([, [, ms]]) => !onlyPolls || ms < 1000);
+      if (!due.length) return;
+      if (!onlyPolls) clock += 61000;
+      for (const [t, [fn]] of due) {
+        pending.delete(t);
+        fn();
+      }
+    }
+  };
+  const warned = captureWarnings(() => {
+    const ic = new CardClass();
+    ic.setConfig({ items: [B({ icon: "mdi:never-icon" })] });
+    ic.hass = { states: {} };
+    run(false);
+  });
+  const capped = lookups;
+  lookups = 0;
+  ICON_MISSES.clear();
+  ICON_PATHS.clear();
+  pending.clear();
+  captureWarnings(() => {
+    const rc = new CardClass();
+    rc.setConfig({ items: [B({ icon: "mdi:never-icon" })] });
+    rc.hass = { states: {} };
+    run(true);
+    rc.setConfig({ items: [B({ icon: "mdi:other-icon" })] });
+    run(false);
+  });
+  const afterRebuild = lookups;
+  setTimeout = timer;
+  clearTimeout = clear;
+  Date.now = now;
+  document.createElement = create;
+  check(
+    "a missing icon is retried five times, then given up; a rebuild cancels the retries",
+    `${capped} ${warned.filter((m) => m.includes("giving up")).length} ${afterRebuild}`,
+    "6 1 1",
+  );
+}
+{
+  WARNED.clear();
+  const pc = new CardClass();
+  pc.setConfig({ items: [D({ size: [100, 20], items: [PS([P({ entity: "sensor.cam" })], { states: { online: "active" } })] })] });
+  const warned = captureWarnings(() => {
+    pc.hass = { states: S({ "sensor.cam": "maintenance" }) };
+  });
+  check("a port state missing from the states map is reported", warned.filter((m) => m.includes("'maintenance'")).length, 1);
+}
+{
+  const wc = new CardClass();
+  wc.setConfig({ items: [D({ status_entity: "sensor.p", status_map: { "not home": "down", home: "ok" } })] });
+  wc.hass = { states: S({ "sensor.p": "not home" }) };
+  const cls = wc.shadowRoot.querySelectorAll("g").find((g) => /\bdev\b/.test(g.attrs.class || "")).attrs.class;
+  check("a status_map key with a space matches the whole state", /\bdown\b/.test(cls), true);
+}
+{
+  const nc = new CardClass();
+  nc.setConfig({ items: [B({ entity: "sensor.w", icon: "none", decimals: 1 })] });
+  nc.hass = { locale: { language: "en", number_format: "none" }, states: S({ "sensor.w": "1234.5" }) };
+  const text = nc.shadowRoot.querySelectorAll("text").find((t) => t.attrs.visibility !== "hidden").textContent;
+  check("number format none shows no grouping", text, "1234.5");
 }
 check("the demo map draws canvas animation", calls > 0, true);
 {

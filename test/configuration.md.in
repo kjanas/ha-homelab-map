@@ -168,7 +168,7 @@ A `device` or `rackdevice` with `status_entity` gets an **orange** frame for a w
 | Option | Description |
 | --- | --- |
 | `status_entity` | Any entity. Without `status_map`, the device is down when the entity is `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or missing, and OK otherwise – so a CPU-load sensor means "reachable" |
-| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked, ignoring case (`OB DISCHRG` matches `OB`), and the first listed key wins. Unquoted `on:` and `off:` keys work, although YAML reads them as true and false. A state that is not listed is `warn` and is reported once in the browser console. `unavailable` and `unknown` are `down` unless the map lists them (e.g. `{unavailable: warn}`); a missing entity is always `down` |
+| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. The whole state and each of its words are checked, ignoring case (`OB DISCHRG` matches `OB`, `not home` matches a `not home` key), and the first listed key wins. Unquoted `on:` and `off:` keys work, although YAML reads them as true and false. A state that is not listed is `warn` and is reported once in the browser console. `unavailable` and `unknown` are `down` unless the map lists them (e.g. `{unavailable: warn}`); a missing entity is always `down` |
 
 ### Textures
 
@@ -254,7 +254,7 @@ From left: running; stopped (red ring); running with an update (green ring); sto
 | `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count. While it is unavailable the tooltip says the update status is unknown |
 | `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to. An image URL like `image` |
 | `small_entity` | | A small number at the lower right, e.g. pending OS updates. Hidden at 0, `99+` above 99, `?` while the entity has no data. Not together with `small_image` |
-| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work. A link needs a scheme or a leading `/` (`grafana.example.com` or `nas.lan:5000` alone is rejected, `//host` too); `javascript:`, `data:`, `vbscript:`, `file:`, `blob:` and `about:` links, spaces, control characters and `\` are rejected |
+| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work. A link needs a scheme or a leading `/` (`grafana.example.com`, `nas:8080` or `nas.lan:5000` alone is rejected, `//host` too; `tel:`/`sms:` numbers work); `javascript:`, `data:`, `vbscript:`, `file:`, `blob:` and `about:` links, spaces, control characters and `\` are rejected |
 
 The screenshots in this documentation show a letter where your logo image would be – no logos are shipped with the card. Images under `config/www/` are available as `/local/…`; e.g. `config/www/ha-homelab-map/logos/grafana.svg` is `/local/ha-homelab-map/logos/grafana.svg`. With the **Animations** switch off, the rings stay lit (red wins over green).
 
@@ -329,7 +329,7 @@ Switch, from left: active at the expected speed; slower than expected (100 Mbps)
 | `size` | `12` | Icon size in px |
 | `speed` | `1Gbps` | Expected link speed – slower links are orange |
 | `icon` | `mdi:ethernet` | Icon of all ports, e.g. `mdi:cctv` for camera inputs |
-| `states` | | State → `active`, `warn`, `inactive`, `fault` or `disabled`, checked first and case-insensitive – e.g. NVR channels `{recording: active, online: warn, offline: fault, empty: inactive}` |
+| `states` | | State → `active`, `warn`, `inactive`, `fault` or `disabled`, checked first and case-insensitive – e.g. NVR channels `{recording: active, online: warn, offline: fault, empty: inactive}`. A state not in the map falls back to the rules above and is reported once in the browser console |
 | `items` | | `port` items |
 
 | `port` option | Description |
