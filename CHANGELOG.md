@@ -5,7 +5,7 @@
 ### Fixes
 
 - An entity id that does not exist in Home Assistant is reported once in the browser console instead of silently looking like an outage.
-- `status_map` can now map `unavailable` and `unknown` (e.g. `{unavailable: warn}`), its keys match regardless of case, and a state it doesn't list is reported once in the console.
+- `status_map` can now map `unavailable` and `unknown` (e.g. `{unavailable: warn}`), its keys match regardless of case (unquoted `on:`/`off:` keys too, here and in a ports `states` map), and a state it doesn't list is reported once in the console.
 - A chip's `small_entity` shows `?` while it has no data instead of disappearing, and the tooltip says when the `update_entity` is unavailable.
 - A state that is neither up nor a usual down state on a chip or LED (e.g. `online`) is reported once in the console, since it is drawn as down.
 - Hovering a cable shows its status and rates; the tooltip says when its `rx`/`tx` sensors have no data or an unknown unit, and an unknown unit is reported once in the console.

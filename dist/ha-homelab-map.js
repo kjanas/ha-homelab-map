@@ -430,6 +430,16 @@ const storeOn = (key, on) => {
   }
 };
 
+const YAML_BOOLEAN_KEYS = Object.freeze({ true: "on", false: "off" });
+const mapKey = (key) => {
+  const name = String(key).toLowerCase();
+  return own(YAML_BOOLEAN_KEYS, name) ?? name;
+};
+const matchesKey = (key, word) => {
+  const name = String(key).toLowerCase();
+  return word === name || word === mapKey(key);
+};
+
 const noData = (state) => !state || ["unavailable", "unknown", ""].includes(String(state.state ?? "").trim().toLowerCase());
 const thresholdColor = (hit) => (hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "");
 const NUMERIC = /^\s*[-+]?(\d+(\.\d*)?|\.\d+)(e[-+]?\d+)?\s*$/i;
@@ -2011,7 +2021,7 @@ class HaHomelabMap extends HTMLElement {
     const raw = String(state?.state ?? "").trim().toLowerCase();
     if (dev.status_map) {
       const words = raw.split(/\s+/);
-      const hit = Object.entries(dev.status_map).find(([key]) => words.includes(String(key).toLowerCase()));
+      const hit = Object.entries(dev.status_map).find(([key]) => words.some((word) => matchesKey(key, word)));
       if (hit) return hit[1];
     }
     if (noData(state)) return "down";
@@ -2033,7 +2043,7 @@ class HaHomelabMap extends HTMLElement {
     const noLink = port.cabled ? "fault" : "inactive";
     if (noData(state)) return [noLink, state ? state.state : "missing"];
     const raw = String(state.state);
-    const mapped = port.states && Object.entries(port.states).find(([key]) => key.toLowerCase() === raw.toLowerCase());
+    const mapped = port.states && Object.entries(port.states).find(([key]) => matchesKey(key, raw.toLowerCase()));
     if (mapped) return [mapped[1], raw];
     const a = state.attributes;
     if (a.enabled !== undefined && a.status !== undefined) {

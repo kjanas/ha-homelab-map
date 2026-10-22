@@ -1390,6 +1390,31 @@ try {
   const path = ic.shadowRoot.querySelectorAll("path").find((p) => p.attrs["data-icon"] === "mdi:late-icon");
   check("a missing icon is retried until it loads", `${icons} ${path && path.attrs.d}`, "3 M0 0");
 }
+{
+  const yc = new CardClass();
+  yc.setConfig({
+    items: [
+      D({
+        size: [100, 40],
+        status_entity: "binary_sensor.ups",
+        status_map: { true: "ok", false: "down" },
+        items: [PS([P({ entity: "sensor.cam" })], { states: { true: "active", false: "fault" } })],
+      }),
+    ],
+  });
+  const look = (ups, cam) => {
+    yc.hass = { states: S({ "binary_sensor.ups": ups, "sensor.cam": cam }) };
+    const gs = yc.shadowRoot.querySelectorAll("g");
+    const dev = (gs.find((g) => /\bdev\b/.test(g.attrs.class || "")).attrs.class.match(/\b(warn|down)\b/) || ["ok"])[0];
+    const port = (gs.find((g) => /\bport\b/.test(g.attrs.class || "")).attrs.class.match(/\b(up|slow|fault|disabled)\b/) || ["dim"])[0];
+    return `${dev}/${port}`;
+  };
+  check(
+    "unquoted YAML on/off keys (true/false) match on and off states",
+    `${look("on", "on")} ${look("off", "off")} ${look("true", "false")}`,
+    "ok/up down/fault ok/fault",
+  );
+}
 check("the demo map draws canvas animation", calls > 0, true);
 {
   const life = new CardClass();

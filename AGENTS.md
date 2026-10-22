@@ -259,7 +259,7 @@ This goes inside the switch's `items`. A line to the TV then uses `end_port: swi
 - [ ] Every line end has exactly one of `*_device` or `*_port`, except one intentionally open end on a dataline (with `points`, without that end's `*_edge`/`*_point`).
 - [ ] Every badge has `icon` (use `none` to hide it).
 - [ ] `dominant` lines have both `rx` and `tx`; `rates_*` only on lines with `rates_at`.
-- [ ] Quoted where YAML needs it: `"#hex"` colours, `"mdi:…"` inside `{…}` flow mappings, and `"on"` / `"off"`.
+- [ ] Quoted where YAML needs it: `"#hex"` colours, `"mdi:…"` inside `{…}` flow mappings, and `"on"` / `"off"` as values (as keys of `status_map` or `states` they work unquoted too).
 - [ ] Only what the user asked for changed.
 
 ## Reading errors

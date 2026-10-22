@@ -254,7 +254,7 @@ items:
 | Option | Description |
 | --- | --- |
 | `status_entity` | Any entity. Without `status_map`, the device is down when the entity is `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or missing, and OK otherwise – so a CPU-load sensor means "reachable" |
-| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked, ignoring case (`OB DISCHRG` matches `OB`), and the first listed key wins. A state that is not listed is `warn` and is reported once in the browser console. `unavailable` and `unknown` are `down` unless the map lists them (e.g. `{unavailable: warn}`); a missing entity is always `down` |
+| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked, ignoring case (`OB DISCHRG` matches `OB`), and the first listed key wins. Unquoted `on:` and `off:` keys work, although YAML reads them as true and false. A state that is not listed is `warn` and is reported once in the browser console. `unavailable` and `unknown` are `down` unless the map lists them (e.g. `{unavailable: warn}`); a missing entity is always `down` |
 
 ### Textures
 
