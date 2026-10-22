@@ -194,8 +194,15 @@ const isCssColor = (value) =>
   typeof value === "string" && /^[#\w(),.%\s/-]+$/.test(value.trim()) && !/^\s*url\(/i.test(value) &&
   (typeof CSS === "undefined" || !CSS.supports || CSS.supports("color", value));
 const isColor = (value) => typeof value === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value);
-const isImageUrl = (value) => typeof value === "string" && /^(\/(?!\/)|https?:\/\/)\S+$/i.test(value);
-const isLink = (value) => typeof value === "string" && /^\S+$/.test(value) && !/^(javascript|data|vbscript|file):/i.test(value);
+const UNSAFE_SCHEMES = ["javascript", "data", "vbscript", "file", "blob", "about"];
+const isUnsafeUrlChar = (char) => char.codePointAt(0) <= 32 || (char.codePointAt(0) >= 127 && char.codePointAt(0) <= 160) || char === "\\";
+const isPlainUrl = (value) => typeof value === "string" && value !== "" && ![...value].some(isUnsafeUrlChar);
+const isImageUrl = (value) => isPlainUrl(value) && /^(\/(?!\/)|https?:\/\/)/i.test(value);
+const isLink = (value) => {
+  if (!isPlainUrl(value)) return false;
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
+  return scheme ? !UNSAFE_SCHEMES.includes(scheme[1].toLowerCase()) : value.startsWith("/");
+};
 const ZOOM = Object.freeze({ maxPx: 4, step: 2.5, tapMs: 320, tapPx: 30, dragPx: 6, compactWidth: 520 });
 const FX = Object.freeze({ fps: 30, period: 18, lineWidth: 1.2, maxRatio: 2 });
 const NO_DASH = Object.freeze([]);
@@ -296,6 +303,8 @@ const STYLES = `
   .badge .bframe { fill: var(--hhm-badge); stroke: var(--hhm-badge-border); stroke-width: 1; }
   .badge .btext { fill: var(--hhm-text); font-variant-numeric: tabular-nums; }
   .clickable { cursor: pointer; }
+  .clickable:focus { outline: none; }
+  .clickable:focus-visible { outline: 2px solid var(--hhm-accent); outline-offset: 1px; }
   .bg-line { fill: none; stroke: color-mix(in srgb, #6c9cda 22%, var(--hhm-bg)); stroke-width: .8; }
   .bg-fine { fill: none; stroke: color-mix(in srgb, #6c9cda 10%, var(--hhm-bg)); stroke-width: .5; }
   .bg-dot { fill: color-mix(in srgb, var(--hhm-text) 13%, var(--hhm-bg)); }
@@ -325,6 +334,28 @@ const svgEl = (tag, attrs = {}, parent = null) => {
   }
   if (parent) parent.appendChild(node);
   return node;
+};
+
+const makeClickable = (el, key, value) => {
+  el.dataset[key] = value;
+  el.classList.add("clickable");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("role", key === "url" ? "link" : "button");
+  return el;
+};
+
+const job = (id, update) => Object.assign(update, { id });
+
+let sharedIconHost = null;
+const iconHost = (fallback) => {
+  if (!document.body) return fallback;
+  if (!sharedIconHost?.isConnected) {
+    sharedIconHost = document.createElement("div");
+    sharedIconHost.setAttribute("aria-hidden", "true");
+    sharedIconHost.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;visibility:hidden";
+    document.body.appendChild(sharedIconHost);
+  }
+  return sharedIconHost;
 };
 
 const htmlEl = (tag, className, parent = null) => {
@@ -400,7 +431,15 @@ const storeOn = (key, on) => {
 
 const noData = (state) => !state || ["unavailable", "unknown", ""].includes(String(state.state ?? "").trim().toLowerCase());
 const thresholdColor = (hit) => (hit ? own(THRESHOLD_COLORS, hit.color) ?? hit.color : "");
-const toNumber = (state) => (noData(state) ? NaN : Number(state.state));
+const finite = (value) => (Number.isFinite(value) ? value : NaN);
+const toNumber = (state) => (noData(state) ? NaN : finite(Number(state.state)));
+
+const WARNED = new Set();
+const warnOnce = (key, message) => {
+  if (WARNED.has(key)) return;
+  WARNED.add(key);
+  console.warn(`ha-homelab-map: ${message}`);
+};
 const orZero = (value) => (Number.isNaN(value) ? 0 : value);
 
 const RATE_UNITS = {
@@ -425,13 +464,15 @@ const RATE_UNITS = {
   "GiB/s": 1073741.824,
 };
 
-const BIT_UNITS = Object.fromEntries(Object.entries(RATE_UNITS).filter(([unit]) => /bit\/s$|bps$|iB\/s$/.test(unit)).map(([unit, k]) => [unit.toLowerCase(), k]));
+const LOWERCASE_RATE_UNITS = Object.fromEntries(
+  Object.entries(RATE_UNITS).filter(([unit]) => /bit\/s$|bps$|iB\/s$/.test(unit)).map(([unit, k]) => [unit.toLowerCase(), k]),
+);
 
 const toKBps = (state) => {
   const value = toNumber(state);
   const unit = String(state?.attributes?.unit_of_measurement ?? "").trim();
   if (!unit) return value;
-  return value * (own(RATE_UNITS, unit) ?? (unit === unit.toLowerCase() ? own(BIT_UNITS, unit) : undefined) ?? NaN);
+  return value * (own(RATE_UNITS, unit) ?? (unit === unit.toLowerCase() ? own(LOWERCASE_RATE_UNITS, unit) : undefined) ?? NaN);
 };
 
 const formatRate = (kBps) => {
@@ -529,7 +570,9 @@ const cssColor = (color) => {
       };
       const dark = read("#000000");
       if (dark === read("#ffffff")) parsed = dark;
-    } catch {}
+    } catch (error) {
+      warnOnce("canvas-colour", `colours could not be resolved for animations (${error?.message ?? error})`);
+    }
     CSS_COLORS.set(color, parsed);
   }
   return CSS_COLORS.get(color);
@@ -557,11 +600,15 @@ const mixColor = (color, background, amount) => {
 const resolveColor = (value, host) => {
   const match = /^var\((--[\w-]+)\s*(?:,\s*(.+))?\)$/.exec(value || "");
   if (!match) return value;
-  const own = host && typeof getComputedStyle === "function" ? getComputedStyle(host).getPropertyValue(match[1]).trim() : "";
-  return own || (match[2] ? resolveColor(match[2].trim(), host) : "#888");
+  const defined = host && typeof getComputedStyle === "function" ? getComputedStyle(host).getPropertyValue(match[1]).trim() : "";
+  if (defined) return defined;
+  if (match[2]) return resolveColor(match[2].trim(), host);
+  warnOnce(`var:${match[1]}`, `colour variable ${match[1]} is not defined, animations use grey instead`);
+  return "#888";
 };
 
 const themeKey = (hass) => JSON.stringify([hass?.themes?.darkMode, hass?.themes?.theme, hass?.selectedTheme]);
+const localeKey = (hass) => JSON.stringify([hass?.locale?.language, hass?.locale?.number_format]);
 
 const mapBounds = ({ boxes, ports, labels, storage, fans, chips, badges, lines }) => {
   const xs = [];
@@ -686,7 +733,14 @@ const checkRackUnits = (item, path, ctx, parent) => {
   const units = item.units ?? (item.type === "fanpanel" ? FAN.units : 1);
   if (!Number.isInteger(item.u) || item.u < 1) fail(`${path}.u`, "expected a whole number from 1");
   if (!Number.isInteger(units) || units < 1) fail(`${path}.units`, "expected a whole number from 1");
-  if (item.u + units - 1 > parent.units) fail(`${path}.u`, `U${item.u}–U${item.u + units - 1} does not fit in the ${parent.units}U rack '${parent.id}'`);
+  const last = item.u + units - 1;
+  if (last > parent.units) fail(`${path}.u`, `U${item.u}–U${last} does not fit in the ${parent.units}U rack '${parent.id}'`);
+  if (!ctx.rackUnits.has(parent)) ctx.rackUnits.set(parent, new Map());
+  const used = ctx.rackUnits.get(parent);
+  for (let u = item.u; u <= last; u++) {
+    if (used.has(u)) fail(`${path}.u`, `U${u} of rack '${parent.id}' is already used by '${used.get(u)}'`);
+    used.set(u, item.id);
+  }
 };
 
 const checkFan = (item, path) => {
@@ -717,7 +771,9 @@ const checkBadge = (item, path) => {
 const checkLabel = (item, path) => {
   if (typeof item.text !== "string" && typeof item.text !== "number") fail(`${path}.text`, "required – the text to show");
   if (item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a font size in px");
-  if (item.color !== undefined && !own(LABEL.colors, item.color) && !isCssColor(item.color)) fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
+  if (item.color !== undefined && !own(LABEL.colors, item.color) && !isCssColor(item.color)) {
+    fail(`${path}.color`, 'expected primary, secondary or a colour such as "#d26066"');
+  }
   for (const key of ["bold", "vertical"]) if (item[key] !== undefined && typeof item[key] !== "boolean") fail(`${path}.${key}`, "expected true or false");
 };
 
@@ -757,7 +813,12 @@ const checkChip = (item, path) => {
   for (const key of ["small_entity", "status_entity", "update_entity"]) {
     if (item[key] !== undefined && !isEntity(item[key])) fail(`${path}.${key}`, "expected an entity id");
   }
-  if (item.url !== undefined && !isLink(item.url)) fail(`${path}.url`, "expected a link; javascript:, data:, vbscript: and file: are not allowed");
+  if (item.url !== undefined && !isLink(item.url)) {
+    fail(
+      `${path}.url`,
+      "expected a link such as https://grafana.example.com or /lovelace/servers; javascript:, data:, vbscript:, file:, blob: and about: are not allowed",
+    );
+  }
 };
 
 const checkPorts = (item, path) => {
@@ -775,7 +836,7 @@ const checkPorts = (item, path) => {
 
 const checkSpeed = (item, path) => {
   if (item.speed !== undefined && Number.isNaN(parseSpeed(item.speed))) {
-  fail(`${path}.speed`, "expected a link speed such as 1Gbps, 2.5Gbps or 100Mbps");
+    fail(`${path}.speed`, "expected a link speed such as 1Gbps, 2.5Gbps or 100Mbps");
   }
 };
 
@@ -836,7 +897,7 @@ const validateItem = (item, path, parent, ctx) => {
   if (item.type === "badge" && item.toggle !== undefined) ctx.toggles.push({ path: `${path}.toggle`, id: item.toggle });
   if (item.type === "group") ctx.groups.add(item.id);
   if (DEVICE_TYPES.includes(item.type)) ctx.devices.add(item.id);
-  if (item.items !== undefined) {
+  if (item.items !== undefined && item.items !== null) {
     if (!Array.isArray(item.items)) fail(`${path}.items`, "expected a list");
     item.items.forEach((child, i) => validateItem(child, `${path}.items[${i}]`, item, ctx));
   }
@@ -878,6 +939,9 @@ const validateLine = (line, path, kind, { devices, ports, ids }, vlans) => {
   const flows = kind === "data" ? ["forward", "reverse", "dominant"] : ["forward", "reverse"];
   if (line.flow !== undefined && !flows.includes(line.flow)) fail(`${path}.flow`, `expected one of ${flows.join(", ")}`);
   if (kind !== "data") return;
+  if (line.vlans !== undefined && line.vlans !== null && !(Array.isArray(line.vlans) && line.vlans.every((name) => typeof name === "string"))) {
+    fail(`${path}.vlans`, "expected a list of VLAN names such as [LAN, IoT]");
+  }
   for (const name of line.vlans || []) if (!own(vlans, name)) fail(`${path}.vlans`, `unknown VLAN '${name}' – add it to the card's 'vlans'`);
   if (line.status !== undefined && !["active", "inactive"].includes(line.status) && !isBinarySensor(line.status)) {
     fail(`${path}.status`, "expected active, inactive or a binary_sensor entity id (e.g. binary_sensor.router_ether1)");
@@ -895,6 +959,9 @@ const validateLine = (line, path, kind, { devices, ports, ids }, vlans) => {
   if (line.rates_size !== undefined && !isSize(line.rates_size)) fail(`${path}.rates_size`, "expected a font size in px");
   for (const key of ["rates_placement", "rates_size"]) {
     if (line[key] !== undefined && at === undefined) fail(`${path}.${key}`, "has no effect without 'rates_at'");
+  }
+  for (const key of ["rx", "tx"]) {
+    if (line[key] !== undefined && line.flow === undefined && at === undefined) fail(`${path}.${key}`, "has no effect without 'flow' or 'rates_at'");
   }
 };
 
@@ -920,12 +987,12 @@ const validateConfig = (config) => {
   }
   if (config.line_radius !== undefined && !(isNum(config.line_radius) && config.line_radius >= 0)) fail("line_radius", "expected a number");
   if (config.scale !== undefined && !isSize(config.scale)) fail("scale", "expected a number above 0");
-  const ctx = { ids: new Set(), devices: new Set(), ports: new Set(), groups: new Set(), toggles: [], vlans };
+  const ctx = { ids: new Set(), devices: new Set(), ports: new Set(), groups: new Set(), toggles: [], rackUnits: new Map(), vlans };
   config.items.forEach((item, i) => validateItem(item, `items[${i}]`, null, ctx));
   for (const { path, id } of ctx.toggles) if (!ctx.groups.has(id)) fail(path, `'${id}' is not a group`);
   const { ids } = ctx;
   for (const [list, kind] of [["datalines", "data"], ["powerlines", "power"]]) {
-    if (config[list] === undefined) continue;
+    if (config[list] === undefined || config[list] === null) continue;
     if (!Array.isArray(config[list])) fail(list, "expected a list");
     config[list].forEach((line, i) => {
       validateLine(line, `${list}[${i}]`, kind, ctx, vlans);
@@ -935,7 +1002,7 @@ const validateConfig = (config) => {
   }
 };
 
-const placeItems = (items, origin, out, group = null, parent = null) => {
+const placeItems = (items, origin, out, group = null, parent = null, owner = null) => {
   for (const item of items || []) {
     let box;
     if (item.type === "rackdevice" || item.type === "fanpanel") {
@@ -960,8 +1027,9 @@ const placeItems = (items, origin, out, group = null, parent = null) => {
       else if (DISK.types.includes(item.type)) box = { x, y, w: (item.size ?? DISK.size)[0], h: (item.size ?? DISK.size)[1] };
       else box = { x, y, w: 0, h: 0 };
     }
-    out.push({ dev: item, ...box, group });
-    placeItems(item.items, [box.x, box.y], out, item.type === "group" ? item.id : group, item);
+    out.push({ dev: item, ...box, group, owner });
+    const childOwner = ["device", "rackdevice"].includes(item.type) ? item.status_entity ?? null : item.type === "group" ? owner : null;
+    placeItems(item.items, [box.x, box.y], out, item.type === "group" ? item.id : group, item, childOwner);
   }
   return out;
 };
@@ -1018,6 +1086,8 @@ class HaHomelabMap extends HTMLElement {
   #debugTip = null;
   #groupEls = new Map();
   #hiddenGroups = storedGroups();
+  #failedUpdates = new Set();
+  #locale = "";
   #animate = { data: true, power: true, motion: true };
   #lines = [];
   #rates = [];
@@ -1054,19 +1124,10 @@ class HaHomelabMap extends HTMLElement {
     this.#bindZoom();
     this.#iconLoader = htmlEl("div", "icon-loader");
     root.append(style, this.#card, this.#iconLoader);
-    this.#card.addEventListener("click", (ev) => {
-      const target = ev.target.closest?.("[data-toggle], [data-url], [data-entity]");
-      if (!target) return;
-      ev.stopPropagation();
-      if (target.dataset.toggle) {
-        this.#toggleGroup(target.dataset.toggle);
-        return;
-      }
-      if (target.dataset.url) {
-        if (isLink(target.dataset.url)) window.open(target.dataset.url, "_blank", "noopener");
-        return;
-      }
-      this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: target.dataset.entity }, bubbles: true, composed: true }));
+    this.#card.addEventListener("click", (ev) => this.#activate(ev));
+    this.#card.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      if (this.#activate(ev)) ev.preventDefault();
     });
     this.#card.addEventListener("click", (ev) => {
       if (!this.#dragged) return;
@@ -1074,6 +1135,17 @@ class HaHomelabMap extends HTMLElement {
       ev.stopPropagation();
       ev.preventDefault();
     }, true);
+  }
+
+  #activate(ev) {
+    const target = ev.target?.closest?.("[data-toggle], [data-url], [data-entity]");
+    if (!target) return false;
+    ev.stopPropagation();
+    if (target.dataset.toggle) this.#toggleGroup(target.dataset.toggle);
+    else if (target.dataset.url) {
+      if (isLink(target.dataset.url)) window.open(target.dataset.url, "_blank", "noopener");
+    } else this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: target.dataset.entity }, bubbles: true, composed: true }));
+    return true;
   }
 
   static getStubConfig() {
@@ -1093,6 +1165,7 @@ class HaHomelabMap extends HTMLElement {
     this.#config = config;
     this.#built = false;
     this.#failed = false;
+    this.#hiddenGroups = storedGroups();
     this.#applyFont();
     if (this.#hass) this.#render();
   }
@@ -1110,6 +1183,10 @@ class HaHomelabMap extends HTMLElement {
     }
     if (!this.#visible || !this.isConnected) {
       this.#stale = true;
+      return;
+    }
+    if (localeKey(hass) !== this.#locale) {
+      this.#update();
       return;
     }
     const due = new Set();
@@ -1194,8 +1271,18 @@ class HaHomelabMap extends HTMLElement {
     }
     if (!document.fonts?.load) return;
     Promise.all([document.fonts.load(`10px "${font}"`), document.fonts.load(`bold 10px "${font}"`)])
-      .then(() => this.#remeasure())
-      .catch((error) => console.warn(`ha-homelab-map: font '${font}' could not be loaded`, error));
+      .then(
+        (loaded) => {
+          if (!loaded.some((faces) => faces?.length) && document.fonts.check && !document.fonts.check(`10px "${font}"`)) {
+            warnOnce(`font:${font}`, `font '${font}' is not installed and not bundled, the theme font is used instead`);
+          }
+          this.#remeasure();
+        },
+        (error) => {
+          warnOnce(`font:${font}`, `font '${font}' could not be loaded (${error?.message ?? error})`);
+          this.#remeasure();
+        },
+      );
   }
 
   #remeasure() {
@@ -1224,6 +1311,7 @@ class HaHomelabMap extends HTMLElement {
 
   #showError(error) {
     console.error("ha-homelab-map:", error);
+    this.#applyVisibility();
     this.#stage.replaceChildren();
     for (const sel of [".fx", ".toggles", ".dbg-tip"]) for (const el of this.#view.querySelectorAll(sel)) el.remove();
     htmlEl("div", "error", this.#stage).textContent = `Homelab Map could not be drawn: ${error?.message ?? error}`;
@@ -1257,7 +1345,10 @@ class HaHomelabMap extends HTMLElement {
     try {
       update();
     } catch (error) {
-      console.error("ha-homelab-map: update failed", error);
+      const id = update.id ?? "an item";
+      if (this.#failedUpdates.has(id)) return;
+      this.#failedUpdates.add(id);
+      console.error(`ha-homelab-map: updating '${id}' failed`, error);
     }
   }
 
@@ -1399,6 +1490,10 @@ class HaHomelabMap extends HTMLElement {
     };
     sc.addEventListener("pointerup", (ev) => end(ev, false));
     sc.addEventListener("pointercancel", (ev) => end(ev, true));
+    sc.addEventListener("lostpointercapture", (ev) => end(ev, true));
+    sc.addEventListener("pointerleave", (ev) => {
+      if (ev.pointerType === "mouse" && !this.#gesture?.moved) end(ev, true);
+    });
     sc.addEventListener("wheel", (ev) => {
       if (!ev.ctrlKey && !ev.metaKey) return;
       ev.preventDefault();
@@ -1425,6 +1520,7 @@ class HaHomelabMap extends HTMLElement {
     const svg = this.#resetStage(viewBox);
     this.#drawMap(config, svg, parts);
     this.#trackDependencies();
+    this.#failedUpdates = new Set();
     this.#built = true;
     this.#painted = false;
     this.#resizeFx();
@@ -1539,16 +1635,33 @@ class HaHomelabMap extends HTMLElement {
         this.#deps.get(id).push(update);
       }
     };
-    for (const badge of this.#badges) depend([badge.dev.entity], () => this.#updateBadge(badge));
-    for (const chip of this.#chips) depend([chip.dev.status_entity, chip.dev.update_entity, chip.dev.small_entity], () => this.#updateChip(chip));
-    for (const led of this.#leds) depend([led.dev.entity], () => this.#updateLed(led));
-    for (const rate of this.#rates) depend([rate.cfg.rx, rate.cfg.tx], () => this.#updateRates(rate));
-    for (const port of this.#ports) depend([port.dev.entity], () => this.#updatePort(port));
-    for (const frame of this.#frames) depend([frame.dev.status_entity], () => this.#updateFrame(frame));
-    for (const pool of this.#pools) depend([pool.dev.usage_entity, pool.dev.status_entity], () => this.#updatePool(pool));
-    for (const disk of this.#disks) depend([disk.dev.temperature, disk.dev.status_entity], () => this.#updateDisk(disk));
-    for (const fan of this.#fans) depend([fan.dev.entity], () => this.#updateFan(fan));
-    for (const line of this.#lines) depend([line.cfg.rx, line.cfg.tx, isEntity(line.cfg.status) ? line.cfg.status : null], () => this.#updateLine(line));
+    for (const [ids, update] of this.#updaters()) depend(ids, update);
+  }
+
+  #updaters() {
+    return [
+      ...this.#badges.map((badge) => [[badge.dev.entity], job(badge.dev.id, () => this.#updateBadge(badge))]),
+      ...this.#chips.map((chip) => [[chip.dev.status_entity, chip.dev.update_entity, chip.dev.small_entity], job(chip.dev.id, () => this.#updateChip(chip))]),
+      ...this.#leds.map((led) => [[led.dev.entity], job(led.dev.id, () => this.#updateLed(led))]),
+      ...this.#rates.map((rate) => [[rate.cfg.rx, rate.cfg.tx], job(`${rate.cfg.id} rates`, () => this.#updateRates(rate))]),
+      ...this.#ports.map((port) => [[port.dev.entity], job(port.dev.id, () => this.#updatePort(port))]),
+      ...this.#frames.map((frame) => [[frame.dev.status_entity], job(frame.dev.id, () => this.#updateFrame(frame))]),
+      ...this.#pools.map((pool) => [[pool.dev.usage_entity, pool.dev.status_entity], job(pool.dev.id, () => this.#updatePool(pool))]),
+      ...this.#disks.map((disk) => [[disk.dev.temperature, disk.dev.status_entity], job(disk.dev.id, () => this.#updateDisk(disk))]),
+      ...this.#fans.map((fan) => [[fan.dev.entity], job(fan.dev.id, () => this.#updateFan(fan))]),
+      ...this.#lines.map((line) => [
+        [line.cfg.rx, line.cfg.tx, isEntity(line.cfg.status) ? line.cfg.status : null],
+        job(line.cfg.id, () => this.#updateLine(line)),
+      ]),
+    ];
+  }
+
+  #reportMissing() {
+    const states = this.#hass?.states;
+    if (!states) return;
+    for (const id of this.#deps.keys()) {
+      if (!Object.hasOwn(states, id)) warnOnce(`missing:${id}`, `entity '${id}' does not exist in Home Assistant – check the id in the card configuration`);
+    }
   }
 
   #drawBackground(svg, defs, kind) {
@@ -1617,8 +1730,6 @@ class HaHomelabMap extends HTMLElement {
     return id;
   }
 
-
-
   #drawRack(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: "rack", "data-id": dev.id }, parent);
     svgEl("rect", { class: "cab", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
@@ -1642,8 +1753,7 @@ class HaHomelabMap extends HTMLElement {
     svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
     this.#applyTexture(g, dev, x, y, w, h);
     if (dev.status_entity) {
-      g.dataset.entity = dev.status_entity;
-      g.classList.add("clickable");
+      makeClickable(g, "entity", dev.status_entity);
       this.#frames.push({ dev, g, title: svgEl("title", {}, g) });
     }
     if (dev.type === "endpoint" && dev.icon) {
@@ -1656,14 +1766,19 @@ class HaHomelabMap extends HTMLElement {
   #drawIcon(parent, name, x, y, size) {
     const path = svgEl("path", { class: "mdi", transform: `translate(${x},${y}) scale(${size / 24})`, "data-icon": name }, parent);
     this.#iconPath(name).then((d) => {
-      if (d) path.setAttribute("d", d);
+      if (d) {
+        path.setAttribute("d", d);
+        return;
+      }
+      setTimeout(() => {
+        if (path.isConnected) this.#iconPath(name).then((retry) => retry && path.setAttribute("d", retry));
+      }, ICON_POLL.retryMs);
     });
     return path;
   }
 
   #drawPort(parent, { dev, x, y, w }, group) {
-    const g = svgEl("g", { class: "port clickable", "data-id": dev.id }, parent);
-    g.dataset.entity = dev.entity;
+    const g = makeClickable(svgEl("g", { class: "port", "data-id": dev.id }, parent), "entity", dev.entity);
     const title = svgEl("title", {}, g);
     svgEl("rect", { x, y, width: w, height: w, fill: "transparent", "pointer-events": "all" }, g);
     this.#drawIcon(g, group.icon ?? PORT.icon, x, y, w);
@@ -1676,10 +1791,7 @@ class HaHomelabMap extends HTMLElement {
   #drawPool(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: "pool", "data-id": dev.id }, parent);
     const entity = dev.usage_entity ?? dev.status_entity;
-    if (entity) {
-      g.dataset.entity = entity;
-      g.classList.add("clickable");
-    }
+    if (entity) makeClickable(g, "entity", entity);
     const title = svgEl("title", {}, g);
     const fill = dev.usage_entity ? svgEl("rect", { class: "pfill", x: x + 1, y: y + h - 1, width: Math.max(0, w - 2), height: 0, rx: 2 }, g) : null;
     if (fill) svgEl("rect", { class: "phatch", x: x + 1, y: y + 1, width: Math.max(0, w - 2), height: Math.max(0, h - 2), rx: 2, fill: "url(#hhm-hatch)" }, g);
@@ -1698,10 +1810,7 @@ class HaHomelabMap extends HTMLElement {
     const g = svgEl("g", { class: `disk ${dev.type}`, "data-id": dev.id }, parent);
     const title = svgEl("title", {}, g);
     const entity = dev.temperature ?? dev.status_entity;
-    if (entity) {
-      g.dataset.entity = entity;
-      g.classList.add("clickable");
-    }
+    if (entity) makeClickable(g, "entity", entity);
     const k = w / DISK.size[0];
     svgEl("rect", { class: "dbody", x, y, width: w, height: h, rx: 2.5 * k }, g);
     const disk = { dev, g, title, temp: null, spin: null };
@@ -1743,10 +1852,7 @@ class HaHomelabMap extends HTMLElement {
 
   #drawFan(parent, { dev, x, y, w, h, group }) {
     const g = svgEl("g", { class: `fan-item ${dev.type}`, "data-id": dev.id }, parent);
-    if (dev.entity) {
-      g.dataset.entity = dev.entity;
-      g.classList.add("clickable");
-    }
+    if (dev.entity) makeClickable(g, "entity", dev.entity);
     const title = svgEl("title", {}, g);
     const holes = [];
     if (dev.type === "fanpanel") {
@@ -1788,7 +1894,7 @@ class HaHomelabMap extends HTMLElement {
     const missing = noData(state);
     const stopped = missing || raw === "off" || value === 0;
     let speed = null;
-    if (PORT.on.includes(raw) && !Number.isFinite(value)) speed = 1;
+    if (raw === "on" || raw === "true") speed = 1;
     else if (Number.isFinite(value)) speed = Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
     fan.rps = stopped ? 0 : FAN.minRps + (speed ?? 0) * (FAN.maxRps - FAN.minRps);
     const hit = this.#threshold(dev, state);
@@ -1806,6 +1912,10 @@ class HaHomelabMap extends HTMLElement {
     const usage = dev.usage_entity ? this.#state(dev.usage_entity) : null;
     const used = toNumber(usage);
     const parts = [dev.label ?? dev.id];
+    const unit = usage?.attributes?.unit_of_measurement;
+    if (unit && unit !== "%") {
+      warnOnce(`pool-unit:${dev.usage_entity}`, `pool '${dev.id}': usage_entity '${dev.usage_entity}' is in ${unit}, expected a percentage (%)`);
+    }
     if (pool.fill) {
       const percent = Number.isFinite(used) ? Math.max(0, Math.min(100, used)) : 0;
       const height = (pool.h * percent) / 100;
@@ -1815,7 +1925,7 @@ class HaHomelabMap extends HTMLElement {
       const color = hit ? `color-mix(in srgb, ${thresholdColor(hit)} 55%, var(--hhm-bg))` : "";
       if (pool.fill.style.fill !== color) pool.fill.style.fill = color;
       pool.g.classList.toggle("nodata", !Number.isFinite(used));
-      parts.push(Number.isFinite(used) ? `${Math.round(used)}% used` : "usage — (no data)");
+      parts.push(!Number.isFinite(used) ? "usage — (no data)" : unit && unit !== "%" ? `${used} ${unit} used (not a %)` : `${Math.round(used)}% used`);
     }
     if (dev.status_entity) {
       const status = this.#frameStatus(dev);
@@ -1851,12 +1961,15 @@ class HaHomelabMap extends HTMLElement {
 
   #frameStatus(dev) {
     const state = this.#state(dev.status_entity);
-    const raw = String(state?.state ?? "");
+    const raw = String(state?.state ?? "").trim().toLowerCase();
+    if (dev.status_map) {
+      const words = raw.split(/\s+/);
+      const hit = Object.entries(dev.status_map).find(([key]) => words.includes(String(key).toLowerCase()));
+      if (hit) return hit[1];
+    }
     if (noData(state)) return "down";
-    if (!dev.status_map) return DOWN_STATES.has(raw.toLowerCase()) ? "down" : "ok";
-    const words = raw.split(/\s+/);
-    const hit = Object.entries(dev.status_map).find(([key]) => words.includes(String(key)));
-    return hit ? hit[1] : "warn";
+    if (!dev.status_map) return DOWN_STATES.has(raw) ? "down" : "ok";
+    return "warn";
   }
 
   #updateFrame(frame) {
@@ -1879,17 +1992,20 @@ class HaHomelabMap extends HTMLElement {
       if (a.enabled === false || a.enabled === "false") return ["disabled", "disabled"];
       if ([a.sfp_rx_loss, a.sfp_tx_fault].some((v) => v === true || v === "true")) return ["fault", "SFP fault"];
       if (a.status !== "link-ok") return [noLink, String(a.status)];
-      const speed = parseSpeed(a.rate);
+      const rate = a.rate === undefined || a.rate === null ? "" : String(a.rate);
+      const speed = parseSpeed(rate);
       const partner = typeof a.link_partner_advertising === "string" ? a.link_partner_advertising : "";
       const halfOnly = partner !== "" && !/full/i.test(partner);
       const half = !halfOnly && (a.full_duplex === false || a.full_duplex === 0 || a.full_duplex === "false");
-      if (half) return ["warn", `${a.rate} half duplex`];
-      return [!Number.isNaN(speed) && speed < port.expected ? "warn" : "active", String(a.rate)];
+      if (half) return ["warn", `${rate || "link"} half duplex`];
+      if (Number.isNaN(speed)) return ["warn", rate ? `link up, unknown rate '${rate}'` : "link up, no rate reported"];
+      return [speed < port.expected ? "warn" : "active", rate];
     }
     const lower = raw.toLowerCase();
     if (PORT.on.includes(lower)) return ["active", raw];
     if (PORT.off.includes(lower)) return [noLink, raw];
     const bare = /^\s*\d+(?:\.\d+)?\s*$/.test(raw);
+    if (bare && Number(raw) === 0) return [noLink, raw];
     const speed = parseSpeed(bare ? `${raw} ${a.unit_of_measurement || "Mbps"}` : raw);
     if (Number.isNaN(speed)) return [noLink, raw];
     return [speed >= port.expected ? "active" : "warn", raw];
@@ -1912,10 +2028,10 @@ class HaHomelabMap extends HTMLElement {
         new Promise((resolve) => {
           const el = document.createElement("ha-icon");
           el.setAttribute("icon", name);
-          this.#iconLoader.appendChild(el);
+          iconHost(this.#iconLoader).appendChild(el);
           let tries = 0;
           const poll = () => {
-            const d = el._path || el.shadowRoot?.querySelector("ha-svg-icon")?.path;
+            const d = el.shadowRoot?.querySelector("ha-svg-icon")?.path || el._path;
             tries += 1;
             if (d || tries > ICON_POLL.tries) {
               el.remove();
@@ -1942,9 +2058,9 @@ class HaHomelabMap extends HTMLElement {
     const iconSize = HIDDEN(dev.icon) ? 0 : Math.round(size * BADGE.iconScale);
     const pad = dev.show_border ? [BADGE.padX, BADGE.padY] : [0, 0];
     const lineH = Math.max(size * 1.2, iconSize);
-    const g = svgEl("g", { class: "badge clickable", "data-id": dev.id }, parent);
-    if (dev.toggle) g.dataset.toggle = dev.toggle;
-    else g.dataset.entity = dev.entity;
+    const g = svgEl("g", { class: "badge", "data-id": dev.id }, parent);
+    if (dev.toggle) makeClickable(g, "toggle", dev.toggle);
+    else makeClickable(g, "entity", dev.entity);
     const title = svgEl("title", {}, g);
     const frame = dev.show_border ? svgEl("rect", { class: "bframe", x, y, height: lineH + 2 * pad[1], rx: BOX_RADIUS }, g) : null;
     const content = svgEl("g", {}, g);
@@ -1960,10 +2076,7 @@ class HaHomelabMap extends HTMLElement {
 
   #drawChip(parent, { dev, x, y, w, group }) {
     const g = svgEl("g", { class: "chip", "data-id": dev.id }, parent);
-    if (dev.url) {
-      g.dataset.url = dev.url;
-      g.classList.add("clickable");
-    }
+    if (dev.url) makeClickable(g, "url", dev.url);
     const title = svgEl("title", {}, g);
     const r = w / 2;
     svgEl("circle", { class: "chip-bg", cx: x + r, cy: y + r, r }, g);
@@ -1993,9 +2106,13 @@ class HaHomelabMap extends HTMLElement {
     return g;
   }
 
-  #drawLabel(parent, { dev, x, y }) {
+  #drawLabel(parent, { dev, x, y, owner }) {
     const size = dev.size ?? LABEL.size;
     const g = svgEl("g", { class: "label", "data-id": dev.id }, parent);
+    if (owner) {
+      g.dataset.entity = owner;
+      g.classList.add("clickable");
+    }
     const text = svgEl("text", { x: 0, y: size * 0.8 }, g);
     text.textContent = String(dev.text);
     text.style.fontSize = `${size}px`;
@@ -2018,8 +2135,12 @@ class HaHomelabMap extends HTMLElement {
     if (label.g.getAttribute("transform") !== transform) label.g.setAttribute("transform", transform);
   }
 
-  #drawLed(parent, { dev, x, y, w, h, group }) {
+  #drawLed(parent, { dev, x, y, w, h, group, owner }) {
     const g = svgEl("g", { class: "led", "data-id": dev.id }, parent);
+    if (owner) {
+      g.dataset.entity = owner;
+      g.classList.add("clickable");
+    }
     const title = svgEl("title", {}, g);
     const color = dev.color || this.#config.vlans[dev.vlan];
     const rect = svgEl("rect", { x, y, width: w, height: h, fill: color }, g);
@@ -2035,11 +2156,19 @@ class HaHomelabMap extends HTMLElement {
     const { dev } = led;
     const state = dev.entity ? this.#state(dev.entity) : null;
     led.down = Boolean(dev.entity) && !isUpState(state);
+    if (dev.entity) this.#checkUpState(dev.entity, state);
     const name = dev.vlan ? `VLAN ${dev.vlan}` : dev.id;
     const text = dev.entity ? `${name} · ${state ? state.state : "missing"}` : name;
     if (led.title.textContent !== text) led.title.textContent = text;
     const fill = led.down && this.#ledPaint ? this.#ledPaint.dark : led.color;
     if (led.rect.getAttribute("fill") !== fill) led.rect.setAttribute("fill", fill);
+  }
+
+  #checkUpState(entityId, state) {
+    if (noData(state)) return;
+    const raw = String(state.state).toLowerCase();
+    if (UP_STATES.includes(raw) || DOWN_STATES.has(raw)) return;
+    warnOnce(`up:${entityId}`, `'${entityId}' is '${state.state}', which counts as down – up means ${UP_STATES.join(", ")}`);
   }
 
   #ledMoving(led) {
@@ -2051,16 +2180,19 @@ class HaHomelabMap extends HTMLElement {
     const { dev } = chip;
     const status = dev.status_entity ? this.#state(dev.status_entity) : null;
     chip.down = Boolean(dev.status_entity) && !isUpState(status);
+    if (dev.status_entity) this.#checkUpState(dev.status_entity, status);
     const update = dev.update_entity ? this.#state(dev.update_entity) : null;
-    chip.update = Boolean(update) && (UPDATE_STATES.includes(String(update.state).toLowerCase()) || Number(update.state) > 0);
+    chip.update = !noData(update) && (UPDATE_STATES.includes(String(update.state).toLowerCase()) || toNumber(update) > 0);
     const parts = [dev.id];
     if (dev.status_entity) parts.push(chip.down ? `down (${status ? status.state : "missing"})` : "up");
     if (chip.update) parts.push("update available");
+    else if (dev.update_entity && noData(update)) parts.push(`update status unknown (${update ? update.state : "missing"})`);
     if (chip.count) {
       const raw = this.#state(dev.small_entity);
       const num = toNumber(raw);
-      const show = Number.isFinite(num) && num > 0;
-      const value = !show ? "" : num > 99 ? "99+" : String(Math.round(num));
+      const unknown = noData(raw) || Number.isNaN(num);
+      const show = unknown || num > 0;
+      const value = unknown ? "?" : !show ? "" : num > 99 ? "99+" : String(Math.round(num));
       if (chip.count.text.textContent !== value) chip.count.text.textContent = value;
       const display = show ? "" : "none";
       if (chip.count.g.style.display !== display) chip.count.g.style.display = display;
@@ -2078,12 +2210,12 @@ class HaHomelabMap extends HTMLElement {
     const withUnit = (value) => (!unit ? value : unit === "%" ? `${value}%` : `${value} ${unit}`);
     const format = (num, decimals) => formatNumber(num, decimals, this.#hass.locale?.language);
     const reserve = (decimals) => {
-      const max = BADGE_MAX[unit];
+      const max = own(BADGE_MAX, unit);
       if (max === undefined) return "";
       return withUnit(format(max === 100 ? max : max + 1 - 10 ** -decimals, decimals));
     };
     if (noData(state)) return { text: "—", template: reserve(dev.decimals ?? 0) };
-    const num = Number(state.state);
+    const num = finite(Number(state.state));
     let value;
     if (Number.isNaN(num)) value = this.#hass.formatEntityState ? this.#hass.formatEntityState(state) : state.state;
     else if (dev.decimals !== undefined) value = format(num, dev.decimals);
@@ -2092,7 +2224,8 @@ class HaHomelabMap extends HTMLElement {
       value = ownUnit && full.endsWith(ownUnit) ? full.slice(0, -ownUnit.length).trim() : full;
     } else value = state.state;
     if (Number.isNaN(num)) return { text: value, template: "" };
-    const decimals = dev.decimals ?? (/[.,](\d+)$/.exec(value)?.[1].length || 0);
+    const point = format(1.5, 1).replace(/\d/g, "");
+    const decimals = dev.decimals ?? (point && value.includes(point) ? /(\d*)$/.exec(value)[1].length : 0);
     return { text: withUnit(value), template: reserve(decimals) };
   }
 
@@ -2182,8 +2315,10 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #toggleGroup(id) {
-    if (this.#hiddenGroups.has(id)) this.#hiddenGroups.delete(id);
-    else this.#hiddenGroups.add(id);
+    const hide = !this.#hiddenGroups.has(id);
+    this.#hiddenGroups = storedGroups();
+    if (hide) this.#hiddenGroups.add(id);
+    else this.#hiddenGroups.delete(id);
     storeGroups(this.#hiddenGroups);
     this.#applyGroups();
     if (this.#hiddenGroups.has(id)) return;
@@ -2223,6 +2358,7 @@ class HaHomelabMap extends HTMLElement {
     const { cfg, kind, pts, fade } = line;
     const d = roundedPath(pts, radius);
     const path = svgEl("path", { d, class: `lnk ${kind}`, "data-id": cfg.id }, parent);
+    const title = svgEl("title", {}, path);
     if (fade) {
       const xs = pts.map((p) => p[0]);
       const ys = pts.map((p) => p[1]);
@@ -2253,7 +2389,7 @@ class HaHomelabMap extends HTMLElement {
     const dashed = vlanColors.length > 0;
     const flow = cfg.flow ? this.#addFlow(d, colors, dashed, kind) : null;
     if (flow) flow.fade = fade;
-    this.#lines.push({ cfg, kind, path, flow, multi: dashed && colors.length > 1 });
+    this.#lines.push({ cfg, kind, path, title, flow, multi: dashed && colors.length > 1 });
   }
 
   #drawRates(parent, { cfg, pts }) {
@@ -2360,19 +2496,11 @@ class HaHomelabMap extends HTMLElement {
 
   #update() {
     if (!this.#built || !this.#hass) return;
-    const updates = [];
-    for (const badge of this.#badges) updates.push(() => this.#updateBadge(badge));
-    for (const chip of this.#chips) updates.push(() => this.#updateChip(chip));
-    for (const led of this.#leds) updates.push(() => this.#updateLed(led));
-    for (const rate of this.#rates) updates.push(() => this.#updateRates(rate));
-    for (const label of this.#labels) if (!label.measured) updates.push(() => this.#layoutLabel(label));
-    for (const port of this.#ports) updates.push(() => this.#updatePort(port));
-    for (const frame of this.#frames) updates.push(() => this.#updateFrame(frame));
-    for (const pool of this.#pools) updates.push(() => this.#updatePool(pool));
-    for (const disk of this.#disks) updates.push(() => this.#updateDisk(disk));
-    for (const fan of this.#fans) updates.push(() => this.#updateFan(fan));
-    for (const line of this.#lines) updates.push(() => this.#updateLine(line));
+    this.#locale = localeKey(this.#hass);
+    const updates = this.#updaters().map(([, update]) => update);
+    for (const label of this.#labels) if (!label.measured) updates.push(job(label.dev.id, () => this.#layoutLabel(label)));
     this.#batch(updates);
+    this.#reportMissing();
     this.#applyVisibility();
     if (!this.#frame && !this.#timer) this.#drawFx();
   }
@@ -2382,10 +2510,18 @@ class HaHomelabMap extends HTMLElement {
     const status = cfg.status ?? "active";
     const down = kind === "data" && (status === "inactive" || (isEntity(status) && !this.#isUp(status)));
     path.classList.toggle("down", down);
-    if (!flow) return;
     const rx = cfg.rx ? toKBps(this.#state(cfg.rx)) : NaN;
     const tx = cfg.tx ? toKBps(this.#state(cfg.tx)) : NaN;
     const metered = kind === "data" && Boolean(cfg.rx || cfg.tx);
+    const blind = metered && ["rx", "tx"].every((key) => !cfg[key] || Number.isNaN(key === "rx" ? rx : tx));
+    const parts = [cfg.id];
+    if (isEntity(status)) parts.push(down ? `down (${this.#state(status)?.state ?? "missing"})` : "up");
+    else if (status === "inactive") parts.push("inactive");
+    for (const [key, value] of [["rx", rx], ["tx", tx]]) if (cfg[key]) parts.push(`${key} ${Number.isNaN(value) ? "— (no data)" : formatRate(value)}`);
+    if (blind && flow) parts.push("animation stopped: no traffic data");
+    const text = parts.join(" · ");
+    if (line.title.textContent !== text) line.title.textContent = text;
+    if (!flow) return;
     const traffic = orZero(rx) + orZero(tx);
     flow.off = down || (metered && traffic <= 0);
     flow.seconds = Number(flowSeconds(traffic, metered).toFixed(2));

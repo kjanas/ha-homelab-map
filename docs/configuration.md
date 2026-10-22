@@ -159,7 +159,7 @@ A device that fills the rack from rail to rail. It goes in a rack's `items`.
 | `texture`, `texture_opacity` | | A pattern on the front – see [textures](#textures) |
 | `items` | | What is shown on it, relative to the rackdevice |
 
-A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours.
+A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours. Rackdevices and fan panels in one rack can't share a U.
 
 ### `device`
 
@@ -217,7 +217,7 @@ Use either `icon` or a chip, not both.
 
 ### Device status
 
-A `device` or `rackdevice` with `status_entity` gets an **orange** frame for a warning and a **red** frame when it is down. Clicking the device (outside its badges, chips and ports) opens the entity's dialog.
+A `device` or `rackdevice` with `status_entity` gets an **orange** frame for a warning and a **red** frame when it is down. Clicking the device, including its labels and LEDs, opens the entity's dialog; its badges, chips and ports open their own.
 
 ```yaml
 type: custom:ha-homelab-map
@@ -254,7 +254,7 @@ items:
 | Option | Description |
 | --- | --- |
 | `status_entity` | Any entity. Without `status_map`, the device is down when the entity is `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or missing, and OK otherwise – so a CPU-load sensor means "reachable" |
-| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked (`OB DISCHRG` matches `OB`), the first listed key wins, and a state that is not listed is `warn` |
+| `status_map` | State → `ok`, `warn` or `down`, e.g. `{LB: down, OB: warn, OL: ok}` for a UPS. Each word of the state is checked, ignoring case (`OB DISCHRG` matches `OB`), and the first listed key wins. A state that is not listed is `warn`, except `unavailable`, `unknown` and a missing entity, which are `down` unless the map lists them (e.g. `{unavailable: warn}`) |
 
 ### Textures
 
@@ -388,11 +388,11 @@ From left: running; stopped (red ring); running with an update (green ring); sto
 | --- | --- | --- |
 | `icon` / `image` | one of the two | An MDI icon, or an image URL starting with `/` (e.g. `/local/logos/grafana.svg`) or `http(s)://` |
 | `size` | `16` | Diameter in px |
-| `status_entity` | | A blinking **red** ring when this entity is not up. Up means `on`, `true`, `1`, `running`, `home` or `ok`; anything else, unavailable or missing is down |
-| `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count |
+| `status_entity` | | A blinking **red** ring when this entity is not up. Up means `on`, `true`, `1`, `running`, `home` or `ok`; anything else, unavailable or missing is down. A state that is neither up nor a usual down state (e.g. `online`) is reported once in the browser console |
+| `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count. While it is unavailable the tooltip says the update status is unknown |
 | `small_image` | | A small logo at the lower right, e.g. the app a database container belongs to. An image URL like `image` |
-| `small_entity` | | A small number at the lower right, e.g. pending OS updates. Hidden at 0, `99+` above 99. Not together with `small_image` |
-| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work; `javascript:`, `data:`, `vbscript:` and `file:` links are rejected |
+| `small_entity` | | A small number at the lower right, e.g. pending OS updates. Hidden at 0, `99+` above 99, `?` while the entity has no data. Not together with `small_image` |
+| `url` | | Opened in a new tab on click. Web links (`https://…`, `/lovelace/…`) and app links such as `obsidian://…` or `ssh://…` work. A link needs a scheme or a leading `/` (`grafana.example.com` alone is rejected); `javascript:`, `data:`, `vbscript:`, `file:`, `blob:` and `about:` links, spaces, control characters and `\` are rejected |
 
 The screenshots in this documentation show a letter where your logo image would be – no logos are shipped with the card. Images under `config/www/` are available as `/local/…`; e.g. `config/www/ha-homelab-map/logos/grafana.svg` is `/local/ha-homelab-map/logos/grafana.svg`. With the **Animations** switch off, the rings stay lit (red wins over green).
 
@@ -429,6 +429,8 @@ From left: LAN flickering, IoT blinking, NoT steady, CAM dark (its entity is off
 | `effect` | `flicker` | `flicker` (random, like a busy port), `blink` (on/off once a second) or `none` (steady) |
 | `entity` | | When set, the LED is lit only while the entity is up (as for chips) and dark grey otherwise |
 | `caption` | | Text centred above the LED (8 px, secondary colour) – e.g. a VLAN legend. Only together with an explicit `size` |
+
+On a device with `status_entity`, clicking a LED opens the device's dialog.
 
 VLAN LEDs stop flickering and stay lit while the **VLANs** or **Animations** switch is off.
 
@@ -468,6 +470,8 @@ items:
 | `bold` | `false` | Bold text |
 | `color` | `primary` | `primary` (main text colour), `secondary` (dimmer grey) or any colour such as `"#d26066"` |
 | `vertical` | `false` | Rotated to read bottom to top. `at` is still the top-left corner of the rotated text |
+
+On a device with `status_entity`, clicking a label opens the device's dialog; other labels are not clickable.
 
 ### `group`
 
@@ -630,7 +634,7 @@ A `pool` is a container placed by hand around its disks:
 | --- | --- |
 | `at`, `size` | Top-left corner and `[width, height]` |
 | `label` | Text on a tag centred on the bottom edge (it sticks out 5 px below) |
-| `usage_entity` | % used – shown as a fill rising from the bottom; hatched while the entity is unavailable, unknown or missing. Click opens it |
+| `usage_entity` | % used – shown as a fill rising from the bottom; hatched while the entity is unavailable, unknown or missing. Click opens it. It must be a percentage: an entity with another unit (e.g. GB) is reported once in the browser console |
 | `thresholds` | Colour of the fill – see [thresholds](#thresholds) |
 | `status_entity`, `status_map` | Outline colour, as for [devices](#device-status), e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}` |
 | `items` | `hdd`, `ssd` and `bay` |
@@ -874,6 +878,8 @@ datalines:
 Sensors with the current data rate. `rx` is what the **start** device receives, `tx` what it sends.
 
 - More traffic makes the animation faster. With no traffic, it stops.
+- They need `flow` or `rates_at` – on their own they would have no effect and are rejected.
+- Hovering the cable shows both values; while the sensors have no data it says so, and the animation stops.
 - With `flow: dominant`, the direction follows the bigger of the two.
 
 Interface counters are often measured on the other device: a router port reports what the *router* sends and receives. The access point at the other end receives what the router sends, so swap them:
@@ -975,7 +981,7 @@ The map can be zoomed and moved, which helps on a phone:
 - **move**: drag with one finger or the mouse while zoomed in;
 - **reset**: the ⤢ button in the bottom-right corner, shown while zoomed in.
 
-Zooming stops at 4 screen px per map px. Everything is vector graphics, so text and lines stay sharp at any zoom. The zoom is not remembered after a reload. Taps and clicks on badges, chips and devices work as usual; a click at the end of a drag is ignored.
+Zooming stops at 4 screen px per map px. Everything is vector graphics, so text and lines stay sharp at any zoom. The zoom is not remembered after a reload. Taps and clicks on badges, chips and devices work as usual; a click at the end of a drag is ignored. Everything clickable can also be reached with Tab and opened with Enter or Space.
 
 ## Font
 
@@ -1026,7 +1032,8 @@ A mistake in the configuration shows an error that names the exact place, for ex
 ```text
 ha-homelab-map: items[1].type: 'rackdevice' must be inside a rack's items
 ha-homelab-map: items[0].items[0].u: U11–U13 does not fit in the 12U rack 'rack'
-ha-homelab-map: items[1].name: unknown property – allowed: type, id, at, size, status_entity, status_map, items
+ha-homelab-map: items[1].name: unknown property – allowed: type, id, at, size, status_entity, status_map, texture, texture_opacity, items
+ha-homelab-map: items[0].items[1].u: U3 of rack 'rack' is already used by 'server'
 ha-homelab-map: items[0]: an endpoint needs either an mdi 'icon' or a chip in 'items'
 ha-homelab-map: items[0].items[0].icon: required – an mdi icon such as mdi:thermometer, or none
 ha-homelab-map: items[0].items[0].thresholds[0]: needs either 'above' or 'below'
@@ -1041,3 +1048,5 @@ ha-homelab-map: datalines[0].points: an open end needs at least one point – th
 ```
 
 `items[0].items[2]` is the third item inside the first item – counting starts at 0.
+
+An entity id that does not exist in Home Assistant can't be caught while the card checks its configuration, so it is reported once in the browser console (`entity 'sensor.x' does not exist in Home Assistant`). On the map it looks like an unavailable entity: a red ring, a dark LED or `—`.

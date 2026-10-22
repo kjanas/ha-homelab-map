@@ -187,6 +187,15 @@ class HTMLElement {
     return true;
   }
 }
+var CSS = {
+  supports(property, value) {
+    if (property !== "color") return false;
+    const v = String(value).trim().toLowerCase();
+    const names = ["red", "orange", "yellow", "green", "blue", "white", "black", "gold", "tomato", "transparent", "currentcolor"];
+    return names.includes(v) || /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.test(v) || /^(rgba?|hsla?)\([^()]*\)$/.test(v) ||
+      /^var\(--[\w-]+(,.*)?\)$/.test(v);
+  },
+};
 var CustomEvent = class {
   constructor(t, o) {
     this.type = t;

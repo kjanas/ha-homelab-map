@@ -67,9 +67,9 @@ powerlines: []
 | `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
 | `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
 | `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
-| `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both; `image`/`small_image` must start with `/` or `http(s)://`; `url` may be any link except `javascript:`, `data:`, `vbscript:`, `file:` |
+| `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both; `image`/`small_image` must start with `/` or `http(s)://`; `url` needs a scheme (`https://`, `ssh://`…) or a leading `/`, and `javascript:`, `data:`, `vbscript:`, `file:`, `blob:`, `about:` are rejected; `small_entity` shows `?` while it has no data |
 | `led` | `at`, `vlan` **or** `color`, `size: [w, h]` (default [3, 8]), `entity`, `effect` (`flicker` default, `blink`, `none`), `caption` | dark grey while `entity` is down; `caption` = text centred above the LED (8 px, secondary colour), only allowed together with an explicit `size` |
-| `label` | `at`, `text`, `size` (default 10), `bold`, `color` (`primary` default, `secondary`, or a colour), `vertical` | not clickable |
+| `label` | `at`, `text`, `size` (default 10), `bold`, `color` (`primary` default, `secondary`, or a colour), `vertical` | a click opens the parent device's `status_entity` if it has one, otherwise not clickable |
 | `group` | `at`, `items` | invisible; shown/hidden by a badge with `toggle` |
 | `ports` | `at`, `size` (icon px, default 12), `speed` (expected link speed, default `1Gbps`), `icon` (default `mdi:ethernet`), `states`, `items` | container for `port` items |
 | `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`; hatched when the usage entity has no data), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
@@ -87,9 +87,9 @@ powerlines: []
 
 **Fan speed** (`fanpanel`, `fan`): the `entity` value is mapped over `range: [slow, fast]` (default `[0, 100]`; e.g. a temperature `[27, 35]` or RPM `[0, 3000]`) – at or below `slow` the fan turns slowly, at or above `fast` quickly. `on` = full speed; `0`, `off`, unavailable, unknown or a missing entity = stopped; no `entity` = always slow. Whether a stopped or slow fan is a fault is up to the user: `thresholds` colour the rotor (e.g. `{below: 500, color: red}` for RPM). Rotors freeze with the Animations switch.
 
-**Device frame status** (`device`, `rackdevice`): with `status_entity` the frame outline turns red (down) or orange (warn); OK keeps the normal outline. Without `status_map`: down for `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or a missing entity, anything else is OK (so a CPU-load sensor means "reachable"). With `status_map` (`{LB: down, OB: warn, OL: ok}`), the state is matched per word (`OL CHRG` matches `OL`), the first listed key wins, and an unlisted state is `warn`. Clicking the device (outside its badges, chips and ports) opens Home Assistant's more-info for `status_entity`; devices without it are not clickable, and devices never take a `url` (only chips do). Don't use the same entity as the device's logo chip `status_entity` – that shows the same thing twice.
+**Device frame status** (`device`, `rackdevice`): with `status_entity` the frame outline turns red (down) or orange (warn); OK keeps the normal outline. Without `status_map`: down for `unavailable`, `unknown`, `off`, `down`, `offline`, `disconnected`, `not_home` or a missing entity, anything else is OK (so a CPU-load sensor means "reachable"). With `status_map` (`{LB: down, OB: warn, OL: ok}`), the state is matched per word, ignoring case (`OL CHRG` matches `OL`), the first listed key wins, and an unlisted state is `warn` – except `unavailable`, `unknown` and a missing entity, which are down unless listed (`{unavailable: warn}`). Clicking the device (including its labels and LEDs, but not its badges, chips and ports) opens Home Assistant's more-info for `status_entity`; devices without it are not clickable, and devices never take a `url` (only chips do). Don't use the same entity as the device's logo chip `status_entity` – that shows the same thing twice.
 
-"Up" for chip `status_entity` and LED `entity` means a state of `on`, `true`, `1`, `running`, `home` or `ok`. Anything else, unavailable or missing counts as down. "Update" means `on`, `true`, `1` or a number above 0 (e.g. a pending-updates count).
+"Up" for chip `status_entity` and LED `entity` means a state of `on`, `true`, `1`, `running`, `home` or `ok`. Anything else, unavailable or missing counts as down; a state that is neither up nor a usual down state (e.g. `online`) is reported once in the browser console. Entity ids that don't exist in Home Assistant are also reported there – ask the user to check the console after a change. "Update" means `on`, `true`, `1` or a number above 0 (e.g. a pending-updates count).
 
 ### Lines
 
@@ -119,6 +119,8 @@ powerlines:
 - `dominant` needs both `rx` and `tx`.
 - **Open end (datalines only):** leave out `end_device`/`end_port` (or `start_device`/`start_port`, never both). The last (or first) entry of `points` is then the open end, and the line fades out along that last segment – static line and animation alike. The open end does not enlarge the map: if it lies outside the drawing area, the line is cut at the edge and fades out exactly there – so a far-away point such as `[x, -200]` makes the cable run to the top edge. Use it for an "internet" cable leaving the ONT. It needs at least one point; `*_edge`/`*_point` are not allowed on the open end. Everything else (vlans, status, flow, rx/tx, rates) works as usual.
 - `rates_*` need `rates_at`, and `rates_at` needs `rx` and/or `tx`.
+- `rx`/`tx` need `flow` or `rates_at`.
+- `vlans` is a list of names, even for one VLAN: `vlans: [LAN]`.
 
 ## Geometry you need to compute coordinates
 
@@ -253,7 +255,7 @@ This goes inside the switch's `items`. A line to the TV then uses `end_port: swi
 - [ ] Every `id` is unique, including line ids.
 - [ ] Every entity id was given by the user, not guessed.
 - [ ] Every `points` list uses absolute map coordinates, and segments start and end on the intended edges.
-- [ ] Rackdevices sit inside a rack's `items` and fit: `u + units − 1 ≤ rack units`.
+- [ ] Rackdevices sit inside a rack's `items`, fit (`u + units − 1 ≤ rack units`) and don't share a U with another rackdevice or fan panel.
 - [ ] Every endpoint has exactly one of: `icon`, or at least one chip.
 - [ ] Every line end has exactly one of `*_device` or `*_port`, except one intentionally open end on a dataline (with `points`, without that end's `*_edge`/`*_point`).
 - [ ] Every badge has `icon` (use `none` to hide it).
@@ -276,6 +278,7 @@ This means: first top-level item → third item inside it → its `size`. Fix ex
 | `unknown property – allowed: …` | Remove or rename the key; the message lists the valid keys |
 | `'rackdevice' must be inside a rack's items` | Move it into the rack's `items` |
 | `U11–U13 does not fit in the 12U rack 'rack'` | Lower `u` or `units` |
+| `U3 of rack 'rack' is already used by 'server'` | Move one of the two to free units |
 | `'x' is not a device – lines connect devices and ports only` | Point the line at the device or a port, not at a badge or chip |
 | `use either 'start_device' or 'start_port', not both` | Keep one of the two |
 | `needs either 'end_device' or 'end_port'` (powerline) | Powerlines can't have open ends – connect both |

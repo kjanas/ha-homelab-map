@@ -104,4 +104,8 @@ const placed = (at) => {
   return `${box.attrs.class}@${box.style._p.left},${box.style._p.top}`;
 };
 const got = [placed([500, 100]), placed([5000, -500])].join(" ");
-print(got === "toggles placed compact@195px,45px toggles placed compact@390px,0px" ? "ok   toggles_at (map position, clamped to the view)" : `FAIL toggles_at: ${got}`);
+print(
+  got === "toggles placed compact@195px,45px toggles placed compact@390px,0px"
+    ? "ok   toggles_at (map position, clamped to the view)"
+    : `FAIL toggles_at: ${got}`,
+);

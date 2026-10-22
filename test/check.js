@@ -100,13 +100,24 @@ expect("status not binary", { items: two, datalines: [L({ status: "sensor.a" })]
 expect("power has no status", { items: two, powerlines: [L({ status: "active" })] }, "powerlines[0].status: unknown property");
 expect("line id clashes with item", { items: two, datalines: [L({ id: "a" })] }, "duplicate id 'a'");
 try {
-  validateConfig({ items: [], visibility: [{ condition: "screen", media_query: "(min-width: 0px)" }], card_mod: { style: "" }, layout_options: {}, grid_options: {}, view_layout: {} });
+  validateConfig({
+    items: [],
+    visibility: [{ condition: "screen", media_query: "(min-width: 0px)" }],
+    card_mod: { style: "" },
+    layout_options: {},
+    grid_options: {},
+    view_layout: {},
+  });
   print("ok   dashboard keys (visibility, card_mod, layout_options, grid_options, view_layout)");
 } catch (e) {
   print(`FAIL dashboard keys: ${e.message}`);
   failed++;
 }
-expect("chip javascript url", { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url: "javascript:alert(1)" }] }, "items[0].url: expected a link");
+expect(
+  "chip javascript url",
+  { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url: "javascript:alert(1)" }] },
+  "items[0].url: expected a link",
+);
 try {
   validateConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url: "obsidian://open?vault=x" }] });
   print("ok   chip app link (obsidian://)");
@@ -114,14 +125,29 @@ try {
   print(`FAIL chip app link: ${e.message}`);
   failed++;
 }
-expect("chip protocol-relative image", { items: [{ type: "chip", id: "c", at: [0, 0], image: "//evil.example/x.svg" }] }, "items[0].image: expected an image URL");
-expect("chip data small_image", { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", small_image: "data:image/svg+xml,x" }] }, "items[0].small_image: expected an image URL");
+expect(
+  "chip protocol-relative image",
+  { items: [{ type: "chip", id: "c", at: [0, 0], image: "//evil.example/x.svg" }] },
+  "items[0].image: expected an image URL",
+);
+expect(
+  "chip data small_image",
+  { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", small_image: "data:image/svg+xml,x" }] },
+  "items[0].small_image: expected an image URL",
+);
 expect("vlan colour not a colour", { items: [], vlans: { LAN: 123 } }, "vlans.LAN: expected a colour");
 expect("led colour url()", { items: [{ type: "led", id: "e", at: [0, 0], color: "url(https://x/y)" }] }, "items[0].color: expected a colour");
-expect("label colour with css", { items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "red; display: none" }] }, "items[0].color: expected primary, secondary");
+expect(
+  "label colour with css",
+  { items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "red; display: none" }] },
+  "items[0].color: expected primary, secondary",
+);
 expect("threshold colour empty", { items: [B({ thresholds: [{ above: 1, color: " " }] })] }, "items[0].thresholds[0].color: expected red");
 try {
-  validateConfig({ vlans: { LAN: "tomato", IoT: "hsl(120, 50%, 40%)" }, items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "var(--accent-color)" }, B({ thresholds: [{ above: 1, color: "yellow" }] })] });
+  validateConfig({
+    vlans: { LAN: "tomato", IoT: "hsl(120, 50%, 40%)" },
+    items: [{ type: "label", id: "t", at: [0, 0], text: "x", color: "var(--accent-color)" }, B({ thresholds: [{ above: 1, color: "yellow" }] })],
+  });
   print("ok   named, hsl() and var() colours accepted");
 } catch (e) {
   print(`FAIL colour names: ${e.message}`);
@@ -143,7 +169,11 @@ const E = (extra = {}) => ({ type: "led", id: "e1", at: [0, 0], color: "#66b771"
 expect("led neither", { items: [{ type: "led", id: "e", at: [0, 0] }] }, "a led needs either 'vlan' or 'color'");
 expect("led both", { items: [E({ vlan: "LAN" })], vlans: { LAN: "#fff" } }, "a led needs either 'vlan' or 'color'");
 expect("led unknown vlan", { items: [E({ color: undefined, vlan: "IoT" })], vlans: { LAN: "#fff" } }, "items[0].vlan: unknown VLAN 'IoT'");
-expect("led vlan named like a built-in", { items: [E({ color: undefined, vlan: "toString" })], vlans: { LAN: "#fff" } }, "items[0].vlan: unknown VLAN 'toString'");
+expect(
+  "led vlan named like a built-in",
+  { items: [E({ color: undefined, vlan: "toString" })], vlans: { LAN: "#fff" } },
+  "items[0].vlan: unknown VLAN 'toString'",
+);
 expect("line vlan named like a built-in", { items: two, datalines: [L({ vlans: ["constructor"] })] }, "datalines[0].vlans: unknown VLAN 'constructor'");
 expect("texture named like a built-in", { items: [D({ texture: "constructor" })] }, "items[0].texture: expected one of");
 expect("type named like a built-in", { items: [{ type: "toString", id: "x" }] }, "items[0].type: expected one of");
@@ -362,21 +392,27 @@ else {
   frames.splice(0);
   const strokes = [];
   const getContext = Node_.prototype.getContext;
-  Node_.prototype.getContext = () => new Proxy({}, {
-    get: (t, k) => (k in t ? t[k] : () => ({ addColorStop: () => {} })),
-    set: (t, k, v) => {
-      if (k === "strokeStyle") strokes.push(v);
-      t[k] = v;
-      return true;
-    },
-  });
+  Node_.prototype.getContext = () =>
+    new Proxy({}, {
+      get: (t, k) => (k in t ? t[k] : () => ({ addColorStop: () => {} })),
+      set: (t, k, v) => {
+        if (k === "strokeStyle") strokes.push(v);
+        t[k] = v;
+        return true;
+      },
+    });
   let red = "#111111";
   const css = getComputedStyle;
   getComputedStyle = () => ({ getPropertyValue: (name) => (name === "--error-color" ? red : "") });
   const tc = new CardClass();
   tc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", status_entity: "binary_sensor.up" }] });
-  const hs = (dark) => ({ themes: { darkMode: dark, theme: "default" }, states: { "binary_sensor.up": { entity_id: "binary_sensor.up", state: "off", attributes: {} } } });
-  const run = () => { for (const f of frames.splice(0)) f(0); };
+  const hs = (dark) => ({
+    themes: { darkMode: dark, theme: "default" },
+    states: { "binary_sensor.up": { entity_id: "binary_sensor.up", state: "off", attributes: {} } },
+  });
+  const run = () => {
+    for (const f of frames.splice(0)) f(0);
+  };
   tc.hass = hs(true);
   run();
   const before = strokes.at(-1);
@@ -401,7 +437,14 @@ else {
   const named = { tomato: "#ff6347", "hsl(120, 100%, 25%)": "#008000" };
   Node_.prototype.getContext = () => {
     let fill = "#000000";
-    return { set fillStyle(v) { if (named[v] || /^#/.test(v)) fill = named[v] || v; }, get fillStyle() { return fill; } };
+    return {
+      set fillStyle(v) {
+        if (named[v] || /^#/.test(v)) fill = named[v] || v;
+      },
+      get fillStyle() {
+        return fill;
+      },
+    };
   };
   const got = [mixColor("tomato", "#000000", 0.5), mixColor("hsl(120, 100%, 25%)", "#000000", 1), mixColor("nonsense", "#000000", 0.5)].join(" ");
   Node_.prototype.getContext = getContext;
@@ -445,7 +488,14 @@ else {
   };
   window.localStorage = { getItem: (k) => (k === HIDDEN_GROUPS_KEY ? JSON.stringify(["g1"]) : null), setItem: () => {} };
   const gc = new CardClass();
-  gc.setConfig({ items: [D({ size: [200, 100], items: [G([B({ id: "inner", entity: "sensor.inner", show_border: true })]), B({ id: "switch", at: [0, 60], entity: "sensor.inner", toggle: "g1" })] })] });
+  gc.setConfig({
+    items: [
+      D({
+        size: [200, 100],
+        items: [G([B({ id: "inner", entity: "sensor.inner", show_border: true })]), B({ id: "switch", at: [0, 60], entity: "sensor.inner", toggle: "g1" })],
+      }),
+    ],
+  });
   gc.hass = { states: { "sensor.inner": { entity_id: "sensor.inner", state: "123456", attributes: {} } } };
   const frameW = () => gc.shadowRoot.querySelectorAll("rect").filter((r) => /\bbframe\b/.test(r.attrs.class || "")).map((r) => r.attrs.width)[0];
   const hiddenW = frameW();
@@ -463,7 +513,9 @@ else {
 {
   let seen = null;
   IntersectionObserver = class {
-    constructor(fn) { seen = fn; }
+    constructor(fn) {
+      seen = fn;
+    }
     observe() {}
     disconnect() {}
   };
@@ -497,8 +549,14 @@ else {
   const order = [];
   const measure = Node_.prototype.getComputedTextLength;
   const setAttr = Node_.prototype.setAttribute;
-  Node_.prototype.getComputedTextLength = function () { order.push("r"); return measure.call(this); };
-  Node_.prototype.setAttribute = function (k, v) { if (k === "width" || k === "transform") order.push("w"); return setAttr.call(this, k, v); };
+  Node_.prototype.getComputedTextLength = function () {
+    order.push("r");
+    return measure.call(this);
+  };
+  Node_.prototype.setAttribute = function (k, v) {
+    if (k === "width" || k === "transform") order.push("w");
+    return setAttr.call(this, k, v);
+  };
   oc.hass = st("12345");
   Node_.prototype.getComputedTextLength = measure;
   Node_.prototype.setAttribute = setAttr;
@@ -513,9 +571,16 @@ else {
   const log = [];
   let notify = null;
   ResizeObserver = class {
-    constructor(fn) { notify = fn; log.push("new"); }
-    observe() { log.push("observe"); }
-    disconnect() { log.push("disconnect"); }
+    constructor(fn) {
+      notify = fn;
+      log.push("new");
+    }
+    observe() {
+      log.push("observe");
+    }
+    disconnect() {
+      log.push("disconnect");
+    }
   };
   frames.splice(0);
   const rc = new CardClass();
@@ -542,10 +607,16 @@ else {
 }
 {
   const timer = setTimeout;
-  setTimeout = (fn) => { fn(); return 1; };
+  setTimeout = (fn) => {
+    fn();
+    return 1;
+  };
   const create = document.createElement;
   let icons = 0;
-  document.createElement = function (tag) { if (tag === "ha-icon") icons++; return create.call(this, tag); };
+  document.createElement = function (tag) {
+    if (tag === "ha-icon") icons++;
+    return create.call(this, tag);
+  };
   const warn = console.warn;
   const warned = [];
   console.warn = (m) => warned.push(m);
@@ -558,8 +629,9 @@ else {
   setTimeout = timer;
   document.createElement = create;
   console.warn = warn;
-  if (icons === 1 && warned.filter((m) => String(m).includes("no-such-icon")).length === 1) print("ok   a missing icon is looked up once, then skipped for a while");
-  else {
+  if (icons === 1 && warned.filter((m) => String(m).includes("no-such-icon")).length === 1) {
+    print("ok   a missing icon is looked up once, then skipped for a while");
+  } else {
     print(`FAIL missing icon: ${icons} lookups, ${warned.length} warnings`);
     failed++;
   }
@@ -584,7 +656,9 @@ else {
   const warned = [];
   console.warn = (m) => warned.push(String(m));
   const mc = new CardClass();
-  mc.setConfig({ items: [{ type: "chip", id: "c", at: [0, 0], image: "/local/missing.svg" }, { type: "chip", id: "c2", at: [20, 0], image: "/local/missing.svg" }] });
+  mc.setConfig({
+    items: [{ type: "chip", id: "c", at: [0, 0], image: "/local/missing.svg" }, { type: "chip", id: "c2", at: [20, 0], image: "/local/missing.svg" }],
+  });
   mc.hass = { states: {} };
   for (const image of mc.shadowRoot.querySelectorAll("image")) image.dispatch("error", {});
   console.warn = warn;
@@ -600,7 +674,14 @@ else {
   const warned = [];
   console.warn = (m) => warned.push(String(m));
   storageWarned = false;
-  window.localStorage = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
+  window.localStorage = {
+    getItem: () => {
+      throw new Error("blocked");
+    },
+    setItem: () => {
+      throw new Error("blocked");
+    },
+  };
   storedOn("x");
   storeOn("x", true);
   storedGroups();
@@ -892,7 +973,12 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
   const ic = new CardClass();
   ic.setConfig({ items: [B({ id: "bad", entity: "sensor.bad" }), B({ id: "good", at: [0, 40], entity: "sensor.good" })] });
   const states = { "sensor.good": { entity_id: "sensor.good", state: "21" } };
-  Object.defineProperty(states, "sensor.bad", { enumerable: true, get: () => { throw new Error("broken entity"); } });
+  Object.defineProperty(states, "sensor.bad", {
+    enumerable: true,
+    get: () => {
+      throw new Error("broken entity");
+    },
+  });
   const logged = [];
   const error = console.error;
   console.error = (...a) => logged.push(a.join(" "));
@@ -908,13 +994,25 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
 }
 {
   const nc = new CardClass();
-  nc.setConfig({ items: [{ type: "pool", id: "p", at: [0, 0], size: [80, 60], usage_entity: "sensor.used", items: [{ type: "hdd", id: "d", at: [4, 4], temperature: "sensor.temp" }] }] });
-  nc.hass = { states: { "sensor.used": { entity_id: "sensor.used", state: "", attributes: {} }, "sensor.temp": { entity_id: "sensor.temp", state: "", attributes: {} } } };
+  nc.setConfig({
+    items: [{
+      type: "pool",
+      id: "p",
+      at: [0, 0],
+      size: [80, 60],
+      usage_entity: "sensor.used",
+      items: [{ type: "hdd", id: "d", at: [4, 4], temperature: "sensor.temp" }],
+    }],
+  });
+  nc.hass = {
+    states: { "sensor.used": { entity_id: "sensor.used", state: "", attributes: {} }, "sensor.temp": { entity_id: "sensor.temp", state: "", attributes: {} } },
+  };
   const titles = nc.shadowRoot.querySelectorAll("title").map((t) => t.textContent).join(" | ");
   const temps = nc.shadowRoot.querySelectorAll("text").map((t) => t.textContent).join(" ");
   const hatched = nc.shadowRoot.querySelectorAll("g").some((g) => /\bpool\b/.test(g.attrs.class || "") && /\bnodata\b/.test(g.attrs.class));
-  if (hatched && titles.includes("usage —") && titles.includes("temperature —") && temps.includes("—") && !temps.includes("0°")) print("ok   empty states show — instead of 0");
-  else {
+  if (hatched && titles.includes("usage —") && titles.includes("temperature —") && temps.includes("—") && !temps.includes("0°")) {
+    print("ok   empty states show — instead of 0");
+  } else {
     print(`FAIL empty states: ${titles} / ${temps}`);
     failed++;
   }
@@ -931,6 +1029,274 @@ expect("fan range without entity", { items: [{ type: "fan", id: "f", at: [0, 0],
     failed++;
   }
 }
-print(`ok   canvas calls: ${calls}`);
-print("ok   lifecycle (setConfig, hass, frames, update, disconnect)");
+const check = (name, got, want) => {
+  if (got === want) print(`ok   ${name}`);
+  else {
+    print(`FAIL ${name}: got ${got}, want ${want}`);
+    failed++;
+  }
+};
+const S = (o) => Object.fromEntries(Object.entries(o).map(([id, v]) => [id, { entity_id: id, state: String(v.state ?? v), attributes: v.attributes || {} }]));
+const captureWarnings = (fn) => {
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (...a) => warned.push(a.join(" "));
+  try {
+    fn();
+  } finally {
+    console.warn = warn;
+  }
+  return warned;
+};
+const chipUrl = (url) => ({ items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", url }] });
+expect("chip url with a leading control character", chipUrl("\u0001javascript:alert(1)"), "items[0].url: expected a link");
+expect("chip url with a tab in the scheme", chipUrl("java\tscript:alert(1)"), "items[0].url: expected a link");
+expect("chip url without a scheme", chipUrl("grafana.example.com"), "items[0].url: expected a link");
+expect("chip blob url", chipUrl("blob:https://x/y"), "items[0].url: expected a link");
+expect("chip backslash image", { items: [{ type: "chip", id: "c", at: [0, 0], image: "/\\evil.example/x.svg" }] }, "items[0].image: expected an image URL");
+expect("background backslash image", { items: [], background: "/\\evil.example/x.jpg" }, "background: expected");
+check("chip links (https, relative path, app scheme)", ["https://grafana.example.com", "/lovelace/servers", "obsidian://open"].every(isLink), true);
+expect("vlan colour misspelled", { items: [], vlans: { LAN: "bluee" } }, "vlans.LAN: expected a colour");
+expect("line vlans as text", { items: two, vlans: { LAN: "#fff" }, datalines: [L({ vlans: "LAN" })] }, "datalines[0].vlans: expected a list of VLAN names");
+expect("line vlans as map", { items: two, vlans: { LAN: "#fff" }, datalines: [L({ vlans: { LAN: 1 } })] }, "datalines[0].vlans: expected a list of VLAN names");
+expect("rx without flow or rates", { items: two, datalines: [L({ rx: "sensor.r" })] }, "datalines[0].rx: has no effect without 'flow' or 'rates_at'");
+expect(
+  "rackdevices overlap",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 2 }, { type: "rackdevice", id: "y", u: 2 }])] },
+  "items[0].items[1].u: U2 of rack 'r' is already used by 'x'",
+);
+expect(
+  "fanpanel overlaps a rackdevice",
+  { items: [R([{ type: "rackdevice", id: "x", u: 3 }, { type: "fanpanel", id: "f", u: 2 }])] },
+  "U3 of rack 'r' is already used by 'x'",
+);
+try {
+  validateConfig({ items: [D({ items: null }), D({ id: "b", at: [50, 0] })], datalines: null, powerlines: null });
+  validateConfig({ items: [R([{ type: "rackdevice", id: "x", u: 1 }, { type: "rackdevice", id: "y", u: 2 }])] });
+  print("ok   empty lists and adjacent rackdevices accepted");
+} catch (e) {
+  print(`FAIL empty lists: ${e.message}`);
+  failed++;
+}
+{
+  let built = true;
+  try {
+    validateConfig(CardClass.getStubConfig());
+  } catch (e) {
+    built = false;
+  }
+  const grid = new CardClass().getGridOptions();
+  check("stub config is valid, grid options are full width", `${built} ${grid.columns} ${grid.min_columns}`, "true full 12");
+}
+{
+  const fc = new CardClass();
+  fc.setConfig({
+    items: [
+      D({ status_entity: "sensor.ups", status_map: { unavailable: "warn", online: "ok", OB: "down" } }),
+      D({ id: "b", at: [50, 0], status_entity: "sensor.gone", status_map: { online: "ok" } }),
+    ],
+  });
+  const cls = (ups) => {
+    fc.hass = { states: S({ "sensor.ups": ups }) };
+    return fc.shadowRoot.querySelectorAll("g").filter((g) => /\bdev\b/.test(g.attrs.class || "")).map((g) =>
+      (g.attrs.class.match(/\b(warn|down)\b/) || ["ok"])[0]
+    )
+      .join(",");
+  };
+  check(
+    "status_map can map unavailable and matches case-insensitively",
+    [cls("unavailable"), cls("ONLINE"), cls("ob lb"), cls("bypass")].join(" | "),
+    "warn,down | ok,down | down,down | warn,down",
+  );
+}
+{
+  WARNED.clear();
+  const warned = captureWarnings(() => {
+    const mc = new CardClass();
+    mc.setConfig({
+      items: [B({ entity: "sensor.typo" }), B({ id: "b2", at: [0, 20], entity: "sensor.typo" }), B({ id: "b3", at: [0, 40], entity: "sensor.real" })],
+    });
+    mc.hass = { states: S({ "sensor.real": "1" }) };
+    mc.hass = { states: S({ "sensor.real": "2" }) };
+  });
+  check(
+    "a missing entity is reported once",
+    warned.filter((m) => m.includes("sensor.typo")).length + warned.filter((m) => m.includes("sensor.real")).length,
+    1,
+  );
+}
+{
+  WARNED.clear();
+  const cc = new CardClass();
+  let warned;
+  cc.setConfig({
+    items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", status_entity: "sensor.st", update_entity: "sensor.upd", small_entity: "sensor.cnt" }],
+  });
+  warned = captureWarnings(() => {
+    cc.hass = { states: S({ "sensor.st": "online", "sensor.upd": "unavailable", "sensor.cnt": "unavailable" }) };
+  });
+  const count = cc.shadowRoot.querySelectorAll("text").find((t) => /\bchip-count\b/.test(t.attrs.class || ""));
+  const title = cc.shadowRoot.querySelectorAll("title").map((t) => t.textContent).find((t) => t.startsWith("c "));
+  check(
+    "chip without data shows ?, unknown update and unrecognised up state are reported",
+    `${count.textContent} ${title.includes("update status unknown")} ${warned.some((m) => m.includes("'online'"))}`,
+    "? true true",
+  );
+}
+{
+  const pc = new CardClass();
+  pc.setConfig({ items: [D({ size: [100, 20], items: [PS([P({ entity: "sensor.bare" }), P({ id: "p2", at: [14, 0], entity: "binary_sensor.mt" })])] })] });
+  pc.hass = { states: S({ "sensor.bare": "0.0", "binary_sensor.mt": { state: "on", attributes: { enabled: true, status: "link-ok", full_duplex: true } } }) };
+  const ports = pc.shadowRoot.querySelectorAll("g").filter((g) => /\bport\b/.test(g.attrs.class || ""));
+  const got = ports.map((g) =>
+    `${(g.attrs.class.match(/\b(up|slow|fault|disabled)\b/) || ["dim"])[0]}:${g.children.find((c) => c.tag === "title").textContent}`
+  ).join(" | ");
+  check("port rate 0.0 is no link, a missing MikroTik rate is a warning", got, "dim:p1 · 0.0 | slow:p2 · link up, no rate reported");
+}
+{
+  const bc = new CardClass();
+  bc.setConfig({ items: [B({ entity: "sensor.w", icon: "none" }), B({ id: "b2", at: [0, 20], entity: "sensor.n", icon: "none", units: "constructor" })] });
+  const probes = () => bc.shadowRoot.querySelectorAll("text").filter((t) => t.attrs.visibility === "hidden").map((t) => t.textContent).join(" | ");
+  bc.hass = {
+    locale: { language: "en" },
+    formatEntityState: (st) =>
+      Number.isFinite(Number(st.state))
+        ? `${new Intl.NumberFormat("en").format(Number(st.state))} ${st.attributes.unit_of_measurement || ""}`.trim()
+        : st.state,
+    states: S({ "sensor.w": { state: "1234", attributes: { unit_of_measurement: "W" } }, "sensor.n": "Infinity" }),
+  };
+  const texts = bc.shadowRoot.querySelectorAll("text").filter((t) => t.attrs.visibility !== "hidden").map((t) => t.textContent).join(" | ");
+  check("badge reserve ignores thousands separators, 'constructor' unit and Infinity", `${probes()} / ${texts}`, "9,999 W |  / 1,234 W | Infinity");
+}
+{
+  const lc = new CardClass();
+  lc.setConfig({ items: [B({ entity: "sensor.v", icon: "none", decimals: 1 })] });
+  const st = S({ "sensor.v": "1234.5" });
+  const text = () => lc.shadowRoot.querySelectorAll("text").find((t) => t.attrs.visibility !== "hidden").textContent;
+  lc.hass = { locale: { language: "en" }, states: st };
+  const en = text();
+  lc.hass = { locale: { language: "de" }, states: st };
+  check("a locale change refreshes badges", `${en} ${text()}`, "1,234.5 1.234,5");
+}
+{
+  let stored = "[]";
+  window.localStorage = {
+    getItem: (k) => (k === HIDDEN_GROUPS_KEY ? stored : null),
+    setItem: (k, v) => {
+      if (k === HIDDEN_GROUPS_KEY) stored = v;
+    },
+  };
+  const groupCard = (gid) => {
+    const c = new CardClass();
+    c.setConfig({ items: [D({ size: [100, 60], items: [G([], { id: gid }), B({ id: `t_${gid}`, entity: "sensor.x", toggle: gid })] })] });
+    c.hass = { states: {} };
+    return c;
+  };
+  const a = groupCard("ga");
+  const b = groupCard("gb");
+  const click = (c, gid) => {
+    const target = c.shadowRoot.querySelectorAll("g").find((g) => g.dataset && g.dataset.toggle === gid);
+    c.shadowRoot.querySelectorAll("ha-card")[0].dispatch("click", { target: { closest: () => target }, stopPropagation() {} });
+  };
+  click(a, "ga");
+  click(b, "gb");
+  delete window.localStorage;
+  check("two cards hiding different groups keep both", JSON.parse(stored).sort().join(","), "ga,gb");
+}
+{
+  const kc = new CardClass();
+  const opened = [];
+  kc.dispatchEvent = (ev) => opened.push(ev.detail.entityId);
+  kc.setConfig({ items: [D({ size: [100, 40], status_entity: "sensor.dev", items: [T(), E({ at: [40, 0] }), B({ at: [60, 0], entity: "sensor.b" })] })] });
+  kc.hass = { states: S({ "sensor.dev": "on", "sensor.b": "1" }) };
+  const g = (cls) => kc.shadowRoot.querySelectorAll("g").find((n) => new RegExp(`\\b${cls}\\b`).test(n.attrs.class || ""));
+  const card = kc.shadowRoot.querySelectorAll("ha-card")[0];
+  let prevented = 0;
+  for (const target of [g("label"), g("led")]) card.dispatch("click", { target: { closest: () => target }, stopPropagation() {} });
+  card.dispatch("keydown", {
+    key: "Enter",
+    target: { closest: () => g("badge") },
+    stopPropagation() {},
+    preventDefault() {
+      prevented++;
+    },
+  });
+  card.dispatch("keydown", {
+    key: "a",
+    target: { closest: () => g("badge") },
+    stopPropagation() {},
+    preventDefault() {
+      prevented++;
+    },
+  });
+  check(
+    "labels and LEDs open the device, Enter activates a focusable badge",
+    `${opened.join(",")} ${prevented} ${g("badge").attrs.tabindex} ${g("badge").attrs.role}`,
+    "sensor.dev,sensor.dev,sensor.b 1 0 button",
+  );
+}
+{
+  const nc = new CardClass();
+  nc.setConfig({ items: two, datalines: [L({ flow: "forward", rx: "sensor.rx", tx: "sensor.tx" })] });
+  nc.hass = { states: S({ "sensor.rx": "unavailable" }) };
+  const title = nc.shadowRoot.querySelectorAll("path").find((p) => /\blnk\b/.test(p.attrs.class || "")).children.find((c) => c.tag === "title").textContent;
+  check("a cable without traffic data says so", title, "l · rx — (no data) · tx — (no data) · animation stopped: no traffic data");
+}
+{
+  frames.splice(0);
+  let cancelled = 0;
+  const cancel = cancelAnimationFrame;
+  cancelAnimationFrame = () => cancelled++;
+  const ec = new CardClass();
+  const cfg = { items: [{ type: "chip", id: "c", at: [0, 0], icon: "mdi:server", status_entity: "binary_sensor.up" }] };
+  ec.setConfig(cfg);
+  ec.connectedCallback();
+  ec.hass = { states: S({ "binary_sensor.up": "off" }) };
+  const getContext = Node_.prototype.getContext;
+  Node_.prototype.getContext = () => {
+    throw new Error("no canvas");
+  };
+  const error = console.error;
+  console.error = () => {};
+  ec.setConfig(cfg);
+  console.error = error;
+  Node_.prototype.getContext = getContext;
+  const box = ec.shadowRoot.querySelectorAll("div").find((d) => d.attrs.class === "error");
+  ec.disconnectedCallback();
+  cancelAnimationFrame = cancel;
+  frames.splice(0);
+  check("a failed rebuild shows the error and stops the animation loop", `${Boolean(box)} ${cancelled > 0}`, "true true");
+}
+{
+  const uc = new CardClass();
+  const error = console.error;
+  const logged = [];
+  console.error = (...a) => logged.push(a.join(" "));
+  uc.setConfig({ items: [B({ id: "flaky", entity: "sensor.bad" })] });
+  const states = {};
+  Object.defineProperty(states, "sensor.bad", {
+    enumerable: true,
+    get: () => {
+      throw new Error("broken");
+    },
+  });
+  uc.hass = { locale: { language: "en" }, states };
+  uc.hass = { locale: { language: "de" }, states };
+  console.error = error;
+  check("a failing item is named and logged once", `${logged.length} ${logged[0]?.includes("'flaky'")}`, "1 true");
+}
+check("the demo map draws canvas animation", calls > 0, true);
+{
+  const life = new CardClass();
+  life.setConfig(good);
+  life.connectedCallback();
+  life.hass = { states };
+  const svg = life.shadowRoot.querySelectorAll("svg").length;
+  const box = life.shadowRoot.querySelectorAll("div").some((d) => d.attrs.class === "error");
+  life.setConfig(good);
+  const rebuilt = life.shadowRoot.querySelectorAll("svg").length;
+  life.disconnectedCallback();
+  frames.splice(0);
+  check("lifecycle (setConfig, hass, rebuild after hass, disconnect)", `${svg} ${box} ${rebuilt}`, "1 false 1");
+}
 print(failed ? `${failed} FAILED` : "ALL PASSED");
