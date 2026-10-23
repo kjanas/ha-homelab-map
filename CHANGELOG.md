@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.103.0 – alpha
+## 0.103.0
 
 Everything from the 0.102.1 pre-release (below), plus:
 

@@ -15,8 +15,6 @@
 
 ![Homelab Map](https://raw.githubusercontent.com/kjanas/ha-homelab-map/main/docs/assets/hero.png)
 
-> **Alpha.** The card works and is used daily, but options may still change between releases. Feedback and issues are welcome.
-
 Homelab Map is a Lovelace card that draws your racks, servers, switches and cables, and brings them to life with Home Assistant data: live values, link and port states, container status, disk health, fans, and animated network and power cables whose speed follows real traffic.
 
 You place everything yourself with pixel coordinates, so the map looks exactly like your setup – no auto-layout to fight with.
