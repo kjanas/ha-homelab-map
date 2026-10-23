@@ -91,6 +91,15 @@ for (const t of [20000, 20200]) {
 log("double-tap at max → reset");
 const want = "390/0,0 975/450,225 1455/721,385 2909/1640,919 2909/1720,959 suppressed true 4160/2503,1415 390/0,0";
 print(seen.join(" ") === want ? "ok   pan & zoom (double-tap, ctrl+wheel, pinch, drag, click suppression, max, reset)" : `FAIL pan & zoom: ${seen.join(" ")}`);
+
+for (let i = 0; i < 5; i++) h.wheel(ev({ ctrlKey: true, deltaY: -50, clientX: 100, clientY: 100 }));
+h.pointerdown(ev({ pointerId: 7, clientX: 200, clientY: 200 }));
+h.pointermove(ev({ pointerId: 7, clientX: 120, clientY: 160 }));
+h.pointerup(ev({ pointerId: 7, clientX: 120, clientY: 160 }));
+handlers.get(card0).pointerdown({});
+clicked = 0;
+handlers.get(card0).click(cap);
+print(clicked === 0 ? "ok   a tap outside the map after a touch pan is not swallowed" : "FAIL a tap after a touch pan was swallowed");
 h.wheel(ev({ ctrlKey: true, deltaY: -40, clientX: 100, clientY: 100 }));
 const mouse = (o) => ev({ pointerType: "mouse", ...o });
 const scrolled = () => `${Math.round(scroller.scrollLeft || 0)},${Math.round(scroller.scrollTop || 0)}`;

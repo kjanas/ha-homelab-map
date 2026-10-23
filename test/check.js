@@ -456,8 +456,20 @@ else {
 }
 {
   const r = (state, unit) => toKBps({ state, attributes: unit === undefined ? {} : { unit_of_measurement: unit } });
-  const got = [r("8", "Mbit/s"), r("8", "mbit/s"), r("8", "Mb/s"), r("8", "MB/s"), r("8"), r("8", "B"), r("8", "MBps"), r("8", "mbps")].map(String).join(" ");
-  if (got === "1000 1000 1000 8000 8 NaN NaN 1000") print("ok   rate units (case, Mb/s, no unit = kB/s, unknown = —)");
+  const got = [
+    r("8", "Mbit/s"),
+    r("8", "mbit/s"),
+    r("8", "Mb/s"),
+    r("8", "MB/s"),
+    r("8"),
+    r("8", "B"),
+    r("8", "MBps"),
+    r("8", "mbps"),
+    r("8", "Mbps"),
+    r("8", "Gbps"),
+    r("8", "Kbps"),
+  ].map(String).join(" ");
+  if (got === "1000 1000 1000 8000 8 NaN NaN 1000 1000 1000000 1") print("ok   rate units (case, Mb/s, no unit = kB/s, unknown = —)");
   else {
     print(`FAIL rate units: ${got}`);
     failed++;

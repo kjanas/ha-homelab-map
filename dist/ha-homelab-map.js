@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "0.102.1";
+const VERSION = "0.103.0";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -295,8 +295,8 @@ const STYLES = `
   .rates { fill: var(--hhm-text-dim); font-variant-numeric: tabular-nums; }
   .stage.still-data .lnk.data:not(.down) { stroke: color-mix(in srgb, var(--hhm-text-dim) 35%, var(--hhm-bg)); }
   .stage.still-power .lnk.power { stroke: color-mix(in srgb, #666666 35%, var(--hhm-bg)); }
-  .toggles { position: absolute; top: 6px; right: 6px; z-index: 4; display: flex; flex-direction: column; gap: 6px; padding: 7px 9px; border-radius: 6px; background: var(--hhm-badge); border: 1px solid var(--hhm-frame-border); }
-  .toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: 10px; color: var(--hhm-text); }
+  .toggles { position: absolute; top: 6px; right: 6px; z-index: 4; display: flex; flex-direction: column; gap: 0; padding: 2px 9px; border-radius: 6px; background: var(--hhm-badge); border: 1px solid var(--hhm-frame-border); }
+  .toggle { display: flex; align-items: center; min-height: 24px; gap: 6px; cursor: pointer; user-select: none; font-size: 10px; color: var(--hhm-text); }
   .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
   .toggle .track { position: relative; width: 26px; height: 14px; border-radius: 7px; background: color-mix(in srgb, var(--hhm-text-dim) 40%, var(--hhm-badge)); transition: background .2s; }
   .toggle .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--hhm-text); transition: transform .2s; }
@@ -465,10 +465,13 @@ const RATE_UNITS = {
   bps: 1 / 8000,
   "kbit/s": 1 / 8,
   kbps: 1 / 8,
+  Kbps: 1 / 8,
   "Mbit/s": 125,
   mbps: 125,
+  Mbps: 125,
   "Gbit/s": 125000,
   gbps: 125000,
+  Gbps: 125000,
   "kb/s": 1 / 8,
   "Mb/s": 125,
   "Gb/s": 125000,
@@ -1157,6 +1160,7 @@ class HaHomelabMap extends HTMLElement {
     this.#reset = htmlEl("button", "zoom-reset", this.#view);
     this.#reset.textContent = "⤢";
     this.#reset.title = "Show the whole map";
+    this.#reset.setAttribute("aria-label", "Show the whole map");
     this.#reset.addEventListener("click", (ev) => {
       ev.stopPropagation();
       this.#zoomTo(1);
@@ -1173,6 +1177,9 @@ class HaHomelabMap extends HTMLElement {
       }
       if (this.#activate(ev)) ev.preventDefault();
     });
+    this.#card.addEventListener("pointerdown", () => {
+      this.#dragged = false;
+    }, true);
     this.#card.addEventListener("click", (ev) => {
       if (!this.#dragged) return;
       this.#dragged = false;
@@ -1497,7 +1504,6 @@ class HaHomelabMap extends HTMLElement {
     sc.addEventListener("scroll", this.#onScroll, { passive: true });
     sc.addEventListener("pointerdown", (ev) => {
       if (ev.pointerType === "mouse" && ev.button !== 0) return;
-      this.#dragged = false;
       this.#pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       const pts = [...this.#pointers.values()];
       if (pts.length === 2) {
@@ -1632,7 +1638,7 @@ class HaHomelabMap extends HTMLElement {
     this.#painted = false;
     this.#zoom = 1;
     this.#togglesBox = null;
-    const svg = svgEl("svg", { viewBox: `${minX} ${minY} ${width} ${height}`, role: "img", "aria-label": "Homelab map" }, this.#stage);
+    const svg = svgEl("svg", { viewBox: `${minX} ${minY} ${width} ${height}`, role: "group", "aria-label": "Homelab map" }, this.#stage);
     this.#canvas = htmlEl("canvas", "fx", this.#view);
     this.#ctx = null;
     this.#svg = svg;
@@ -2372,9 +2378,11 @@ class HaHomelabMap extends HTMLElement {
       const menu = htmlEl("button", "toggle-menu", box);
       menu.textContent = "⚙";
       menu.title = "Switches";
+      menu.setAttribute("aria-label", "Switches");
+      menu.setAttribute("aria-expanded", "false");
       menu.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        box.classList.toggle("open");
+        menu.setAttribute("aria-expanded", String(box.classList.toggle("open")));
         this.#placeToggles();
       });
       for (const [kind, text] of toggles) {
@@ -2569,8 +2577,9 @@ class HaHomelabMap extends HTMLElement {
     const tip = htmlEl("div", "dbg-tip", this.#view);
     this.#debugTip = tip;
     svg.addEventListener("mousemove", (ev) => {
+      if (!this.#debugOn) return;
       const ctm = svg.getScreenCTM?.();
-      if (!ctm || !this.#debugOn) return;
+      if (!ctm) return;
       const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(ctm.inverse());
       const hit = this.#boxes.filter((b) => pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h).pop();
       const local = hit ? ` · ${hit.dev.id}: ${Math.round(pt.x - hit.x)}, ${Math.round(pt.y - hit.y)}` : "";

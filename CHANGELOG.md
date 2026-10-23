@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.103.0 – alpha
+
+Everything from the 0.102.1 pre-release (below), plus:
+
+### Fixes
+
+- Rate sensors in `Mbps`, `Gbps` or `Kbps` (as listed in the docs) are read instead of showing `—` and stopping the cable animation.
+- After panning or pinching on a touch screen, the first tap on ⤢, ⚙ or a switch is no longer swallowed.
+- Screen readers see the map's items instead of a single image, the ⤢ and ⚙ buttons have proper names, and ⚙ says whether the panel is open.
+- The switches in the panel are at least 24 px tall, easier to hit on touch screens.
+- With `debug_toggle`, moving the mouse over the map no longer does work while Debug is off.
+
 ## 0.102.1 – pre-release
 
 ### Fixes
