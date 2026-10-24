@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg" alt="HACS Default"></a>
   <img src="https://img.shields.io/github/v/release/kjanas/ha-homelab-map?include_prereleases" alt="Release">
 </p>
 
@@ -38,10 +38,23 @@ You place everything yourself with pixel coordinates, so the map looks exactly l
 
 ### HACS (recommended)
 
+Homelab Map is in the default HACS store.
+
+[![Open your Home Assistant instance and open the repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kjanas&repository=ha-homelab-map&category=plugin)
+
 1. Open **HACS** in Home Assistant.
-2. Open the menu (⋮) → **Custom repositories**, add `https://github.com/kjanas/ha-homelab-map` with type **Dashboard**.
-3. Search for **Homelab Map** and download it.
-4. Reload the browser.
+2. Search for **Homelab Map** and download it.
+3. Reload the browser.
+
+#### Fallback: custom repository
+
+If **Homelab Map** does not show up in the search (an older HACS, or a store list that has not refreshed yet), add it by hand:
+
+1. Open **HACS** → menu (⋮) → **Custom repositories**.
+2. Add `https://github.com/kjanas/ha-homelab-map` with type **Dashboard**.
+3. Search for **Homelab Map**, download it and reload the browser.
+
+Already installed it this way? Nothing to change – updates keep coming through HACS.
 
 ### Manual
 

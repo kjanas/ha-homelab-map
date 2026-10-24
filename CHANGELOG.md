@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+First stable release. Homelab Map is now in the default HACS store, so it can be installed by searching for it in HACS, without adding a custom repository. Same features and fixes as 0.103.0.
+
 ## 0.103.0
 
 Everything from the 0.102.1 pre-release (below), plus:
