@@ -153,13 +153,31 @@ A device that fills the rack from rail to rail. It goes in a rack's `items`.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `u` | **required** | First unit, counted from the top (U1 is the top) |
-| `units` | `1` | Height in U |
+| `u` | **required** | First unit, counted from the top (U1 is the top); `2.5` starts halfway down U2 |
+| `units` | `1` | Height in U, in steps of 0.5 (`0.5`, `1`, `1.5`, `2`…) |
 | `status_entity`, `status_map` | | Colour the frame from an entity – see [device status](#device-status) |
 | `texture`, `texture_opacity` | | A pattern on the front – see [textures](#textures) |
 | `items` | | What is shown on it, relative to the rackdevice |
 
-A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours. Rackdevices and fan panels in one rack can't share a U.
+A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours. Rackdevices and fan panels in one rack can't share a U, or half a U.
+
+For custom-built or half-height equipment, `u` and `units` go in steps of 0.5U (16 px). Lower values such as `0.25` are rejected. The rack itself is always a whole number of U.
+
+```yaml
+type: custom:ha-homelab-map
+debug: true
+items:
+  - type: rack
+    id: rack
+    at: [0, 0]
+    units: 4
+    items:
+      - {type: rackdevice, id: custom_nas, u: 1, units: 1.5}
+      - {type: rackdevice, id: cable_mgmt, u: 2.5, units: 0.5}
+      - {type: rackdevice, id: server, u: 3, units: 2}
+```
+
+<img src="images/rack_half.png" width="407" alt="rack_half">
 
 ### `device`
 
@@ -681,7 +699,7 @@ items:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `u`, `units` (`fanpanel`) | units `2` | Position in the rack, like a rackdevice. The panel sits behind devices and cables |
+| `u`, `units` (`fanpanel`) | units `2` | Position in the rack, like a rackdevice (steps of 0.5U). The panel sits behind devices and cables |
 | `count` (`fanpanel`) | `4` | Fans, spread evenly |
 | `at`, `size` (`fan`) | size `24` | A square chassis with four screw holes |
 | `entity` | | Drives the speed |

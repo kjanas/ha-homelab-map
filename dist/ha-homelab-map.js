@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const BOX_RADIUS = 2;
@@ -379,6 +379,7 @@ const parseSpeed = (value) => {
 };
 const isMdi = (value) => typeof value === "string" && /^mdi:[a-z0-9-]+$/.test(value);
 const isSize = (value) => isNum(value) && value > 0;
+const isHalfU = (value) => isNum(value) && Number.isInteger(value * 2);
 const isBox = (value) => isPair(value) && value[0] > 0 && value[1] > 0;
 const HIDDEN = (value) => value === false || value === null || value === "none";
 const isUpState = (state) => Boolean(state) && UP_STATES.includes(String(state.state).toLowerCase());
@@ -774,13 +775,13 @@ const checkEndpoint = (item, path) => {
 
 const checkRackUnits = (item, path, ctx, parent) => {
   const units = item.units ?? (item.type === "fanpanel" ? FAN.units : 1);
-  if (!Number.isInteger(item.u) || item.u < 1) fail(`${path}.u`, "expected a whole number from 1");
-  if (!Number.isInteger(units) || units < 1) fail(`${path}.units`, "expected a whole number from 1");
-  const last = item.u + units - 1;
-  if (last > parent.units) fail(`${path}.u`, `U${item.u}–U${last} does not fit in the ${parent.units}U rack '${parent.id}'`);
+  if (!isHalfU(item.u) || item.u < 1) fail(`${path}.u`, "expected a number from 1 in steps of 0.5");
+  if (!isHalfU(units) || units < 0.5) fail(`${path}.units`, "expected a number from 0.5 in steps of 0.5");
+  const end = item.u + units;
+  if (end > parent.units + 1) fail(`${path}.u`, `U${item.u}–U${Math.ceil(end) - 1} does not fit in the ${parent.units}U rack '${parent.id}'`);
   if (!ctx.rackUnits.has(parent)) ctx.rackUnits.set(parent, new Map());
   const used = ctx.rackUnits.get(parent);
-  for (let u = item.u; u <= last; u++) {
+  for (let u = item.u; u < end; u += 0.5) {
     if (used.has(u)) fail(`${path}.u`, `U${u} of rack '${parent.id}' is already used by '${used.get(u)}'`);
     used.set(u, item.id);
   }

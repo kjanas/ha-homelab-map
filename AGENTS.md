@@ -62,8 +62,8 @@ powerlines: []
 
 | type | Keys (`id` and `type` always) | Notes |
 | --- | --- | --- |
-| `rack` | `at`, `units`, `items` | 347 px wide, `20 + units × 32` px tall |
-| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at` |
+| `rack` | `at`, `units`, `items` | 347 px wide, `20 + units × 32` px tall; `units` is a whole number |
+| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at`; `u` and `units` in steps of 0.5 (`u: 2.5`, `units: 1.5`), never smaller |
 | `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
 | `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
 | `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
@@ -75,7 +75,7 @@ powerlines: []
 | `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`; hatched when the usage entity has no data), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
 | `hdd` / `ssd` | `at`, `size` (default `[27, 36]`), `temperature`, `status_entity`, `status_map`, `thresholds` | disk: temperature at the bottom (`41°`, coloured by `thresholds`), status LED top-right (green/orange/red); an HDD's platter spins unless its status is down, an SSD shows a chip board |
 | `bay` | `at`, `size` | empty drive bay, dashed outline |
-| `fanpanel` | `u`, `units` (default 2), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
+| `fanpanel` | `u`, `units` (default 2, steps of 0.5 like a rackdevice), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
 | `fan` | `at`, `size` (square side, default 24), `entity`, `range`, `thresholds` | a single fan placed anywhere, drawn as a square chassis with 4 corner screw holes |
 | `port` | `at` (relative to its `ports`), `entity`, `speed` (overrides the container's) | white = up at expected speed or faster, orange = slower, dimmed = no link; `icon` comes from the container only |
 
@@ -131,9 +131,10 @@ All values in px.
 - the outer rails occupy x `rx + 4 … rx + 18` and `rx + 329 … rx + 343`;
 - unit numbers are drawn left of the rack, at about `rx − 6`.
 
-**Rackdevice** `u: k, units: m` in that rack:
+**Rackdevice** `u: k, units: m` in that rack (k and m in steps of 0.5, so a half U is 16 px):
 - top-left `[rx + 21, ry + 10 + 32(k−1) + 1]`;
-- size `[305, 32m − 2]`.
+- size `[305, 32m − 2]`;
+- e.g. `u: 2.5, units: 1.5` starts at y `ry + 59` and is 46 px tall.
 
 **A device placed in a rack with `at`** (e.g. a narrow PoE injector) is relative to the rack's top-left corner.
 
@@ -254,7 +255,7 @@ This goes inside the switch's `items`. A line to the TV then uses `end_port: swi
 - [ ] Every `id` is unique, including line ids.
 - [ ] Every entity id was given by the user, not guessed.
 - [ ] Every `points` list uses absolute map coordinates, and segments start and end on the intended edges.
-- [ ] Rackdevices sit inside a rack's `items`, fit (`u + units − 1 ≤ rack units`) and don't share a U with another rackdevice or fan panel.
+- [ ] Rackdevices sit inside a rack's `items`, fit (`u + units − 1 ≤ rack units`), use steps of 0.5 for `u` and `units`, and don't share a U or half U with another rackdevice or fan panel.
 - [ ] Every endpoint has exactly one of: `icon`, or at least one chip.
 - [ ] Every line end has exactly one of `*_device` or `*_port`, except one intentionally open end on a dataline (with `points`, without that end's `*_edge`/`*_point`).
 - [ ] Every badge has `icon` (use `none` to hide it).
@@ -277,7 +278,8 @@ This means: first top-level item → third item inside it → its `size`. Fix ex
 | `unknown property – allowed: …` | Remove or rename the key; the message lists the valid keys |
 | `'rackdevice' must be inside a rack's items` | Move it into the rack's `items` |
 | `U11–U13 does not fit in the 12U rack 'rack'` | Lower `u` or `units` |
-| `U3 of rack 'rack' is already used by 'server'` | Move one of the two to free units |
+| `U3 of rack 'rack' is already used by 'server'` (or `U3.5`) | Move one of the two to free units |
+| `expected a number from 0.5 in steps of 0.5` | Round `units` (or `u`) to a half U; 0.25U and similar are not supported |
 | `'x' is not a device – lines connect devices and ports only` | Point the line at the device or a port, not at a badge or chip |
 | `use either 'start_device' or 'start_port', not both` | Keep one of the two |
 | `needs either 'end_device' or 'end_port'` (powerline) | Powerlines can't have open ends – connect both |
