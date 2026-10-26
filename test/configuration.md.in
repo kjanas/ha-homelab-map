@@ -133,7 +133,7 @@ A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall.
 
 For custom-built or half-height equipment, `u` and `units` go in steps of 0.5U (16 px). Lower values such as `0.25` are rejected. The rack itself is always a whole number of U.
 
-A 0.5U rackdevice is only 14 px tall. Labels (size 10), LEDs and ports (12 px) fit with 1–2 px to spare, but a chip at its default size of 16 px sticks out, so give chips on it `size: 12` or less.
+A 0.5U rackdevice is only 14 px tall, so put its content at the top (`at: [x, 0]`). Labels (size 10), LEDs and ports (12 px) fit. A chip at its default size of 16 px sticks out: use `size: 12` or less, or `size: 11` or less with `small_image` or `small_entity`, whose small circle hangs below the chip.
 
 {{scene:rack_half}}
 

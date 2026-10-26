@@ -63,7 +63,7 @@ powerlines: []
 | type | Keys (`id` and `type` always) | Notes |
 | --- | --- | --- |
 | `rack` | `at`, `units`, `items` | 347 px wide, `20 + units × 32` px tall; `units` is a whole number |
-| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at`; `u` from 1 and `units` from 0.5, both in steps of 0.5 (`u: 2.5`, `units: 1.5`); a 0.5U rackdevice is only 14 px tall: labels, LEDs and 12 px ports fit, chips need `size` ≤ 12 |
+| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at`; `u` from 1 and `units` from 0.5, both in steps of 0.5 (`u: 2.5`, `units: 1.5`); a 0.5U rackdevice is only 14 px tall: place content at `y: 0`; labels, LEDs and 12 px ports fit, chips need `size` ≤ 12 (≤ 11 with `small_image` / `small_entity`) |
 | `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
 | `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
 | `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
