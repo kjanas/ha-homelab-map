@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+### Features
+
+- Rackdevices and fan panels can be half a U high or start halfway down a U: `u` and `units` accept steps of 0.5 (`u: 2.5`, `units: 1.5`) for custom-built or half-height equipment ([#1](https://github.com/kjanas/ha-homelab-map/issues/1)). Racks stay whole numbers of U, and two items still can't share any part of a U.
+
 ## 1.0.0
 
 First stable release. Homelab Map is now in the default HACS store, so it can be installed by searching for it in HACS, without adding a custom repository. Same features and fixes as 0.103.0.

@@ -1,0 +1,11 @@
+type: custom:ha-homelab-map
+debug: true
+items:
+  - type: rack
+    id: rack
+    at: [0, 0]
+    units: 4
+    items:
+      - {type: rackdevice, id: custom_nas, u: 1, units: 1.5}
+      - {type: rackdevice, id: cable_mgmt, u: 2.5, units: 0.5}
+      - {type: rackdevice, id: server, u: 3, units: 2}
