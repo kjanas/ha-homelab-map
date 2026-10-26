@@ -1124,24 +1124,96 @@ expect(
   { items: [R([{ type: "rackdevice", id: "x", u: 2 }, { type: "fanpanel", id: "f", u: 2.5, units: 0.5 }])] },
   "items[0].items[1].u: U2.5 of rack 'r' is already used by 'x'",
 );
-try {
-  const items = [R([
+const expectPlaced = (name, rackItems, want) => {
+  try {
+    const items = [R(rackItems)];
+    validateConfig({ items });
+    const placed = placeItems(items, [0, 0], []);
+    const got = rackItems.map(({ id }) => placed.find((p) => p.dev.id === id)).map((b) => `${b.dev.id}:${b.x},${b.y},${b.w},${b.h}`).join(" ");
+    if (got !== want) throw new Error(`boxes ${got}, expected ${want}`);
+    print(`ok   ${name}`);
+  } catch (e) {
+    print(`FAIL ${name}: ${e.message}`);
+    failed++;
+  }
+};
+expectPlaced(
+  "half-U rackdevices and fan panel accepted and placed",
+  [
     { type: "rackdevice", id: "x", u: 1, units: 1.5 },
     { type: "rackdevice", id: "y", u: 2.5, units: 0.5 },
     { type: "fanpanel", id: "f", u: 3, units: 0.5 },
     { type: "rackdevice", id: "z", u: 3.5, units: 1.5 },
-  ])];
-  validateConfig({ items });
-  const placed = placeItems(items, [0, 0], []);
-  const box = (id) => placed.find((p) => p.dev.id === id);
-  const got = ["x", "y", "f", "z"].map((id) => `${box(id).y},${box(id).h}`).join(" ");
-  const want = "11,46 59,14 75,14 91,46";
-  if (got !== want) throw new Error(`boxes ${got}, expected ${want}`);
-  print("ok   half-U rackdevices and fan panel accepted and placed");
-} catch (e) {
-  print(`FAIL half-U: ${e.message}`);
-  failed++;
-}
+  ],
+  "x:21,11,305,46 y:21,59,305,14 f:21,75,305,14 z:21,91,305,46",
+);
+expectPlaced(
+  "default 2U fan panel at a half U, whole U filling the rack bottom",
+  [
+    { type: "fanpanel", id: "f", u: 1.5 },
+    { type: "rackdevice", id: "y", u: 3.5, units: 0.5 },
+    { type: "rackdevice", id: "z", u: 4 },
+  ],
+  "f:21,27,305,62 y:21,91,305,14 z:21,107,305,30",
+);
+expectPlaced("half U filling the rack bottom", [{ type: "rackdevice", id: "x", u: 4.5, units: 0.5 }], "x:21,123,305,14");
+expectPlaced(
+  "whole-U placement unchanged",
+  [{ type: "rackdevice", id: "x", u: 1 }, { type: "rackdevice", id: "y", u: 2, units: 2 }],
+  "x:21,11,305,30 y:21,43,305,62",
+);
+expect("rackdevice u zero", { items: [R([{ type: "rackdevice", id: "x", u: 0 }])] }, "items[0].items[0].u: expected a number from 1 in steps of 0.5");
+expect("rackdevice u half below 1", { items: [R([{ type: "rackdevice", id: "x", u: 0.5 }])] }, "items[0].items[0].u: expected a number from 1 in steps of 0.5");
+expect("fanpanel u not a half", { items: [R([{ type: "fanpanel", id: "f", u: 1.3 }])] }, "items[0].items[0].u: expected a number from 1 in steps of 0.5");
+expect("rackdevice u as text", { items: [R([{ type: "rackdevice", id: "x", u: "2" }])] }, "items[0].items[0].u: expected a number from 1 in steps of 0.5");
+expect(
+  "rackdevice units as text",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: "1.5" }])] },
+  "items[0].items[0].units: expected a number from 0.5 in steps of 0.5",
+);
+expect(
+  "rackdevice units infinite",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: Infinity }])] },
+  "items[0].items[0].units: expected a number from 0.5 in steps of 0.5",
+);
+expect(
+  "rackdevice units NaN",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: NaN }])] },
+  "items[0].items[0].units: expected a number from 0.5 in steps of 0.5",
+);
+expect("half U below the rack bottom", { items: [R([{ type: "rackdevice", id: "x", u: 5, units: 0.5 }])] }, "U5–U5 does not fit in the 4U rack 'r'");
+expect("whole U from a half start overflows", { items: [R([{ type: "rackdevice", id: "x", u: 4.5 }])] }, "U4.5–U5 does not fit in the 4U rack 'r'");
+expect("default fan panel overflows from a half start", { items: [R([{ type: "fanpanel", id: "f", u: 3.5 }])] }, "U3.5–U5 does not fit in the 4U rack 'r'");
+expect(
+  "whole-U overflow message unchanged",
+  { items: [R([{ type: "rackdevice", id: "x", u: 4, units: 2 }])] },
+  "items[0].items[0].u: U4–U5 does not fit in the 4U rack 'r'",
+);
+expect(
+  "whole-U overlap message unchanged",
+  { items: [R([{ type: "rackdevice", id: "x", u: 3, units: 2 }, { type: "rackdevice", id: "y", u: 4 }])] },
+  "items[0].items[1].u: U4 of rack 'r' is already used by 'x'",
+);
+expect(
+  "default fan panel at a half U overlaps",
+  { items: [R([{ type: "fanpanel", id: "f", u: 1.5 }, { type: "rackdevice", id: "y", u: 3 }])] },
+  "items[0].items[1].u: U3 of rack 'r' is already used by 'f'",
+);
+expect(
+  "later item at a lower U overlaps",
+  { items: [R([{ type: "rackdevice", id: "y", u: 2 }, { type: "rackdevice", id: "x", u: 1, units: 1.5 }])] },
+  "items[0].items[1].u: U2 of rack 'r' is already used by 'y'",
+);
+expect(
+  "two half starts overlap",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1.5 }, { type: "rackdevice", id: "y", u: 2 }])] },
+  "items[0].items[1].u: U2 of rack 'r' is already used by 'x'",
+);
+expect(
+  "half U inside a taller item",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 3 }, { type: "rackdevice", id: "y", u: 2.5, units: 0.5 }])] },
+  "items[0].items[1].u: U2.5 of rack 'r' is already used by 'x'",
+);
 try {
   validateConfig({ items: [D({ items: null }), D({ id: "b", at: [50, 0] })], datalines: null, powerlines: null });
   validateConfig({ items: [R([{ type: "rackdevice", id: "x", u: 1 }, { type: "rackdevice", id: "y", u: 2 }])] });

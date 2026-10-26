@@ -123,8 +123,8 @@ A device that fills the rack from rail to rail. It goes in a rack's `items`.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `u` | **required** | First unit, counted from the top (U1 is the top); `2.5` starts halfway down U2 |
-| `units` | `1` | Height in U, in steps of 0.5 (`0.5`, `1`, `1.5`, `2`…) |
+| `u` | **required** | First unit, counted from the top (U1 is the top), from `1` in steps of 0.5; `2.5` starts halfway down U2 |
+| `units` | `1` | Height in U, from `0.5` in steps of 0.5 (`0.5`, `1`, `1.5`, `2`…) |
 | `status_entity`, `status_map` | | Colour the frame from an entity – see [device status](#device-status) |
 | `texture`, `texture_opacity` | | A pattern on the front – see [textures](#textures) |
 | `items` | | What is shown on it, relative to the rackdevice |
@@ -132,6 +132,8 @@ A device that fills the rack from rail to rail. It goes in a rack's `items`.
 A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours. Rackdevices and fan panels in one rack can't share a U, or half a U.
 
 For custom-built or half-height equipment, `u` and `units` go in steps of 0.5U (16 px). Lower values such as `0.25` are rejected. The rack itself is always a whole number of U.
+
+A 0.5U rackdevice is only 14 px tall. Labels (size 10), LEDs and ports (12 px) fit with 1–2 px to spare, but a chip at its default size of 16 px sticks out, so give chips on it `size: 12` or less.
 
 {{scene:rack_half}}
 
@@ -399,7 +401,7 @@ A rack panel with fans, and single fans you can place anywhere.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `u`, `units` (`fanpanel`) | units `2` | Position in the rack, like a rackdevice (steps of 0.5U). The panel sits behind devices and cables |
+| `u`, `units` (`fanpanel`) | units `2` | Position in the rack, like a rackdevice (`u` from 1, `units` from 0.5, both in steps of 0.5). The panel sits behind devices and cables |
 | `count` (`fanpanel`) | `4` | Fans, spread evenly |
 | `at`, `size` (`fan`) | size `24` | A square chassis with four screw holes |
 | `entity` | | Drives the speed |

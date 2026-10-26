@@ -63,7 +63,7 @@ powerlines: []
 | type | Keys (`id` and `type` always) | Notes |
 | --- | --- | --- |
 | `rack` | `at`, `units`, `items` | 347 px wide, `20 + units × 32` px tall; `units` is a whole number |
-| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at`; `u` and `units` in steps of 0.5 (`u: 2.5`, `units: 1.5`), never smaller |
+| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at`; `u` from 1 and `units` from 0.5, both in steps of 0.5 (`u: 2.5`, `units: 1.5`); a 0.5U rackdevice is only 14 px tall: labels, LEDs and 12 px ports fit, chips need `size` ≤ 12 |
 | `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
 | `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
 | `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
@@ -75,7 +75,7 @@ powerlines: []
 | `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`; hatched when the usage entity has no data), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
 | `hdd` / `ssd` | `at`, `size` (default `[27, 36]`), `temperature`, `status_entity`, `status_map`, `thresholds` | disk: temperature at the bottom (`41°`, coloured by `thresholds`), status LED top-right (green/orange/red); an HDD's platter spins unless its status is down, an SSD shows a chip board |
 | `bay` | `at`, `size` | empty drive bay, dashed outline |
-| `fanpanel` | `u`, `units` (default 2, steps of 0.5 like a rackdevice), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
+| `fanpanel` | `u`, `units` (default 2; `u` from 1, `units` from 0.5, steps of 0.5 like a rackdevice), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
 | `fan` | `at`, `size` (square side, default 24), `entity`, `range`, `thresholds` | a single fan placed anywhere, drawn as a square chassis with 4 corner screw holes |
 | `port` | `at` (relative to its `ports`), `entity`, `speed` (overrides the container's) | white = up at expected speed or faster, orange = slower, dimmed = no link; `icon` comes from the container only |
 
@@ -279,7 +279,9 @@ This means: first top-level item → third item inside it → its `size`. Fix ex
 | `'rackdevice' must be inside a rack's items` | Move it into the rack's `items` |
 | `U11–U13 does not fit in the 12U rack 'rack'` | Lower `u` or `units` |
 | `U3 of rack 'rack' is already used by 'server'` (or `U3.5`) | Move one of the two to free units |
-| `expected a number from 0.5 in steps of 0.5` | Round `units` (or `u`) to a half U; 0.25U and similar are not supported |
+| `….units: expected a number from 0.5 in steps of 0.5` | Round `units` to a half U, at least 0.5; 0.25U and similar are not supported |
+| `….u: expected a number from 1 in steps of 0.5` | Round `u` to a half U, at least 1 (U1 is the top) |
+| `….units: expected a whole number of U` (on a rack) | A rack's `units` must be a whole number; only rackdevices and fan panels take half U |
 | `'x' is not a device – lines connect devices and ports only` | Point the line at the device or a port, not at a badge or chip |
 | `use either 'start_device' or 'start_port', not both` | Keep one of the two |
 | `needs either 'end_device' or 'end_port'` (powerline) | Powerlines can't have open ends – connect both |
