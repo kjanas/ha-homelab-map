@@ -1097,9 +1097,21 @@ expect(
   "U3 of rack 'r' is already used by 'x'",
 );
 expect("rackdevice u not a half", { items: [R([{ type: "rackdevice", id: "x", u: 1.3 }])] }, "items[0].items[0].u: expected a number from 1 in steps of 0.5");
-expect("rackdevice units below half", { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 0.25 }])] }, "items[0].items[0].units: expected a number from 0.5 in steps of 0.5");
-expect("rackdevice units zero", { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 0 }])] }, "items[0].items[0].units: expected a number from 0.5 in steps of 0.5");
-expect("fanpanel units not a half", { items: [R([{ type: "fanpanel", id: "f", u: 1, units: 1.75 }])] }, "items[0].items[0].units: expected a number from 0.5 in steps of 0.5");
+expect(
+  "rackdevice units below half",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 0.25 }])] },
+  "items[0].items[0].units: expected a number from 0.5 in steps of 0.5",
+);
+expect(
+  "rackdevice units zero",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 0 }])] },
+  "items[0].items[0].units: expected a number from 0.5 in steps of 0.5",
+);
+expect(
+  "fanpanel units not a half",
+  { items: [R([{ type: "fanpanel", id: "f", u: 1, units: 1.75 }])] },
+  "items[0].items[0].units: expected a number from 0.5 in steps of 0.5",
+);
 expect("rack units stay whole", { items: [R([], { units: 4.5 })] }, "items[0].units: expected a whole number of U");
 expect("half-U overflow", { items: [R([{ type: "rackdevice", id: "x", u: 4, units: 1.5 }])] }, "U4–U5 does not fit in the 4U rack 'r'");
 expect(
