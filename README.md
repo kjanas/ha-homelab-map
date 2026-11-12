@@ -21,11 +21,11 @@ You place everything yourself with pixel coordinates, so the map looks exactly l
 
 ## Features
 
-- **Racks and devices** – 19" racks with rackdevices placed by U, free-standing devices and small endpoints; frames turn orange or red from any status entity.
+- **Racks and devices** – 19" racks with rackdevices placed by U (half-U heights and half-width devices side by side), free-standing devices and small endpoints; frames turn orange or red from any status entity.
 - **Live values** – badges with icons, fixed widths so rows never jump, and colour thresholds (e.g. CPU above 80 % orange, above 90 % red).
 - **Network cables** – datalines animated in your VLAN colours, faster with more traffic, direction from rx/tx, red and dashed when the link is down, optional rate labels; open-ended cables fade out "to the internet".
 - **Power cables** – animated gold dots from your UPS.
-- **Ports** – port icons coloured by link state: active, slower than expected, no cable, fault (no link where a cable is expected), disabled. Works great with the MikroTik Router integration.
+- **Ports** – port icons coloured by link state: active, slower than expected, no cable, fault (no link where a cable is expected), disabled. Works great with the MikroTik Router integration; ports on unmanaged switches take a fixed state.
 - **Logos and containers** – round chips with blinking status/update rings, small parent logos, pending-update counts; groups you can show and hide with a click.
 - **Storage** – ZFS/RAID pools with a usage fill, HDDs with spinning platters, SSDs, empty bays, temperatures and health LEDs.
 - **Fans** – rack fan panels and single fans whose speed follows a temperature or RPM sensor.

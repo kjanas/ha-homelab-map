@@ -1,0 +1,16 @@
+type: custom:ha-homelab-map
+debug: true
+items:
+  - type: rack
+    id: rack
+    at: [0, 0]
+    units: 4
+    items:
+      - {type: rackdevice, id: patch_a, u: 1, units: 0.5, side: left}
+      - {type: rackdevice, id: patch_b, u: 1, units: 0.5, side: right}
+      - {type: rackdevice, id: patch_c, u: 1.5, units: 0.5, side: left}
+      - {type: rackdevice, id: patch_d, u: 1.5, units: 0.5, side: right}
+      - {type: rackdevice, id: switch_a, u: 2, units: 1.5, side: left}
+      - {type: rackdevice, id: switch_b, u: 2, side: right}
+      - {type: rackdevice, id: hub, u: 3, units: 0.5, side: right}
+      - {type: rackdevice, id: server, u: 3.5, units: 1.5}

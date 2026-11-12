@@ -1,0 +1,1 @@
+{"sensor.server_cpu": {"state": "12", "attributes": {"unit_of_measurement": "%"}}, "sensor.server_eth0": "1 Gbps", "sensor.server_eth1": "0", "sensor.server_eth2": "1 Gbps", "sensor.server_eth3": "1 Gbps"}

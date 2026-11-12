@@ -259,7 +259,37 @@ expect("port outside ports", { items: [D({ items: [P()] })] }, "a device can con
 expect("ports bad speed", { items: [D({ items: [PS([P()], { speed: "fast" })] })] }, "items[0].items[0].speed: expected a link speed");
 expect("port bad speed", { items: [D({ items: [PS([P({ speed: "1 Gig" })])] })] }, "items[0].items[0].items[0].speed: expected a link speed");
 expect("port icon not allowed", { items: [D({ items: [PS([P({ icon: "mdi:cctv" })])] })] }, "items[0].items[0].items[0].icon: unknown property");
-expect("port no entity", { items: [D({ items: [PS([P({ entity: undefined })])] })] }, "items[0].items[0].items[0].entity");
+expect("port bad entity", { items: [D({ items: [PS([P({ entity: "up" })])] })] }, "items[0].items[0].items[0].entity: expected an entity id");
+expect(
+  "port entity and state",
+  { items: [D({ items: [PS([P({ state: "inactive" })])] })] },
+  "items[0].items[0].items[0]: a port can have 'entity' or 'state', not both",
+);
+expect(
+  "port bad state",
+  { items: [D({ items: [PS([P({ entity: undefined, state: "off" })])] })] },
+  "items[0].items[0].items[0].state: expected one of active, warn, inactive, fault, disabled",
+);
+expect("rackdevice bad side", { items: [R([{ type: "rackdevice", id: "x", u: 1, side: "middle" }])] }, "items[0].items[0].side: expected left or right");
+expect("fanpanel has no side", { items: [R([{ type: "fanpanel", id: "f", u: 1, side: "left" }])] }, "items[0].items[0].side: unknown property");
+expect(
+  "half-width overlap on one side",
+  { items: [R([{ type: "rackdevice", id: "x", u: 1, units: 1.5, side: "left" }, { type: "rackdevice", id: "y", u: 2, units: 0.5, side: "left" }])] },
+  "items[0].items[1].u: U2 (left) of rack 'r' is already used by 'x'",
+);
+expect(
+  "full width over a half-width device",
+  { items: [R([{ type: "rackdevice", id: "x", u: 2, side: "right" }, { type: "rackdevice", id: "y", u: 2 }])] },
+  "items[0].items[1].u: U2 of rack 'r' is already used by 'x'",
+);
+expect(
+  "half width over a full-width device",
+  { items: [R([{ type: "fanpanel", id: "f", u: 1, units: 1 }, { type: "rackdevice", id: "y", u: 1.5, units: 0.5, side: "right" }])] },
+  "items[0].items[1].u: U1.5 (right) of rack 'r' is already used by 'f'",
+);
+expect("card icon_color not a colour", { icon_color: "url(x)", items: [] }, "icon_color: expected a colour");
+expect("badge icon_color not a colour", { items: [B({ icon_color: 5 })] }, "items[0].icon_color: expected a colour");
+expect("device has no icon_color", { items: [D({ icon_color: "#fff" })] }, "items[0].icon_color: unknown property");
 expect("ports bad icon", { items: [D({ items: [PS([P()], { icon: "ethernet" })] })] }, "items[0].items[0].icon: expected an mdi icon");
 expect(
   "line device and port",
@@ -1156,6 +1186,26 @@ expectPlaced(
   ],
   "f:21,27,305,62 y:21,91,305,14 z:21,107,305,30",
 );
+expectPlaced(
+  "four half-U half-width devices in one U",
+  [
+    { type: "rackdevice", id: "a", u: 1, units: 0.5, side: "left" },
+    { type: "rackdevice", id: "b", u: 1, units: 0.5, side: "right" },
+    { type: "rackdevice", id: "c", u: 1.5, units: 0.5, side: "left" },
+    { type: "rackdevice", id: "d", u: 1.5, units: 0.5, side: "right" },
+  ],
+  "a:21,11,151.5,14 b:174.5,11,151.5,14 c:21,27,151.5,14 d:174.5,27,151.5,14",
+);
+expectPlaced(
+  "1.5U half-width next to stacked halves, full width below",
+  [
+    { type: "rackdevice", id: "a", u: 1, units: 1.5, side: "left" },
+    { type: "rackdevice", id: "b", u: 1, units: 1, side: "right" },
+    { type: "rackdevice", id: "c", u: 2, units: 0.5, side: "right" },
+    { type: "rackdevice", id: "d", u: 2.5, units: 1.5 },
+  ],
+  "a:21,11,151.5,46 b:174.5,11,151.5,30 c:174.5,43,151.5,14 d:21,59,305,46",
+);
 expectPlaced("half U filling the rack bottom", [{ type: "rackdevice", id: "x", u: 4.5, units: 0.5 }], "x:21,123,305,14");
 expectPlaced(
   "whole-U placement unchanged",
@@ -1719,5 +1769,45 @@ check("the demo map draws canvas animation", calls > 0, true);
   life.disconnectedCallback();
   frames.splice(0);
   check("lifecycle (setConfig, hass, rebuild after hass, disconnect)", `${svg} ${box} ${rebuilt}`, "1 false 1");
+}
+{
+  const unmanaged = new CardClass();
+  unmanaged.setConfig({
+    items: [
+      D({
+        id: "sw",
+        items: [
+          PS([P({ id: "u1", entity: undefined }), P({ id: "u2", entity: undefined, state: "active" }), P({ id: "u3", entity: undefined, state: "disabled" })]),
+        ],
+      }),
+      D({ id: "pc", at: [40, 0] }),
+    ],
+    datalines: [L({ start_device: undefined, start_port: "u1", end_device: "pc" })],
+  });
+  unmanaged.hass = { states: {} };
+  const port = (id) => unmanaged.shadowRoot.querySelectorAll("g").find((g) => g.attrs["data-id"] === id);
+  const cls = ["u1", "u2", "u3"].map((id) => (port(id).attrs.class.match(/\b(up|slow|fault|disabled)\b/) || ["-"])[0]).join(" ");
+  check("ports without entity: cabled fault, fixed active, fixed disabled", cls, "fault up disabled");
+  check("a port without entity is not clickable", /\bclickable\b/.test(port("u2").attrs.class), false);
+}
+{
+  const tinted = new CardClass();
+  tinted.setConfig({
+    icon_color: "#1e293b",
+    items: [
+      { type: "endpoint", id: "e", at: [0, 0], icon: "mdi:tv", icon_color: "tomato" },
+      B({ at: [40, 0] }),
+      { type: "chip", id: "c", at: [80, 0], icon: "mdi:docker", icon_color: "#ff0000" },
+      D({ id: "sw", at: [120, 0], items: [PS([P({ id: "q1" }), P({ id: "q2", entity: "sensor.q2", icon_color: "#00ff00" })], { icon_color: "#0000ff" })] }),
+    ],
+  });
+  tinted.hass = { states: {} };
+  const root = tinted.shadowRoot;
+  const varOf = (el) => (el ? el.style._p["--hhm-icon"] ?? "-" : "none");
+  const g = (id) => root.querySelectorAll("g").find((x) => x.attrs["data-id"] === id);
+  const card = root.querySelectorAll("ha-card")[0];
+  check("icon_color global and per item", [card, g("e"), g("b1"), g("c"), g("q1"), g("q2")].map(varOf).join(" "), "#1e293b tomato - #ff0000 #0000ff #00ff00");
+  tinted.setConfig({ items: [B()] });
+  check("icon_color removed when unset", varOf(tinted.shadowRoot.querySelectorAll("ha-card")[0]), "-");
 }
 print(failed ? `${failed} FAILED` : "ALL PASSED");

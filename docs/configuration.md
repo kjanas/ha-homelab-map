@@ -11,6 +11,7 @@
 - [Switches](#switches)
 - [Pan and zoom](#pan-and-zoom)
 - [Font](#font)
+- [Icon colour](#icon_color)
 - [background](#background)
 - [debug](#debug)
 - [Errors](#errors)
@@ -38,6 +39,7 @@ Some screenshots below have `debug: true` turned on, which draws the coordinate 
 ```yaml
 type: custom:ha-homelab-map
 font: JetBrains Mono
+icon_color: "#9b9b9b"
 background: blueprint
 line_radius: 6
 vlans:
@@ -63,6 +65,7 @@ powerlines: []
 | `powerlines` | | See [Powerlines](#powerlines) |
 | `vlans` | | Colour for each VLAN name, used by datalines and LEDs |
 | `font` | theme font | Font family for all text on the card – see [Font](#font) |
+| `icon_color` | theme secondary text colour | Colour of all MDI icons – see [Icon colour](#icon_color) |
 | `background` | `none` | A decorative backdrop behind the map – see [background](#background) |
 | `line_radius` | `6` | Radius of every line corner, in px |
 | `scale` | `1` | Zoom of the whole map: `1.5` = 150 %. The map never gets wider than the card; zoom in with a pinch or ctrl/⌘ + wheel for more |
@@ -145,7 +148,7 @@ items:
 
 ### `rackdevice`
 
-A device that fills the rack from rail to rail. It goes in a rack's `items`.
+A device that fills the rack from rail to rail, or half of it with `side`. It goes in a rack's `items`.
 
 ```yaml
 - {type: rackdevice, id: router, u: 2, units: 2}
@@ -155,11 +158,35 @@ A device that fills the rack from rail to rail. It goes in a rack's `items`.
 | --- | --- | --- |
 | `u` | **required** | First unit, counted from the top (U1 is the top), from `1` in steps of 0.5; `2.5` starts halfway down U2 |
 | `units` | `1` | Height in U, from `0.5` in steps of 0.5 (`0.5`, `1`, `1.5`, `2`…) |
+| `side` | full width | `left` or `right`: the device takes that half of the rack width – e.g. two small switches side by side on a shelf |
 | `status_entity`, `status_map` | | Colour the frame from an entity – see [device status](#device-status) |
 | `texture`, `texture_opacity` | | A pattern on the front – see [textures](#textures) |
 | `items` | | What is shown on it, relative to the rackdevice |
 
 A rackdevice is 305 px wide (between the rails) and `units × 32 − 2` px tall. The 2 px leave a gap between neighbours. Rackdevices and fan panels in one rack can't share a U, or half a U.
+
+With `side`, a rackdevice is 151.5 px wide, with the same 2 px gap in the middle. A left and a right device can share the same units; a full-width device or fan panel can't share a unit with either. Height and side combine freely – four 0.5U half-width devices fill one U, and a 1.5U device on the left can sit next to a 1U and a 0.5U device stacked on the right:
+
+```yaml
+type: custom:ha-homelab-map
+debug: true
+items:
+  - type: rack
+    id: rack
+    at: [0, 0]
+    units: 4
+    items:
+      - {type: rackdevice, id: patch_a, u: 1, units: 0.5, side: left}
+      - {type: rackdevice, id: patch_b, u: 1, units: 0.5, side: right}
+      - {type: rackdevice, id: patch_c, u: 1.5, units: 0.5, side: left}
+      - {type: rackdevice, id: patch_d, u: 1.5, units: 0.5, side: right}
+      - {type: rackdevice, id: switch_a, u: 2, units: 1.5, side: left}
+      - {type: rackdevice, id: switch_b, u: 2, side: right}
+      - {type: rackdevice, id: hub, u: 3, units: 0.5, side: right}
+      - {type: rackdevice, id: server, u: 3.5, units: 1.5}
+```
+
+<img src="images/rack_side.png" width="407" alt="rack_side">
 
 For custom-built or half-height equipment, `u` and `units` go in steps of 0.5U (16 px). Lower values such as `0.25` are rejected. The rack itself is always a whole number of U.
 
@@ -231,6 +258,7 @@ items:
 | --- | --- |
 | `at` | Top-left corner |
 | `icon` | Any [Material Design icon](https://pictogrammers.com/library/mdi/), e.g. `mdi:television` |
+| `icon_color` | Colour of this icon – see [Icon colour](#icon_color) |
 | `items` | One or more [chips](#chip) (e.g. a logo with a status ring – here the TV is off), and optionally labels |
 
 Use either `icon` or a chip, not both.
@@ -322,6 +350,7 @@ items:
 | --- | --- | --- |
 | `entity` | **required** | The entity to show |
 | `icon` | **required** | An MDI icon such as `mdi:thermometer`, or `none` for no icon |
+| `icon_color` | card `icon_color` | Colour of the icon – see [Icon colour](#icon_color). Thresholds still win when a limit is reached |
 | `units` | `true` | `true`: the entity's own unit. Your own text (`units: Mb/s`) replaces it. `none` hides it |
 | `decimals` | as Home Assistant shows it | Number of decimal places |
 | `size` | `8` | Font size in px |
@@ -407,6 +436,7 @@ From left: running; stopped (red ring); running with an update (green ring); sto
 | Option | Default | Description |
 | --- | --- | --- |
 | `icon` / `image` | one of the two | An MDI icon, or an image URL starting with `/` (e.g. `/local/logos/grafana.svg`) or `http(s)://` |
+| `icon_color` | card `icon_color` | Colour of the MDI icon – see [Icon colour](#icon_color) |
 | `size` | `16` | Diameter in px |
 | `status_entity` | | A blinking **red** ring when this entity is not up. Up means `on`, `true`, `1`, `running`, `home` or `ok`; anything else, unavailable or missing is down. A state that is neither up nor a usual down state (e.g. `online`) is reported once in the browser console |
 | `update_entity` | | A blinking **green** ring when this entity is `on`, `true`, `1` or a number above 0 – e.g. an `update.*` entity or a pending-updates count. While it is unavailable the tooltip says the update status is unknown |
@@ -592,6 +622,7 @@ Switch, from left: active at the expected speed; slower than expected (100 Mbps)
 | `size` | `12` | Icon size in px |
 | `speed` | `1Gbps` | Expected link speed – slower links are orange |
 | `icon` | `mdi:ethernet` | Icon of all ports, e.g. `mdi:cctv` for camera inputs |
+| `icon_color` | card `icon_color` | Base colour of all port icons – see below |
 | `states` | | State → `active`, `warn`, `inactive`, `fault` or `disabled`, checked first and case-insensitive – e.g. NVR channels `{recording: active, online: warn, offline: fault, empty: inactive}`. A state not in the map falls back to the rules above and is reported once in the browser console |
 | `items` | | `port` items |
 
@@ -599,7 +630,9 @@ Switch, from left: active at the expected speed; slower than expected (100 Mbps)
 | --- | --- |
 | `at` | Relative to its `ports` |
 | `entity` | The link entity (see below) |
+| `state` | A fixed state instead of an entity: `active`, `warn`, `inactive`, `fault` or `disabled` – for ports without data, such as on an unmanaged switch |
 | `speed` | Overrides the container's expected speed for this port |
+| `icon_color` | Overrides the container's `icon_color` for this port |
 
 | Colour | Means |
 | --- | --- |
@@ -615,7 +648,44 @@ Port entities, best first:
 2. A speed text (`1Gbps`, `2.5Gbps`, `100Mbps`, `10 Gbit/s`), or a bare number read in the entity's unit (Mbps without one).
 3. An on/off entity.
 
-Clicking a port opens its entity.
+A port can have `entity` or `state`, not both. A port with neither has no data: it is dimmed, or red when a line ends at it – give it `state: active` to show a cabled port on an unmanaged switch as linked:
+
+```yaml
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: dumb_switch
+    at: [0, 0]
+    size: [104, 44]
+    items:
+      - {type: label, id: dumb_switch_name, at: [8, 6], text: Desk switch, size: 11, bold: true}
+      - type: ports
+        id: dumb_switch_ports
+        at: [8, 24]
+        items:
+          - {type: port, id: dumb_1, at: [0, 0], state: active}
+          - {type: port, id: dumb_2, at: [16, 0], state: active}
+          - {type: port, id: dumb_3, at: [32, 0], state: inactive}
+          - {type: port, id: dumb_4, at: [48, 0], state: inactive}
+          - {type: port, id: dumb_5, at: [64, 0], state: disabled}
+  - type: device
+    id: desktop
+    at: [0, 90]
+    size: [80, 26]
+    items:
+      - {type: label, id: desktop_name, at: [8, 7], text: Desktop, size: 10}
+datalines:
+  - {id: dumb1-desktop, start_port: dumb_1, start_edge: bottom, end_device: desktop, end_edge: top, end_point: 20}
+  - {id: dumb2-desktop, start_port: dumb_2, start_edge: bottom, end_device: desktop, end_edge: top, end_point: 40}
+```
+
+<img src="images/ports_unmanaged.png" width="144" alt="ports_unmanaged">
+
+From left: two cabled ports set to `active`, two free ports set to `inactive`, one set to `disabled`.
+
+With `icon_color`, a linked port is that colour and an idle or disabled port a dimmed version of it. Orange and red stay as they are.
+
+Clicking a port opens its entity; a port without an entity can't be clicked.
 
 ### `pool`, `hdd`, `ssd`, `bay`
 
@@ -1011,6 +1081,41 @@ font: JetBrains Mono
 ```
 
 [JetBrains Mono](https://www.jetbrains.com/lp/mono/) is bundled with the card (SIL Open Font License) and loaded from the card's own folder – nothing is fetched from the internet. Any other name works if that font is installed on the viewing device. A monospace font also makes badge widths exact, which helps when aligning rows.
+
+## `icon_color`
+
+`icon_color` on the card sets the colour of every MDI icon: endpoints, badges, chips and ports. `icon_color` on one of those items overrides it for that item; on a `ports` container it covers all its ports, and a `port` can override that again.
+
+```yaml
+type: custom:ha-homelab-map
+icon_color: "#6c9cda"
+items:
+  - {type: endpoint, id: camera, at: [0, 0], icon: "mdi:cctv"}
+  - {type: endpoint, id: meter, at: [44, 0], icon: "mdi:flash", icon_color: "#fdd835"}
+  - type: device
+    id: server
+    at: [96, 0]
+    size: [200, 32]
+    items:
+      - {type: chip, id: docker, at: [8, 8], icon: "mdi:docker"}
+      - {type: chip, id: backup, at: [30, 8], icon: "mdi:harddisk", icon_color: "#66b771"}
+      - {type: badge, id: cpu, at: [56, 12], entity: sensor.server_cpu, icon: "mdi:cpu-64-bit"}
+      - type: ports
+        id: server_ports
+        at: [110, 10]
+        icon_color: "#c792ea"
+        items:
+          - {type: port, id: eth0, at: [0, 0], entity: sensor.server_eth0}
+          - {type: port, id: eth1, at: [16, 0], entity: sensor.server_eth1}
+          - {type: port, id: eth2, at: [32, 0], entity: sensor.server_eth2, icon_color: "#ff8a65"}
+          - {type: port, id: eth3, at: [48, 0], entity: sensor.server_eth3}
+```
+
+<img src="images/icon_color.png" width="336" alt="icon_color">
+
+The card sets blue for every icon. The meter endpoint, the backup chip, the ports container and one port inside it override it. The idle port (`eth1`) is a dimmed version of its container's colour.
+
+Any CSS colour works (`#1e293b`, `tomato`, `rgb(30 41 59)`, `var(--primary-color)`). Without it, icons use the theme's secondary text colour, as before. Status colours – badge thresholds, orange and red ports – are not changed. Image chips (`image`) keep their own colours.
 
 ## `background`
 

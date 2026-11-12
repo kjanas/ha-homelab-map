@@ -341,7 +341,11 @@ const fx = canvases.find((c) => !/fans/.test(c.attrs.class || ""));
 let [vx, vy, vw, vh] = mainSvg.attrs.viewBox.split(" ").map(Number);
 if (TOGGLES && !cfg.toggles_at) vw += 130;
 const css = readFile(CARD).split("const STYLES = `")[1].split("`;")[0].replace(/:host\s*\{/, "svg {").replace(/\n\s*ha-card\s*\{[^}]*\}/, "");
-const theme = Object.entries({ ...THEME, ...card.style._p }).map(([k, v]) => `${k}:${v}`).join(";") +
+const haCard = card.shadowRoot.querySelectorAll("ha-card")[0];
+const theme =
+  Object.entries({ ...THEME, ...card.style._p, ...(haCard?.style._p["--hhm-icon"] ? { "--hhm-icon": haCard.style._p["--hhm-icon"] } : {}) }).map(([k, v]) =>
+    `${k}:${v}`
+  ).join(";") +
   ";--hlm-fs-title:12px;--hlm-fs-text:10px;--hlm-fs-small:8px";
 const toggles = [];
 if (TOGGLES) {

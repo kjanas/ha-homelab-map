@@ -43,6 +43,7 @@ Everything is placed by hand with pixel coordinates. The card does no automatic 
 type: custom:ha-homelab-map
 line_radius: 6            # px, every line corner
 font: JetBrains Mono      # optional; bundled; falls back to the theme font
+icon_color: "#9b9b9b"    # optional; colour of every MDI icon (endpoints, badges, chips, ports); items can override it
 background: blueprint     # optional; none | blueprint | pegboard | vignette | "#rrggbb" | image URL (/local/…)
 vlans: {LAN: "#6c9cda", IoT: "#66b771"}   # name → colour, used by datalines and LEDs
 scale: 1                  # or fit_viewport: true (fills window height; scale ignored)
@@ -63,23 +64,25 @@ powerlines: []
 | type | Keys (`id` and `type` always) | Notes |
 | --- | --- | --- |
 | `rack` | `at`, `units`, `items` | 347 px wide, `20 + units × 32` px tall; `units` is a whole number |
-| `rackdevice` | `u`, `units` (default 1), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at`; `u` from 1 and `units` from 0.5, both in steps of 0.5 (`u: 2.5`, `units: 1.5`); a 0.5U rackdevice is only 14 px tall: place content at `y: 0`; labels, LEDs and 12 px ports fit, chips need `size` ≤ 12 (≤ 11 with `small_image` / `small_entity`) |
+| `rackdevice` | `u`, `units` (default 1), `side` (`left` / `right`), `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | inside a rack only; no `at`; `u` from 1 and `units` from 0.5, both in steps of 0.5 (`u: 2.5`, `units: 1.5`); a 0.5U rackdevice is only 14 px tall: place content at `y: 0`; labels, LEDs and 12 px ports fit, chips need `size` ≤ 12 (≤ 11 with `small_image` / `small_entity`); `side` makes it half the rack width, and a left and a right device can share units (four 0.5U × ½ devices fill one U) |
 | `device` | `at`, `size: [w, h]`, `status_entity`, `status_map`, `texture`, `texture_opacity`, `items` | |
-| `endpoint` | `at`, `icon` **or** a chip in `items` | 32 × 32 px; `items` may also hold labels |
-| `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
-| `chip` | `at`, `icon` **or** `image`, `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both; `image`/`small_image` must start with `/` or `http(s)://`; `url` needs a scheme (`https://`, `ssh://`…) or a single leading `/` (`nas:8080` or `nas.lan:5000` alone is rejected), and `javascript:`, `data:`, `vbscript:`, `file:`, `blob:`, `about:` are rejected; `small_entity` shows `?` while it has no data |
+| `endpoint` | `at`, `icon` **or** a chip in `items`, `icon_color` | 32 × 32 px; `items` may also hold labels |
+| `badge` | `at`, `entity`, `icon` (required: `mdi:…` or `none`), `icon_color`, `units` (`true` / own text / `none`), `decimals`, `size` (font px, default 8), `show_border`, `toggle` (group id), `thresholds` | click → more-info (or toggles the group) |
+| `chip` | `at`, `icon` **or** `image`, `icon_color` (MDI icon only), `small_image` **or** `small_entity`, `size` (diameter, default 16), `status_entity`, `update_entity`, `url` | red ring when status not up, green when update on; `small_image` = a small logo on the lower right (e.g. the app a database belongs to); `small_entity` = a small number in the same spot (e.g. pending OS updates), hidden at 0; not both; `image`/`small_image` must start with `/` or `http(s)://`; `url` needs a scheme (`https://`, `ssh://`…) or a single leading `/` (`nas:8080` or `nas.lan:5000` alone is rejected), and `javascript:`, `data:`, `vbscript:`, `file:`, `blob:`, `about:` are rejected; `small_entity` shows `?` while it has no data |
 | `led` | `at`, `vlan` **or** `color`, `size: [w, h]` (default [3, 8]), `entity`, `effect` (`flicker` default, `blink`, `none`), `caption` | dark grey while `entity` is down; `caption` = text centred above the LED (8 px, secondary colour), only allowed together with an explicit `size` |
 | `label` | `at`, `text`, `size` (default 10), `bold`, `color` (`primary` default, `secondary`, or a colour), `vertical` | a click opens the parent device's `status_entity` if it has one, otherwise not clickable |
 | `group` | `at`, `items` | invisible; shown/hidden by a badge with `toggle` |
-| `ports` | `at`, `size` (icon px, default 12), `speed` (expected link speed, default `1Gbps`), `icon` (default `mdi:ethernet`), `states`, `items` | container for `port` items |
+| `ports` | `at`, `size` (icon px, default 12), `speed` (expected link speed, default `1Gbps`), `icon` (default `mdi:ethernet`), `icon_color`, `states`, `items` | container for `port` items |
 | `pool` | `at`, `size: [w, h]`, `label`, `usage_entity`, `status_entity`, `status_map`, `thresholds`, `items` | storage pool (ZFS, RAID…) around its disks: fill = % used (coloured by `thresholds`; hatched when the usage entity has no data), outline from `status_entity` (e.g. `{ONLINE: ok, DEGRADED: warn, FAULTED: down}`), `label` on a tag centred on the bottom edge (it sticks out 5 px below) |
 | `hdd` / `ssd` | `at`, `size` (default `[27, 36]`), `temperature`, `status_entity`, `status_map`, `thresholds` | disk: temperature at the bottom (`41°`, coloured by `thresholds`), status LED top-right (green/orange/red); an HDD's platter spins unless its status is down, an SSD shows a chip board |
 | `bay` | `at`, `size` | empty drive bay, dashed outline |
 | `fanpanel` | `u`, `units` (default 2; `u` from 1, `units` from 0.5, steps of 0.5 like a rackdevice), `count` (default 4), `entity`, `range`, `thresholds`, `texture`, `texture_opacity` | rack-only panel like a rackdevice with `count` fans spread evenly; sits behind devices and cables in the rack |
 | `fan` | `at`, `size` (square side, default 24), `entity`, `range`, `thresholds` | a single fan placed anywhere, drawn as a square chassis with 4 corner screw holes |
-| `port` | `at` (relative to its `ports`), `entity`, `speed` (overrides the container's) | white = up at expected speed or faster, orange = slower, dimmed = no link; `icon` comes from the container only |
+| `port` | `at` (relative to its `ports`), `entity` **or** `state`, `speed` (overrides the container's), `icon_color` (overrides the container's) | white = up at expected speed or faster, orange = slower, dimmed = no link; `icon` comes from the container only; `state` (`active` / `warn` / `inactive` / `fault` / `disabled`) is a fixed state for ports without data, e.g. on an unmanaged switch; a port with neither counts as no link and is not clickable |
 
 **Port colours:** white = active (link at the expected speed or faster), orange = warn (slower, or half duplex when the other end could do full duplex – a device that only supports half duplex is fine), dimmed = no link on a port with no cable on the map, **red = fault** (no link on a port where a map cable ends – a cable is expected – or an SFP fault), **crossed-out** = disabled. Port entities, best first: the MikroTik integration's `binary_sensor.<device>_<iface>_connection` (its `enabled`, `status`, `rate`, `full_duplex` and SFP attributes give all five states); a speed text (`1Gbps`, `100Mbps`, `10 Gbit/s`) or a bare number (read in the entity's unit, or Mbps); an on/off entity. For other devices put a `states` map on the `ports` container – state → `active` | `warn` | `inactive` | `fault` | `disabled`, case-insensitive – e.g. NVR channels `{recording: active, online: warn, offline: fault, empty: inactive}`; states not in the map fall back to the rules above (and are reported once in the browser console).
+
+**Icon colour:** card `icon_color` colours every MDI icon; `icon_color` on an endpoint, badge, chip or `ports` overrides it for that item, and on a `port` overrides its container's. Ports use it as the linked colour and a dimmed version of it when idle or disabled; orange and red ports, badge thresholds and image chips are not affected. Any CSS colour (`"#1e293b"`, `tomato`, `var(--primary-color)`).
 
 **Textures** (`device`, `rackdevice`, `fanpanel`): `texture` puts a faint pattern on the whole front, under the content – `hex`, `mesh`, `slots`, `grille`, `carbon`, `ribbed`, `brushed`, `glass`, or vendor-inspired `tpl` (TP-Link Omada), `mtk` (MikroTik), `unf` (UniFi), `dll` (Dell), `hpe` (HPE), which add a tint and a coloured line along the bottom (no logos). `texture_opacity` (0–1, default 1) needs `texture`. Purely decorative – don't use it to show status.
 
@@ -135,6 +138,7 @@ All values in px.
 - top-left `[rx + 21, ry + 10 + 32(k−1) + 1]`;
 - size `[305, 32m − 2]`;
 - e.g. `u: 2.5, units: 1.5` starts at y `ry + 59` and is 46 px tall.
+- with `side: left` the size is `[151.5, 32m − 2]` at x `rx + 21`; with `side: right` the top-left x is `rx + 174.5` (2 px gap in the middle).
 
 **A device placed in a rack with `at`** (e.g. a narrow PoE injector) is relative to the rack's top-left corner.
 
@@ -255,7 +259,7 @@ This goes inside the switch's `items`. A line to the TV then uses `end_port: swi
 - [ ] Every `id` is unique, including line ids.
 - [ ] Every entity id was given by the user, not guessed.
 - [ ] Every `points` list uses absolute map coordinates, and segments start and end on the intended edges.
-- [ ] Rackdevices sit inside a rack's `items`, fit (`u + units − 1 ≤ rack units`), use steps of 0.5 for `u` and `units`, and don't share a U or half U with another rackdevice or fan panel.
+- [ ] Rackdevices sit inside a rack's `items`, fit (`u + units − 1 ≤ rack units`), use steps of 0.5 for `u` and `units`, and don't share a U or half U with another rackdevice or fan panel – except a `side: left` and a `side: right` rackdevice, which may share.
 - [ ] Every endpoint has exactly one of: `icon`, or at least one chip.
 - [ ] Every line end has exactly one of `*_device` or `*_port`, except one intentionally open end on a dataline (with `points`, without that end's `*_edge`/`*_point`).
 - [ ] Every badge has `icon` (use `none` to hide it).
@@ -278,7 +282,8 @@ This means: first top-level item → third item inside it → its `size`. Fix ex
 | `unknown property – allowed: …` | Remove or rename the key; the message lists the valid keys |
 | `'rackdevice' must be inside a rack's items` | Move it into the rack's `items` |
 | `U11–U13 does not fit in the 12U rack 'rack'` | Lower `u` or `units` |
-| `U3 of rack 'rack' is already used by 'server'` (or `U3.5`) | Move one of the two to free units |
+| `U3 of rack 'rack' is already used by 'server'` (or `U3.5`, `U3 (left)`) | Move one of the two to free units, or give both rackdevices opposite `side`s |
+| `a port can have 'entity' or 'state', not both` | Keep the entity for live data, or the fixed `state` for a port without data |
 | `….units: expected a number from 0.5 in steps of 0.5` | Round `units` to a half U, at least 0.5; 0.25U and similar are not supported |
 | `….u: expected a number from 1 in steps of 0.5` | Round `u` to a half U, at least 1 (U1 is the top) |
 | `….units: expected a whole number of U` (on a rack) | A rack's `units` must be a whole number; only rackdevices and fan panels take half U |

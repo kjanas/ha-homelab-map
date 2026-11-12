@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+### Features
+
+- Ports without a link entity, such as on an unmanaged switch: a `port` no longer needs `entity`, and the new `state` sets a fixed state instead (`active`, `warn`, `inactive`, `fault` or `disabled`) ([#3](https://github.com/kjanas/ha-homelab-map/issues/3)). A port without an entity can't be clicked.
+- Half-width rackdevices: `side: left` or `side: right` puts a rackdevice in that half of the rack, so two can sit side by side on a shelf ([#4](https://github.com/kjanas/ha-homelab-map/issues/4)). It works with half-U heights, so four 0.5U half-width devices fill one U.
+- Icon colour: `icon_color` on the card colours every MDI icon (endpoints, badges, chips, ports), and `icon_color` on an endpoint, badge, chip, `ports` or `port` overrides it for that item ([#5](https://github.com/kjanas/ha-homelab-map/issues/5)). This replaces overriding `--hhm-text-dim` with card-mod, which also recoloured labels and cables.
+
+### Fixes
+
+- Panning a zoomed map with one finger no longer stops after a few pixels.
+
 ## 1.1.0
 
 ### Features

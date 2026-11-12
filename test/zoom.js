@@ -119,6 +119,18 @@ print(
     ? "ok   a mouse press that leaves the card or loses capture stops panning"
     : `FAIL stale pan: ${before} ${afterLeave} ${panned} ${afterLost}`,
 );
+const leftOf = () => Math.round(scroller.scrollLeft || 0);
+const swipeStart = leftOf();
+h.pointerdown(ev({ pointerId: 8, clientX: 200, clientY: 200, target: stage }));
+h.pointermove(ev({ pointerId: 8, clientX: 180, clientY: 200, target: stage }));
+h.lostpointercapture(ev({ pointerId: 8, target: stage }));
+h.pointermove(ev({ pointerId: 8, clientX: 120, clientY: 200, target: scroller }));
+h.pointerup(ev({ pointerId: 8, clientX: 120, clientY: 200, target: scroller }));
+print(
+  leftOf() - swipeStart === 80
+    ? "ok   a touch pan survives the capture moving from the touched element to the scroller"
+    : `FAIL touch pan stopped when capture moved: ${leftOf() - swipeStart} of 80 px`,
+);
 const placed = (at) => {
   const c = new CardClass();
   c.setConfig({ debug_toggle: true, toggles_at: at, items: [{ type: "device", id: "a", at: [0, 0], size: [1000, 500] }] });

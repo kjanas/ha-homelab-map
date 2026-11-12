@@ -1,0 +1,22 @@
+type: custom:ha-homelab-map
+icon_color: "#6c9cda"
+items:
+  - {type: endpoint, id: camera, at: [0, 0], icon: "mdi:cctv"}
+  - {type: endpoint, id: meter, at: [44, 0], icon: "mdi:flash", icon_color: "#fdd835"}
+  - type: device
+    id: server
+    at: [96, 0]
+    size: [200, 32]
+    items:
+      - {type: chip, id: docker, at: [8, 8], icon: "mdi:docker"}
+      - {type: chip, id: backup, at: [30, 8], icon: "mdi:harddisk", icon_color: "#66b771"}
+      - {type: badge, id: cpu, at: [56, 12], entity: sensor.server_cpu, icon: "mdi:cpu-64-bit"}
+      - type: ports
+        id: server_ports
+        at: [110, 10]
+        icon_color: "#c792ea"
+        items:
+          - {type: port, id: eth0, at: [0, 0], entity: sensor.server_eth0}
+          - {type: port, id: eth1, at: [16, 0], entity: sensor.server_eth1}
+          - {type: port, id: eth2, at: [32, 0], entity: sensor.server_eth2, icon_color: "#ff8a65"}
+          - {type: port, id: eth3, at: [48, 0], entity: sensor.server_eth3}

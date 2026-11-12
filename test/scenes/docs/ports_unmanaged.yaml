@@ -1,0 +1,26 @@
+type: custom:ha-homelab-map
+items:
+  - type: device
+    id: dumb_switch
+    at: [0, 0]
+    size: [104, 44]
+    items:
+      - {type: label, id: dumb_switch_name, at: [8, 6], text: Desk switch, size: 11, bold: true}
+      - type: ports
+        id: dumb_switch_ports
+        at: [8, 24]
+        items:
+          - {type: port, id: dumb_1, at: [0, 0], state: active}
+          - {type: port, id: dumb_2, at: [16, 0], state: active}
+          - {type: port, id: dumb_3, at: [32, 0], state: inactive}
+          - {type: port, id: dumb_4, at: [48, 0], state: inactive}
+          - {type: port, id: dumb_5, at: [64, 0], state: disabled}
+  - type: device
+    id: desktop
+    at: [0, 90]
+    size: [80, 26]
+    items:
+      - {type: label, id: desktop_name, at: [8, 7], text: Desktop, size: 10}
+datalines:
+  - {id: dumb1-desktop, start_port: dumb_1, start_edge: bottom, end_device: desktop, end_edge: top, end_point: 20}
+  - {id: dumb2-desktop, start_port: dumb_2, start_edge: bottom, end_device: desktop, end_edge: top, end_point: 40}

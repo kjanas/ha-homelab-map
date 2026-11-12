@@ -1,7 +1,8 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
+const RACK_SIDES = ["left", "right"];
 const BOX_RADIUS = 2;
 const ENDPOINT = Object.freeze({ size: 32, pad: 4 });
 const FAN = Object.freeze({ size: 24, count: 4, units: 2, blades: 7, minRps: 0.125, maxRps: 0.75, range: [0, 100] });
@@ -30,21 +31,21 @@ const BADGE_MAX = Object.freeze({ "": 99, "%": 100, "°C": 99, V: 999, Mbps: 999
 const ITEM_KEYS = {
   rack: ["type", "id", "at", "units", "items"],
   device: ["type", "id", "at", "size", "status_entity", "status_map", "texture", "texture_opacity", "items"],
-  rackdevice: ["type", "id", "u", "units", "status_entity", "status_map", "texture", "texture_opacity", "items"],
-  endpoint: ["type", "id", "at", "icon", "items"],
-  badge: ["type", "id", "at", "entity", "icon", "units", "decimals", "size", "show_border", "toggle", "thresholds"],
-  chip: ["type", "id", "at", "size", "icon", "image", "small_image", "small_entity", "status_entity", "update_entity", "url"],
+  rackdevice: ["type", "id", "u", "units", "side", "status_entity", "status_map", "texture", "texture_opacity", "items"],
+  endpoint: ["type", "id", "at", "icon", "icon_color", "items"],
+  badge: ["type", "id", "at", "entity", "icon", "icon_color", "units", "decimals", "size", "show_border", "toggle", "thresholds"],
+  chip: ["type", "id", "at", "size", "icon", "icon_color", "image", "small_image", "small_entity", "status_entity", "update_entity", "url"],
   led: ["type", "id", "at", "size", "vlan", "color", "entity", "effect", "caption"],
   label: ["type", "id", "at", "text", "size", "bold", "color", "vertical"],
   group: ["type", "id", "at", "items"],
-  ports: ["type", "id", "at", "size", "speed", "icon", "states", "items"],
+  ports: ["type", "id", "at", "size", "speed", "icon", "icon_color", "states", "items"],
   pool: ["type", "id", "at", "size", "label", "usage_entity", "status_entity", "status_map", "thresholds", "items"],
   hdd: ["type", "id", "at", "size", "temperature", "status_entity", "status_map", "thresholds"],
   ssd: ["type", "id", "at", "size", "temperature", "status_entity", "status_map", "thresholds"],
   bay: ["type", "id", "at", "size"],
   fanpanel: ["type", "id", "u", "units", "count", "entity", "range", "thresholds", "texture", "texture_opacity"],
   fan: ["type", "id", "at", "size", "entity", "range", "thresholds"],
-  port: ["type", "id", "at", "entity", "speed"],
+  port: ["type", "id", "at", "entity", "state", "speed", "icon_color"],
 };
 const CHILD_TYPES = {
   top: ["rack", "device", "endpoint", "badge", "chip", "led", "label", "group", "ports", "pool", "hdd", "ssd", "bay", "fan"],
@@ -84,6 +85,7 @@ const CARD_KEYS = [
   "line_radius",
   "vlans",
   "font",
+  "icon_color",
   "background",
   "scale",
   "fit_viewport",
@@ -252,12 +254,12 @@ const STYLES = `
   .frame { fill: var(--hhm-frame); stroke: var(--hhm-frame-border); stroke-width: 1.4; transition: stroke .3s; }
   .dev.warn > .frame { stroke: var(--warning-color, #ffa600); }
   .dev.down > .frame { stroke: var(--error-color, #db4437); }
-  .mdi { fill: var(--hhm-text-dim); }
+  .mdi { fill: var(--hhm-icon, var(--hhm-text-dim)); }
   .chip-bg, .chip-small { fill: var(--hhm-chip); }
   .chip-small { stroke: var(--hhm-bg); stroke-width: 1; }
   .chip-count { fill: var(--hhm-text); font-weight: 700; font-variant-numeric: tabular-nums; }
-  .port .mdi { fill: color-mix(in srgb, var(--hhm-text-dim) 40%, var(--hhm-bg)); }
-  .port.up .mdi { fill: color-mix(in srgb, var(--hhm-text) 92%, var(--hhm-bg)); }
+  .port .mdi { fill: color-mix(in srgb, var(--hhm-icon, var(--hhm-text-dim)) 40%, var(--hhm-bg)); }
+  .port.up .mdi { fill: color-mix(in srgb, var(--hhm-icon, var(--hhm-text)) 92%, var(--hhm-bg)); }
   .port.slow .mdi { fill: var(--warning-color, #ffa600); }
   .port.fault .mdi { fill: var(--error-color, #db4437); }
   .pool .pfill { fill: color-mix(in srgb, var(--hhm-text-dim) 22%, var(--hhm-bg)); }
@@ -780,10 +782,15 @@ const checkRackUnits = (item, path, ctx, parent) => {
   const end = item.u + units;
   if (end > parent.units + 1) fail(`${path}.u`, `U${item.u}–U${Math.ceil(end) - 1} does not fit in the ${parent.units}U rack '${parent.id}'`);
   if (!ctx.rackUnits.has(parent)) ctx.rackUnits.set(parent, new Map());
+  if (item.side !== undefined && !RACK_SIDES.includes(item.side)) fail(`${path}.side`, `expected ${RACK_SIDES.join(" or ")}`);
   const used = ctx.rackUnits.get(parent);
+  const where = item.side ? ` (${item.side})` : "";
   for (let u = item.u; u < end; u += 0.5) {
-    if (used.has(u)) fail(`${path}.u`, `U${u} of rack '${parent.id}' is already used by '${used.get(u)}'`);
-    used.set(u, item.id);
+    for (const side of item.side ? [item.side] : RACK_SIDES) {
+      const key = `${u}:${side}`;
+      if (used.has(key)) fail(`${path}.u`, `U${u}${where} of rack '${parent.id}' is already used by '${used.get(key)}'`);
+      used.set(key, item.id);
+    }
   }
 };
 
@@ -885,7 +892,9 @@ const checkSpeed = (item, path) => {
 };
 
 const checkPort = (item, path, ctx) => {
-  if (!isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  if (item.entity !== undefined && item.state !== undefined) fail(path, "a port can have 'entity' or 'state', not both");
+  if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  if (item.state !== undefined && !PORT.states.includes(item.state)) fail(`${path}.state`, `expected one of ${PORT.states.join(", ")}`);
   ctx.ports.add(item.id);
 };
 
@@ -928,6 +937,7 @@ const validateItem = (item, path, parent, ctx) => {
   if (!["rackdevice", "fanpanel"].includes(item.type) && !isPair(item.at)) fail(`${path}.at`, "expected [x, y]");
   for (const check of own(ITEM_CHECKS, item.type) ?? []) check(item, path, ctx, parent);
   if (["device", "rackdevice", "pool", "hdd", "ssd"].includes(item.type)) validateStatus(item, path);
+  if (item.icon_color !== undefined && !isCssColor(item.icon_color)) fail(`${path}.icon_color`, 'expected a colour such as "#1e293b"');
   if (item.texture !== undefined && !own(TEXTURES, item.texture)) fail(`${path}.texture`, `expected one of ${Object.keys(TEXTURES).join(", ")}`);
   if (item.texture_opacity !== undefined) {
     if (!(isNum(item.texture_opacity) && item.texture_opacity >= 0 && item.texture_opacity <= 1)) {
@@ -1026,6 +1036,7 @@ const validateConfig = (config) => {
   if (config.font !== undefined && !(typeof config.font === "string" && /^[\w .-]+$/.test(config.font.trim()) && config.font.trim())) {
     fail("font", "expected a font family name such as JetBrains Mono");
   }
+  if (config.icon_color !== undefined && !isCssColor(config.icon_color)) fail("icon_color", 'expected a colour such as "#1e293b"');
   if (config.line_radius !== undefined && !(isNum(config.line_radius) && config.line_radius >= 0)) fail("line_radius", "expected a number");
   if (config.scale !== undefined && !isSize(config.scale)) fail("scale", "expected a number above 0");
   const ctx = { ids: new Set(), devices: new Set(), ports: new Set(), groups: new Set(), toggles: [], rackUnits: new Map(), vlans };
@@ -1047,10 +1058,12 @@ const placeItems = (items, origin, out, group = null, parent = null, owner = nul
   for (const item of items || []) {
     let box;
     if (item.type === "rackdevice" || item.type === "fanpanel") {
+      const inner = RACK.width - 2 * RACK.inset;
+      const half = inner / 2 - 1;
       box = {
-        x: origin[0] + RACK.inset,
+        x: origin[0] + RACK.inset + (item.side === "right" ? inner - half : 0),
         y: origin[1] + RACK.cap + (item.u - 1) * RACK.unit + 1,
-        w: RACK.width - 2 * RACK.inset,
+        w: item.side ? half : inner,
         h: (item.units ?? (item.type === "fanpanel" ? FAN.units : 1)) * RACK.unit - 2,
       };
     } else {
@@ -1220,6 +1233,7 @@ class HaHomelabMap extends HTMLElement {
     this.#hiddenGroups = storedGroups();
     for (const key of WARNED) if (key.startsWith("missing:")) WARNED.delete(key);
     this.#applyFont();
+    this.#setIconColor(this.#card, this.#config.icon_color);
     if (this.#hass) this.#render();
   }
 
@@ -1310,6 +1324,11 @@ class HaHomelabMap extends HTMLElement {
   #isUp(entityId) {
     const state = this.#state(entityId);
     return Boolean(state) && !DOWN_STATES.has(String(state.state).toLowerCase());
+  }
+
+  #setIconColor(el, color) {
+    if (color === undefined) el.style.removeProperty("--hhm-icon");
+    else el.style.setProperty("--hhm-icon", color.trim());
   }
 
   #applyFont() {
@@ -1559,7 +1578,9 @@ class HaHomelabMap extends HTMLElement {
     };
     sc.addEventListener("pointerup", (ev) => end(ev, false));
     sc.addEventListener("pointercancel", (ev) => end(ev, true));
-    sc.addEventListener("lostpointercapture", (ev) => end(ev, true));
+    sc.addEventListener("lostpointercapture", (ev) => {
+      if (ev.target === sc) end(ev, true);
+    });
     sc.addEventListener("pointerleave", (ev) => {
       if (ev.pointerType === "mouse" && !this.#gesture?.moved) end(ev, true);
     });
@@ -1830,6 +1851,7 @@ class HaHomelabMap extends HTMLElement {
     }
     if (dev.type === "endpoint" && dev.icon) {
       const { size, pad } = ENDPOINT;
+      if (dev.icon_color !== undefined) this.#setIconColor(g, dev.icon_color);
       this.#drawIcon(g, dev.icon, x + pad, y + pad, size - 2 * pad);
     }
     return g;
@@ -1867,7 +1889,10 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #drawPort(parent, { dev, x, y, w }, group) {
-    const g = makeClickable(svgEl("g", { class: "port", "data-id": dev.id }, parent), "entity", dev.entity);
+    const g = svgEl("g", { class: "port", "data-id": dev.id }, parent);
+    if (dev.entity) makeClickable(g, "entity", dev.entity);
+    const color = dev.icon_color ?? group.icon_color;
+    if (color !== undefined) this.#setIconColor(g, color);
     const title = svgEl("title", {}, g);
     svgEl("rect", { x, y, width: w, height: w, fill: "transparent", "pointer-events": "all" }, g);
     this.#drawIcon(g, group.icon ?? PORT.icon, x, y, w);
@@ -2071,6 +2096,7 @@ class HaHomelabMap extends HTMLElement {
   }
 
   #portStatus(port) {
+    if (port.dev.state !== undefined) return [port.dev.state, port.dev.state];
     const state = this.#state(port.dev.entity);
     const noLink = port.cabled ? "fault" : "inactive";
     if (noData(state)) return [noLink, state ? state.state : "missing"];
@@ -2108,7 +2134,7 @@ class HaHomelabMap extends HTMLElement {
     const [status, detail] = this.#portStatus(port);
     const classes = { active: "up", warn: "slow", fault: "fault", disabled: "disabled" };
     for (const k of ["up", "slow", "fault", "disabled"]) port.g.classList.toggle(k, classes[status] === k);
-    const why = status === "fault" && port.cabled && !["SFP fault"].includes(detail) ? " · cable expected" : "";
+    const why = status === "fault" && port.cabled && port.dev.state === undefined && !["SFP fault"].includes(detail) ? " · cable expected" : "";
     const text = `${port.dev.id} · ${detail}${why}`;
     if (port.title.textContent !== text) port.title.textContent = text;
   }
@@ -2152,6 +2178,7 @@ class HaHomelabMap extends HTMLElement {
     const pad = dev.show_border ? [BADGE.padX, BADGE.padY] : [0, 0];
     const lineH = Math.max(size * 1.2, iconSize);
     const g = svgEl("g", { class: "badge", "data-id": dev.id }, parent);
+    if (dev.icon_color !== undefined) this.#setIconColor(g, dev.icon_color);
     if (dev.toggle) makeClickable(g, "toggle", dev.toggle);
     else makeClickable(g, "entity", dev.entity);
     const title = svgEl("title", {}, g);
@@ -2169,6 +2196,7 @@ class HaHomelabMap extends HTMLElement {
 
   #drawChip(parent, { dev, x, y, w, group }) {
     const g = svgEl("g", { class: "chip", "data-id": dev.id }, parent);
+    if (dev.icon_color !== undefined) this.#setIconColor(g, dev.icon_color);
     if (dev.url) makeClickable(g, "url", dev.url);
     const title = svgEl("title", {}, g);
     const r = w / 2;
