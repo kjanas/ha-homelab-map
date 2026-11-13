@@ -1,10 +1,23 @@
 {
+  "tasks": {
+    "test": "deno run --frozen --allow-read --allow-write=test/out test/run.js"
+  },
   "fmt": {
     "lineWidth": 160,
-    "include": ["dist/ha-homelab-map.js", "test/*.js"]
+    "include": [
+      "dist/ha-homelab-map.js",
+      "test/*.js"
+    ]
   },
   "lint": {
-    "include": ["dist/ha-homelab-map.js"],
-    "rules": { "exclude": ["no-window", "no-window-prefix"] }
+    "include": [
+      "dist/ha-homelab-map.js"
+    ],
+    "rules": {
+      "exclude": [
+        "no-window",
+        "no-window-prefix"
+      ]
+    }
   }
 }

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0 (unreleased)
+
+### Fixes
+
+- When the card is added twice as a dashboard resource (e.g. through HACS and as a manual copy), the copy that loads second no longer stays silent: the browser console names both versions and says which file was ignored.
+- `icon_color` on a chip with `image`, an endpoint without `icon` or a badge with `icon: none` is rejected with "has no effect", like other options that do nothing; so is `speed` on a port with a fixed `state`.
+- A port with neither `entity` nor `state` says "no entity" in its tooltip instead of "missing".
+
+### Development
+
+- Tests run with Deno (`deno task test`) and in CI on Ubuntu, macOS and Windows.
+
 ## 1.2.0
 
 ### Features

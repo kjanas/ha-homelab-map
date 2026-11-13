@@ -283,6 +283,8 @@ This means: first top-level item → third item inside it → its `size`. Fix ex
 | `'rackdevice' must be inside a rack's items` | Move it into the rack's `items` |
 | `U11–U13 does not fit in the 12U rack 'rack'` | Lower `u` or `units` |
 | `U3 of rack 'rack' is already used by 'server'` (or `U3.5`, `U3 (left)`) | Move one of the two to free units, or give both rackdevices opposite `side`s |
+| `….icon_color: has no effect without an mdi 'icon'` | Remove `icon_color` from image chips, endpoints that show a chip, and badges with `icon: none` |
+| `….speed: has no effect with a fixed 'state'` | A port with `state` has no link speed – remove `speed` |
 | `a port can have 'entity' or 'state', not both` | Keep the entity for live data, or the fixed `state` for a port without data |
 | `….units: expected a number from 0.5 in steps of 0.5` | Round `units` to a half U, at least 0.5; 0.25U and similar are not supported |
 | `….u: expected a number from 1 in steps of 0.5` | Round `u` to a half U, at least 1 (U1 is the top) |

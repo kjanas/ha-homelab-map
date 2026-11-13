@@ -616,7 +616,7 @@ font: JetBrains Mono
 
 The card sets blue for every icon. The meter endpoint, the backup chip, the ports container and one port inside it override it. The idle port (`eth1`) is a dimmed version of its container's colour.
 
-Any CSS colour works (`#1e293b`, `tomato`, `rgb(30 41 59)`, `var(--primary-color)`). Without it, icons use the theme's secondary text colour, as before. Status colours – badge thresholds, orange and red ports – are not changed. Image chips (`image`) keep their own colours.
+Any CSS colour works (`#1e293b`, `tomato`, `rgb(30 41 59)`, `var(--primary-color)`). Without it, icons use the theme's secondary text colour, as before. Status colours – badge thresholds, orange and red ports – are not changed. Image chips (`image`) keep their own colours, so `icon_color` is rejected on them – as on an endpoint without `icon` or a badge with `icon: none`.
 
 ## `background`
 

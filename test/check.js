@@ -24,6 +24,7 @@ const fin = (name, a) =>
     if (typeof v === "number" && !Number.isFinite(v)) throw new TypeError(`${name} arg ${i} non-finite`);
   });
 let calls = 0;
+const asyncChecks = [];
 Node_.prototype.getContext = () =>
   new Proxy({}, {
     get: (t, k) => (k in t ? t[k] : (...a) => {
@@ -290,6 +291,22 @@ expect(
 expect("card icon_color not a colour", { icon_color: "url(x)", items: [] }, "icon_color: expected a colour");
 expect("badge icon_color not a colour", { items: [B({ icon_color: 5 })] }, "items[0].icon_color: expected a colour");
 expect("device has no icon_color", { items: [D({ icon_color: "#fff" })] }, "items[0].icon_color: unknown property");
+expect(
+  "icon_color on an image chip",
+  { items: [{ type: "chip", id: "c", at: [0, 0], image: "/local/x.svg", icon_color: "#fff" }] },
+  "items[0].icon_color: has no effect without an mdi 'icon'",
+);
+expect(
+  "icon_color on an endpoint with a chip",
+  { items: [{ type: "endpoint", id: "e", at: [0, 0], icon_color: "#fff", items: [{ type: "chip", id: "c", at: [4, 4], icon: "mdi:xbox" }] }] },
+  "items[0].icon_color: has no effect without an mdi 'icon'",
+);
+expect("icon_color on a badge without icon", { items: [B({ icon: "none", icon_color: "#fff" })] }, "items[0].icon_color: has no effect without an mdi 'icon'");
+expect(
+  "speed on a port with a fixed state",
+  { items: [D({ items: [PS([P({ entity: undefined, state: "active", speed: "100Mbps" })])] })] },
+  "items[0].items[0].items[0].speed: has no effect with a fixed 'state'",
+);
 expect("ports bad icon", { items: [D({ items: [PS([P()], { icon: "ethernet" })] })] }, "items[0].items[0].icon: expected an mdi icon");
 expect(
   "line device and port",
@@ -644,37 +661,6 @@ else {
   if (got === "0 new,observe,disconnect,new,observe,disconnect") print("ok   resizes coalesce into one frame, observer follows connect/disconnect");
   else {
     print(`FAIL resize handling: ${got}`);
-    failed++;
-  }
-}
-{
-  const timer = setTimeout;
-  setTimeout = (fn) => {
-    fn();
-    return 1;
-  };
-  const create = document.createElement;
-  let icons = 0;
-  document.createElement = function (tag) {
-    if (tag === "ha-icon") icons++;
-    return create.call(this, tag);
-  };
-  const warn = console.warn;
-  const warned = [];
-  console.warn = (m) => warned.push(m);
-  for (let i = 0; i < 2; i++) {
-    const ic = new CardClass();
-    ic.setConfig({ items: [B({ icon: "mdi:no-such-icon" })] });
-    ic.hass = { states: {} };
-    drainMicrotasks();
-  }
-  setTimeout = timer;
-  document.createElement = create;
-  console.warn = warn;
-  if (icons === 1 && warned.filter((m) => String(m).includes("no-such-icon")).length === 1) {
-    print("ok   a missing icon is looked up once, then skipped for a while");
-  } else {
-    print(`FAIL missing icon: ${icons} lookups, ${warned.length} warnings`);
     failed++;
   }
 }
@@ -1085,6 +1071,17 @@ const captureWarnings = (fn) => {
   console.warn = (...a) => warned.push(a.join(" "));
   try {
     fn();
+  } finally {
+    console.warn = warn;
+  }
+  return warned;
+};
+const captureWarningsAsync = async (fn) => {
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (...a) => warned.push(a.join(" "));
+  try {
+    await fn();
   } finally {
     console.warn = warn;
   }
@@ -1526,51 +1523,6 @@ try {
   check("badge reserve follows the number format, not only the language", probe, "999,9 V");
 }
 {
-  const timer = setTimeout;
-  const pending = [];
-  setTimeout = (fn) => {
-    pending.push(fn);
-    return pending.length;
-  };
-  const now = Date.now;
-  let clock = 1e12;
-  Date.now = () => clock;
-  ICON_MISSES.clear();
-  ICON_PATHS.clear();
-  const create = document.createElement;
-  let icons = 0;
-  document.createElement = function (tag) {
-    const el = create.call(this, tag);
-    if (tag === "ha-icon") {
-      el.setAttribute = function (k, v) {
-        Node_.prototype.setAttribute.call(this, k, v);
-        if (k !== "icon" || v !== "mdi:late-icon") return;
-        icons++;
-        if (icons === 3) this.shadowRoot = { querySelector: () => ({ path: "M0 0" }) };
-      };
-    }
-    return el;
-  };
-  const warn = console.warn;
-  console.warn = () => {};
-  const ic = new CardClass();
-  ic.setConfig({ items: [B({ icon: "mdi:late-icon" })] });
-  ic.hass = { states: {} };
-  for (let round = 0; round < 5000; round++) {
-    drainMicrotasks();
-    if (!pending.length) break;
-    clock += 61000;
-    for (const fn of pending.splice(0)) fn();
-  }
-  drainMicrotasks();
-  console.warn = warn;
-  document.createElement = create;
-  setTimeout = timer;
-  Date.now = now;
-  const path = ic.shadowRoot.querySelectorAll("path").find((p) => p.attrs["data-icon"] === "mdi:late-icon");
-  check("a missing icon is retried until it loads", `${icons} ${path && path.attrs.d}`, "3 M0 0");
-}
-{
   const yc = new CardClass();
   yc.setConfig({
     items: [
@@ -1630,111 +1582,6 @@ check("phone links with short numbers", [isLink("tel:12345"), isLink("sms:112")]
 }
 {
   WARNED.clear();
-  const getContext = Node_.prototype.getContext;
-  let installed = false;
-  Node_.prototype.getContext = () => {
-    let font = "";
-    return {
-      set font(v) {
-        font = v;
-      },
-      get font() {
-        return font;
-      },
-      measureText: () => ({ width: installed && font.includes('"Foo Sans"') ? 99 : 50 }),
-    };
-  };
-  document.fonts = { load: () => Promise.resolve([]) };
-  const fc = new CardClass();
-  const missing = captureWarnings(() => {
-    fc.setConfig({ items: [], font: "Foo Sans" });
-    drainMicrotasks();
-  });
-  WARNED.clear();
-  installed = true;
-  const present = captureWarnings(() => {
-    fc.setConfig({ items: [], font: "Foo Sans" });
-    drainMicrotasks();
-  });
-  delete document.fonts;
-  Node_.prototype.getContext = getContext;
-  check(
-    "a font that is neither bundled nor installed is reported",
-    `${missing.filter((m) => m.includes("'Foo Sans' is not installed")).length} ${present.filter((m) => m.includes("Foo Sans")).length}`,
-    "1 0",
-  );
-}
-{
-  const timer = setTimeout;
-  const clear = clearTimeout;
-  const pending = new Map();
-  let id = 0;
-  setTimeout = (fn, ms) => {
-    pending.set(++id, [fn, ms]);
-    return id;
-  };
-  clearTimeout = (t) => pending.delete(t);
-  const now = Date.now;
-  let clock = 2e12;
-  Date.now = () => clock;
-  ICON_MISSES.clear();
-  ICON_PATHS.clear();
-  const create = document.createElement;
-  let lookups = 0;
-  document.createElement = function (tag) {
-    const el = create.call(this, tag);
-    if (tag === "ha-icon") {
-      el.setAttribute = function (k, v) {
-        Node_.prototype.setAttribute.call(this, k, v);
-        if (k === "icon" && v === "mdi:never-icon") lookups++;
-      };
-    }
-    return el;
-  };
-  const run = (onlyPolls) => {
-    for (let round = 0; round < 5000; round++) {
-      drainMicrotasks();
-      const due = [...pending.entries()].filter(([, [, ms]]) => !onlyPolls || ms < 1000);
-      if (!due.length) return;
-      if (!onlyPolls) clock += 61000;
-      for (const [t, [fn]] of due) {
-        pending.delete(t);
-        fn();
-      }
-    }
-  };
-  const warned = captureWarnings(() => {
-    const ic = new CardClass();
-    ic.setConfig({ items: [B({ icon: "mdi:never-icon" })] });
-    ic.hass = { states: {} };
-    run(false);
-  });
-  const capped = lookups;
-  lookups = 0;
-  ICON_MISSES.clear();
-  ICON_PATHS.clear();
-  pending.clear();
-  captureWarnings(() => {
-    const rc = new CardClass();
-    rc.setConfig({ items: [B({ icon: "mdi:never-icon" })] });
-    rc.hass = { states: {} };
-    run(true);
-    rc.setConfig({ items: [B({ icon: "mdi:other-icon" })] });
-    run(false);
-  });
-  const afterRebuild = lookups;
-  setTimeout = timer;
-  clearTimeout = clear;
-  Date.now = now;
-  document.createElement = create;
-  check(
-    "a missing icon is retried five times, then given up; a rebuild cancels the retries",
-    `${capped} ${warned.filter((m) => m.includes("giving up")).length} ${afterRebuild}`,
-    "6 1 1",
-  );
-}
-{
-  WARNED.clear();
   const pc = new CardClass();
   pc.setConfig({ items: [D({ size: [100, 20], items: [PS([P({ entity: "sensor.cam" })], { states: { online: "active" } })] })] });
   const warned = captureWarnings(() => {
@@ -1789,6 +1636,8 @@ check("the demo map draws canvas animation", calls > 0, true);
   const cls = ["u1", "u2", "u3"].map((id) => (port(id).attrs.class.match(/\b(up|slow|fault|disabled)\b/) || ["-"])[0]).join(" ");
   check("ports without entity: cabled fault, fixed active, fixed disabled", cls, "fault up disabled");
   check("a port without entity is not clickable", /\bclickable\b/.test(port("u2").attrs.class), false);
+  const tip = (id) => port(id).children.find((c) => c.tag === "title").textContent;
+  check("tooltips of ports without entity", `${tip("u1")} | ${tip("u2")}`, "u1 · no entity · cable expected | u2 · active");
 }
 {
   const tinted = new CardClass();
@@ -1810,4 +1659,188 @@ check("the demo map draws canvas animation", calls > 0, true);
   tinted.setConfig({ items: [B()] });
   check("icon_color removed when unset", varOf(tinted.shadowRoot.querySelectorAll("ha-card")[0]), "-");
 }
-print(failed ? `${failed} FAILED` : "ALL PASSED");
+asyncChecks.push(async () => {
+  const timer = setTimeout;
+  setTimeout = (fn, ms) => {
+    if (ms < 1000) fn();
+    return 1;
+  };
+  const create = document.createElement;
+  let icons = 0;
+  document.createElement = function (tag) {
+    if (tag === "ha-icon") icons++;
+    return create.call(this, tag);
+  };
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (m) => warned.push(m);
+  for (let i = 0; i < 2; i++) {
+    const ic = new CardClass();
+    ic.setConfig({ items: [B({ icon: "mdi:no-such-icon" })] });
+    ic.hass = { states: {} };
+    await drainMicrotasks();
+  }
+  setTimeout = timer;
+  document.createElement = create;
+  console.warn = warn;
+  if (icons === 1 && warned.filter((m) => String(m).includes("no-such-icon")).length === 1) {
+    print("ok   a missing icon is looked up once, then skipped for a while");
+  } else {
+    print(`FAIL missing icon: ${icons} lookups, ${warned.length} warnings`);
+    failed++;
+  }
+});
+asyncChecks.push(async () => {
+  const timer = setTimeout;
+  const pending = [];
+  setTimeout = (fn) => {
+    pending.push(fn);
+    return pending.length;
+  };
+  const now = Date.now;
+  let clock = 1e12;
+  Date.now = () => clock;
+  ICON_MISSES.clear();
+  ICON_PATHS.clear();
+  const create = document.createElement;
+  let icons = 0;
+  document.createElement = function (tag) {
+    const el = create.call(this, tag);
+    if (tag === "ha-icon") {
+      el.setAttribute = function (k, v) {
+        Node_.prototype.setAttribute.call(this, k, v);
+        if (k !== "icon" || v !== "mdi:late-icon") return;
+        icons++;
+        if (icons === 3) this.shadowRoot = { querySelector: () => ({ path: "M0 0" }) };
+      };
+    }
+    return el;
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  const ic = new CardClass();
+  ic.setConfig({ items: [B({ icon: "mdi:late-icon" })] });
+  ic.hass = { states: {} };
+  for (let round = 0; round < 5000; round++) {
+    await drainMicrotasks();
+    if (!pending.length) break;
+    clock += 61000;
+    for (const fn of pending.splice(0)) fn();
+  }
+  await drainMicrotasks();
+  console.warn = warn;
+  document.createElement = create;
+  setTimeout = timer;
+  Date.now = now;
+  const path = ic.shadowRoot.querySelectorAll("path").find((p) => p.attrs["data-icon"] === "mdi:late-icon");
+  check("a missing icon is retried until it loads", `${icons} ${path && path.attrs.d}`, "3 M0 0");
+});
+asyncChecks.push(async () => {
+  WARNED.clear();
+  const getContext = Node_.prototype.getContext;
+  let installed = false;
+  Node_.prototype.getContext = () => {
+    let font = "";
+    return {
+      set font(v) {
+        font = v;
+      },
+      get font() {
+        return font;
+      },
+      measureText: () => ({ width: installed && font.includes('"Foo Sans"') ? 99 : 50 }),
+    };
+  };
+  document.fonts = { load: () => Promise.resolve([]) };
+  const fc = new CardClass();
+  const missing = await captureWarningsAsync(async () => {
+    fc.setConfig({ items: [], font: "Foo Sans" });
+    await drainMicrotasks();
+  });
+  WARNED.clear();
+  installed = true;
+  const present = await captureWarningsAsync(async () => {
+    fc.setConfig({ items: [], font: "Foo Sans" });
+    await drainMicrotasks();
+  });
+  delete document.fonts;
+  Node_.prototype.getContext = getContext;
+  check(
+    "a font that is neither bundled nor installed is reported",
+    `${missing.filter((m) => m.includes("'Foo Sans' is not installed")).length} ${present.filter((m) => m.includes("Foo Sans")).length}`,
+    "1 0",
+  );
+});
+asyncChecks.push(async () => {
+  const timer = setTimeout;
+  const clear = clearTimeout;
+  const pending = new Map();
+  let id = 0;
+  setTimeout = (fn, ms) => {
+    pending.set(++id, [fn, ms]);
+    return id;
+  };
+  clearTimeout = (t) => pending.delete(t);
+  const now = Date.now;
+  let clock = 2e12;
+  Date.now = () => clock;
+  ICON_MISSES.clear();
+  ICON_PATHS.clear();
+  const create = document.createElement;
+  let lookups = 0;
+  document.createElement = function (tag) {
+    const el = create.call(this, tag);
+    if (tag === "ha-icon") {
+      el.setAttribute = function (k, v) {
+        Node_.prototype.setAttribute.call(this, k, v);
+        if (k === "icon" && v === "mdi:never-icon") lookups++;
+      };
+    }
+    return el;
+  };
+  const run = async (onlyPolls) => {
+    for (let round = 0; round < 5000; round++) {
+      await drainMicrotasks();
+      const due = [...pending.entries()].filter(([, [, ms]]) => !onlyPolls || ms < 1000);
+      if (!due.length) return;
+      if (!onlyPolls) clock += 61000;
+      for (const [t, [fn]] of due) {
+        pending.delete(t);
+        fn();
+      }
+    }
+  };
+  const warned = await captureWarningsAsync(async () => {
+    const ic = new CardClass();
+    ic.setConfig({ items: [B({ icon: "mdi:never-icon" })] });
+    ic.hass = { states: {} };
+    await run(false);
+  });
+  const capped = lookups;
+  lookups = 0;
+  ICON_MISSES.clear();
+  ICON_PATHS.clear();
+  pending.clear();
+  await captureWarningsAsync(async () => {
+    const rc = new CardClass();
+    rc.setConfig({ items: [B({ icon: "mdi:never-icon" })] });
+    rc.hass = { states: {} };
+    await run(true);
+    rc.setConfig({ items: [B({ icon: "mdi:other-icon" })] });
+    await run(false);
+  });
+  const afterRebuild = lookups;
+  setTimeout = timer;
+  clearTimeout = clear;
+  Date.now = now;
+  document.createElement = create;
+  check(
+    "a missing icon is retried five times, then given up; a rebuild cancels the retries",
+    `${capped} ${warned.filter((m) => m.includes("giving up")).length} ${afterRebuild}`,
+    "6 1 1",
+  );
+});
+var finished = (async () => {
+  for (const run of asyncChecks) await run();
+  print(failed ? `${failed} FAILED` : "ALL PASSED");
+})();

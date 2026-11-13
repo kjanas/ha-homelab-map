@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "1.2.0";
+const VERSION = "1.2.1";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const RACK_SIDES = ["left", "right"];
@@ -895,6 +895,7 @@ const checkPort = (item, path, ctx) => {
   if (item.entity !== undefined && item.state !== undefined) fail(path, "a port can have 'entity' or 'state', not both");
   if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
   if (item.state !== undefined && !PORT.states.includes(item.state)) fail(`${path}.state`, `expected one of ${PORT.states.join(", ")}`);
+  if (item.state !== undefined && item.speed !== undefined) fail(`${path}.speed`, "has no effect with a fixed 'state'");
   ctx.ports.add(item.id);
 };
 
@@ -938,6 +939,9 @@ const validateItem = (item, path, parent, ctx) => {
   for (const check of own(ITEM_CHECKS, item.type) ?? []) check(item, path, ctx, parent);
   if (["device", "rackdevice", "pool", "hdd", "ssd"].includes(item.type)) validateStatus(item, path);
   if (item.icon_color !== undefined && !isCssColor(item.icon_color)) fail(`${path}.icon_color`, 'expected a colour such as "#1e293b"');
+  if (item.icon_color !== undefined && ["endpoint", "badge", "chip"].includes(item.type) && (item.icon === undefined || HIDDEN(item.icon))) {
+    fail(`${path}.icon_color`, "has no effect without an mdi 'icon'");
+  }
   if (item.texture !== undefined && !own(TEXTURES, item.texture)) fail(`${path}.texture`, `expected one of ${Object.keys(TEXTURES).join(", ")}`);
   if (item.texture_opacity !== undefined) {
     if (!(isNum(item.texture_opacity) && item.texture_opacity >= 0 && item.texture_opacity <= 1)) {
@@ -1089,6 +1093,7 @@ const placeItems = (items, origin, out, group = null, parent = null, owner = nul
 };
 
 class HaHomelabMap extends HTMLElement {
+  static version = VERSION;
   #config = null;
   #hass = null;
   #built = false;
@@ -2097,8 +2102,9 @@ class HaHomelabMap extends HTMLElement {
 
   #portStatus(port) {
     if (port.dev.state !== undefined) return [port.dev.state, port.dev.state];
-    const state = this.#state(port.dev.entity);
     const noLink = port.cabled ? "fault" : "inactive";
+    if (port.dev.entity === undefined) return [noLink, "no entity"];
+    const state = this.#state(port.dev.entity);
     if (noData(state)) return [noLink, state ? state.state : "missing"];
     const raw = String(state.state);
     const mapped = port.states && Object.entries(port.states).find(([key]) => matchesKey(key, raw.toLowerCase()));
@@ -2869,9 +2875,16 @@ class HaHomelabMap extends HTMLElement {
   }
 }
 
-if (!customElements.get(CARD_TYPE)) {
+const registered = customElements.get(CARD_TYPE);
+if (!registered) {
   customElements.define(CARD_TYPE, HaHomelabMap);
   window.customCards = window.customCards || [];
   window.customCards.push({ type: CARD_TYPE, name: "Homelab Map", description: "A hand-placed, live map of your homelab.", preview: false });
   console.info(`%c HA-HOMELAB-MAP %c ${VERSION} `, "background:#0f7fa8;color:#fff", "");
+} else if (registered.version !== VERSION) {
+  console.warn(
+    `ha-homelab-map: version ${VERSION} from ${import.meta.url} is not used, because version ${
+      registered.version ?? "1.2.0 or older"
+    } was loaded first – the card is added twice as a dashboard resource, remove one of them`,
+  );
 }
