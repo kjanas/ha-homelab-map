@@ -94,6 +94,8 @@ powerlines: []
 
 "Up" for chip `status_entity` and LED `entity` means a state of `on`, `true`, `1`, `running`, `home` or `ok`. Anything else, unavailable or missing counts as down; a state that is neither up nor a usual down state (e.g. `online`) is reported once in the browser console. Entity ids that don't exist in Home Assistant are also reported there – ask the user to check the console after a change. "Update" means `on`, `true`, `1` or a number above 0 (e.g. a pending-updates count).
 
+**Values from attributes:** every entity option (`entity`, `status_entity`, `update_entity`, `small_entity`, `usage_entity`, `temperature`, and a dataline's `status`, `rx`, `tx`) also takes `{entity: sensor.switch_port_1, attribute: rx_rate, unit: Mbit/s}` instead of an entity id, for integrations that put values in attributes (e.g. a switch's per-port rates). The attribute's value is then used as if it were the entity's state, with the same rules as above. `unit` is optional and stands in for the entity's unit, which attributes don't have: give it for `rx`/`tx` (without it a rate is read as kB/s), for a pool's `usage_entity` (`%`) and wherever a badge should show a unit. Clicking opens the entity. While the entity is unavailable the value counts as unavailable; an attribute that doesn't exist counts as unknown and is reported once in the browser console. For a dataline `status`, the attribute form takes any entity, not only a `binary_sensor`; the attribute is read as up/down like a chip status. Ask the user for the exact attribute names (Developer tools → States shows them) – never guess.
+
 ### Lines
 
 ```yaml
@@ -107,10 +109,11 @@ datalines:
     end_point: 50
     points: [[400, 62], [400, 52]]   # map coordinates, in order; any direction
     vlans: [LAN, IoT]          # dash colours; none = theme-coloured dots
-    status: binary_sensor.ap_link    # active (default) | inactive | a binary_sensor
+    status: binary_sensor.ap_link    # active (default) | inactive | a binary_sensor | {entity, attribute}
     flow: dominant             # forward | reverse | dominant; omit = static
     rx: sensor.router_ether2_tx      # what the START device receives
     tx: sensor.router_ether2_rx      # what the START device sends
+    # rx/tx from attributes: rx: {entity: sensor.switch_port_2, attribute: rx_rate, unit: Mbit/s}
     rates_at: start            # start | end | 0–100 (% of line length); turns rate text on
     rates_placement: middle    # middle (rx above, tx below) | above | below
     rates_size: 8
@@ -293,6 +296,8 @@ This means: first top-level item → third item inside it → its `size`. Fix ex
 | `use either 'start_device' or 'start_port', not both` | Keep one of the two |
 | `needs either 'end_device' or 'end_port'` (powerline) | Powerlines can't have open ends – connect both |
 | `an open end needs at least one point` | Add a point where the open line should end |
+| `….entity.attribute: required` | The `{entity, attribute}` form needs the attribute's name; for the entity's state use a plain entity id instead |
+| `….entity.attr: unknown property – allowed: entity, attribute, unit` | Only `entity`, `attribute` and `unit` go inside the braces |
 | `'dominant' needs both 'rx' and 'tx'` | Add the missing sensor or use `forward` |
 | `an endpoint needs either an mdi 'icon' or a chip in 'items'` | Keep exactly one of the two |
 

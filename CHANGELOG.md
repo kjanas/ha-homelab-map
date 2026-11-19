@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.3.0 (unreleased)
+## 1.3.0
+
+### Features
+
+- Values from entity attributes: every entity option (`entity`, `status_entity`, `update_entity`, `small_entity`, `usage_entity`, `temperature`, and a dataline's `status`, `rx` and `tx`) also takes `{entity: …, attribute: …, unit: …}`, for integrations that report values such as a switch port's rates as attributes rather than separate sensors ([#6](https://github.com/kjanas/ha-homelab-map/issues/6)). `unit` is optional and replaces the unit that attributes don't have. Clicking opens the entity, and a missing attribute is reported once in the browser console.
 
 ### Fixes
 

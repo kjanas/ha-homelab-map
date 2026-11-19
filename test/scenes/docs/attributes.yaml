@@ -1,0 +1,30 @@
+type: custom:ha-homelab-map
+font: JetBrains Mono
+vlans: {LAN: "#6c9cda"}
+items:
+  - type: device
+    id: switch
+    at: [0, 0]
+    size: [120, 44]
+    items:
+      - {type: label, id: switch_name, at: [8, 6], text: Switch, size: 11, bold: true}
+      - {type: badge, id: poe, at: [8, 26], entity: {entity: sensor.switch_port_1, attribute: poe_power, unit: W}, icon: "mdi:flash", decimals: 1}
+      - {type: badge, id: link, at: [60, 26], entity: {entity: sensor.switch_port_1, attribute: link_speed}, icon: "mdi:ethernet"}
+  - type: device
+    id: server
+    at: [300, 0]
+    size: [120, 44]
+    items:
+      - {type: label, id: server_name, at: [8, 6], text: Server, size: 11, bold: true}
+datalines:
+  - id: switch-server
+    start_device: switch
+    start_edge: right
+    end_device: server
+    end_edge: left
+    vlans: [LAN]
+    flow: dominant
+    status: {entity: sensor.switch_port_1, attribute: link}
+    rx: {entity: sensor.switch_port_1, attribute: rx_rate, unit: Mbit/s}
+    tx: {entity: sensor.switch_port_1, attribute: tx_rate, unit: Mbit/s}
+    rates_at: start

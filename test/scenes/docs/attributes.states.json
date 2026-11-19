@@ -1,0 +1,1 @@
+{"sensor.switch_port_1": {"state": "on", "attributes": {"friendly_name": "Switch port 1", "link": "up", "link_speed": "1Gbps", "rx_rate": 412.6, "tx_rate": 38.2, "poe_power": 6.4}}}

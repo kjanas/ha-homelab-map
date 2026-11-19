@@ -1,5 +1,5 @@
 const CARD_TYPE = "ha-homelab-map";
-const VERSION = "1.2.1";
+const VERSION = "1.3.0";
 
 const RACK = Object.freeze({ unit: 32, width: Math.round((32 * 482.6) / 44.45), cap: 10, inset: 21 });
 const RACK_SIDES = ["left", "right"];
@@ -375,6 +375,18 @@ const isNum = (value) => typeof value === "number" && Number.isFinite(value);
 const isPair = (value) => Array.isArray(value) && value.length === 2 && value.every(isNum);
 const isEntity = (value) => typeof value === "string" && /^[a-z_]+\.[a-z0-9_]+$/.test(value);
 const isBinarySensor = (value) => typeof value === "string" && /^binary_sensor\.[a-z0-9_]+$/.test(value);
+const isStatusEntity = (value) => isEntity(value) || isAttributeRef(value);
+const isAttributeRef = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const entityOf = (ref) => (isAttributeRef(ref) ? ref.entity : ref);
+const refName = (ref) => (isAttributeRef(ref) ? `${ref.entity} (${ref.attribute})` : ref);
+const attributeState = (base, { entity, attribute, unit }) => {
+  const attributes = { friendly_name: `${base.attributes?.friendly_name || entity} ${attribute}` };
+  if (unit !== undefined) attributes.unit_of_measurement = unit;
+  const value = base.attributes?.[attribute];
+  let state = String(base.state ?? "");
+  if (!noData(base)) state = value === undefined || value === null ? "unknown" : typeof value === "object" ? JSON.stringify(value) : String(value);
+  return { entity_id: entity, state, attributes, last_changed: base.last_changed, last_updated: base.last_updated };
+};
 const parseSpeed = (value) => {
   const match = /^\s*(\d+(?:\.\d+)?)\s*([kmg]?)(?:bps|bit\/s|b\/s)\s*$/i.exec(String(value ?? ""));
   return match ? Number(match[1]) * SPEED_UNITS[match[2].toLowerCase()] : NaN;
@@ -738,8 +750,23 @@ const checkKeys = (obj, allowed, path) => {
   for (const key of Object.keys(obj)) if (!allowed.includes(key)) fail(`${path}.${key}`, `unknown property – allowed: ${allowed.join(", ")}`);
 };
 
+const ENTITY_REF_KEYS = ["entity", "attribute", "unit"];
+const checkEntity = (value, path, required = false) => {
+  if (value === undefined && !required) return;
+  if (!isAttributeRef(value)) {
+    if (!isEntity(value)) fail(path, "expected an entity id, or {entity, attribute} to read an attribute");
+    return;
+  }
+  checkKeys(value, ENTITY_REF_KEYS, path);
+  if (!isEntity(value.entity)) fail(`${path}.entity`, "expected an entity id");
+  if (typeof value.attribute !== "string" || !value.attribute.trim()) {
+    fail(`${path}.attribute`, "required – the name of the attribute to read, such as rx_rate");
+  }
+  if (value.unit !== undefined && (typeof value.unit !== "string" || !value.unit.trim())) fail(`${path}.unit`, "expected a unit such as Mbit/s, °C or %");
+};
+
 const validateStatus = (item, path) => {
-  if (item.status_entity !== undefined && !isEntity(item.status_entity)) fail(`${path}.status_entity`, "expected an entity id");
+  checkEntity(item.status_entity, `${path}.status_entity`);
   if (item.status_map === undefined) return;
   if (item.status_entity === undefined) fail(`${path}.status_map`, "has no effect without 'status_entity'");
   if (!item.status_map || typeof item.status_map !== "object" || Array.isArray(item.status_map)) {
@@ -799,7 +826,7 @@ const checkFan = (item, path) => {
     fail(`${path}.count`, "expected a whole number from 1");
   }
   if (item.type === "fan" && item.size !== undefined && !isSize(item.size)) fail(`${path}.size`, "expected a size in px");
-  if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  checkEntity(item.entity, `${path}.entity`);
   if (item.range !== undefined && !(Array.isArray(item.range) && item.range.length === 2 && item.range.every(isNum) && item.range[0] !== item.range[1])) {
     fail(`${path}.range`, "expected [slow, fast] – two different numbers such as [27, 35]");
   }
@@ -808,7 +835,7 @@ const checkFan = (item, path) => {
 };
 
 const checkBadge = (item, path) => {
-  if (!isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  checkEntity(item.entity, `${path}.entity`, true);
   if (!("icon" in item)) fail(`${path}.icon`, "required – an mdi icon such as mdi:thermometer, or none");
   if (!HIDDEN(item.icon) && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:thermometer, or none");
   if (item.units !== undefined && item.units !== true && !HIDDEN(item.units) && typeof item.units !== "string") {
@@ -837,20 +864,20 @@ const checkLed = (item, path, ctx) => {
   }
   if (item.vlan !== undefined && !own(ctx.vlans, item.vlan)) fail(`${path}.vlan`, `unknown VLAN '${item.vlan}' – add it to the card's 'vlans'`);
   if (item.color !== undefined && !isCssColor(item.color)) fail(`${path}.color`, 'expected a colour such as "#66b771"');
-  if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  checkEntity(item.entity, `${path}.entity`);
   if (item.effect !== undefined && !LED.effects.includes(item.effect)) fail(`${path}.effect`, `expected one of ${LED.effects.join(", ")}`);
 };
 
 const checkPool = (item, path) => {
   if (!isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
   if (item.label !== undefined && typeof item.label !== "string" && typeof item.label !== "number") fail(`${path}.label`, "expected a text");
-  if (item.usage_entity !== undefined && !isEntity(item.usage_entity)) fail(`${path}.usage_entity`, "expected an entity id");
+  checkEntity(item.usage_entity, `${path}.usage_entity`);
   if (item.thresholds !== undefined && item.usage_entity === undefined) fail(`${path}.thresholds`, "has no effect without 'usage_entity'");
 };
 
 const checkDisk = (item, path) => {
   if (item.size !== undefined && !isBox(item.size)) fail(`${path}.size`, "expected [width, height]");
-  if (item.temperature !== undefined && !isEntity(item.temperature)) fail(`${path}.temperature`, "expected an entity id");
+  checkEntity(item.temperature, `${path}.temperature`);
   if (item.thresholds !== undefined && item.temperature === undefined) fail(`${path}.thresholds`, "has no effect without 'temperature'");
 };
 
@@ -861,9 +888,7 @@ const checkChip = (item, path) => {
   if (item.icon !== undefined && !isMdi(item.icon)) fail(`${path}.icon`, "expected an mdi icon such as mdi:docker");
   if (item.small_image !== undefined && !isImageUrl(item.small_image)) fail(`${path}.small_image`, "expected an image URL starting with / or http(s)://");
   if (item.small_image !== undefined && item.small_entity !== undefined) fail(path, "a chip can have 'small_image' or 'small_entity', not both");
-  for (const key of ["small_entity", "status_entity", "update_entity"]) {
-    if (item[key] !== undefined && !isEntity(item[key])) fail(`${path}.${key}`, "expected an entity id");
-  }
+  for (const key of ["small_entity", "status_entity", "update_entity"]) checkEntity(item[key], `${path}.${key}`);
   if (item.url !== undefined && !isLink(item.url)) {
     fail(
       `${path}.url`,
@@ -893,7 +918,7 @@ const checkSpeed = (item, path) => {
 
 const checkPort = (item, path, ctx) => {
   if (item.entity !== undefined && item.state !== undefined) fail(path, "a port can have 'entity' or 'state', not both");
-  if (item.entity !== undefined && !isEntity(item.entity)) fail(`${path}.entity`, "expected an entity id");
+  checkEntity(item.entity, `${path}.entity`);
   if (item.state !== undefined && !PORT.states.includes(item.state)) fail(`${path}.state`, `expected one of ${PORT.states.join(", ")}`);
   if (item.state !== undefined && item.speed !== undefined) fail(`${path}.speed`, "has no effect with a fixed 'state'");
   ctx.ports.add(item.id);
@@ -1001,10 +1026,11 @@ const validateLine = (line, path, kind, { devices, ports, ids }, vlans) => {
     fail(`${path}.vlans`, "expected a list of VLAN names such as [LAN, IoT]");
   }
   for (const name of line.vlans || []) if (!own(vlans, name)) fail(`${path}.vlans`, `unknown VLAN '${name}' – add it to the card's 'vlans'`);
-  if (line.status !== undefined && !["active", "inactive"].includes(line.status) && !isBinarySensor(line.status)) {
-    fail(`${path}.status`, "expected active, inactive or a binary_sensor entity id (e.g. binary_sensor.router_ether1)");
+  if (isAttributeRef(line.status)) checkEntity(line.status, `${path}.status`);
+  else if (line.status !== undefined && !["active", "inactive"].includes(line.status) && !isBinarySensor(line.status)) {
+    fail(`${path}.status`, "expected active, inactive, a binary_sensor entity id (e.g. binary_sensor.router_ether1) or {entity, attribute}");
   }
-  for (const key of ["rx", "tx"]) if (line[key] !== undefined && !isEntity(line[key])) fail(`${path}.${key}`, "expected an entity id");
+  for (const key of ["rx", "tx"]) checkEntity(line[key], `${path}.${key}`);
   if (line.flow === "dominant" && !(line.rx && line.tx)) fail(`${path}.flow`, "'dominant' needs both 'rx' and 'tx'");
   const at = line.rates_at;
   if (at !== undefined) {
@@ -1086,7 +1112,7 @@ const placeItems = (items, origin, out, group = null, parent = null, owner = nul
       else box = { x, y, w: 0, h: 0 };
     }
     out.push({ dev: item, ...box, group, owner });
-    const childOwner = ["device", "rackdevice"].includes(item.type) ? item.status_entity ?? null : item.type === "group" ? owner : null;
+    const childOwner = ["device", "rackdevice"].includes(item.type) ? entityOf(item.status_entity) ?? null : item.type === "group" ? owner : null;
     placeItems(item.items, [box.x, box.y], out, item.type === "group" ? item.id : group, item, childOwner);
   }
   return out;
@@ -1103,6 +1129,7 @@ class HaHomelabMap extends HTMLElement {
   #fitFrame = 0;
   #resizer = null;
   #deps = new Map();
+  #attributeRefs = new Set();
   #frames = [];
   #platterDef = false;
   #pools = [];
@@ -1322,8 +1349,11 @@ class HaHomelabMap extends HTMLElement {
     this.#applyVisibility();
   }
 
-  #state(entityId) {
-    return entityId && this.#hass ? this.#hass.states[entityId] : undefined;
+  #state(ref) {
+    if (!ref || !this.#hass) return undefined;
+    if (!isAttributeRef(ref)) return this.#hass.states[ref];
+    const base = this.#hass.states[ref.entity];
+    return base ? attributeState(base, ref) : undefined;
   }
 
   #isUp(entityId) {
@@ -1726,9 +1756,12 @@ class HaHomelabMap extends HTMLElement {
 
   #trackDependencies() {
     this.#deps = new Map();
-    const depend = (ids, update) => {
-      for (const id of ids) {
-        if (!id) continue;
+    this.#attributeRefs = new Set();
+    const depend = (refs, update) => {
+      for (const ref of refs) {
+        if (!ref) continue;
+        if (isAttributeRef(ref)) this.#attributeRefs.add(ref);
+        const id = entityOf(ref);
         if (!this.#deps.has(id)) this.#deps.set(id, []);
         this.#deps.get(id).push(update);
       }
@@ -1748,7 +1781,7 @@ class HaHomelabMap extends HTMLElement {
       ...this.#disks.map((disk) => [[disk.dev.temperature, disk.dev.status_entity], job(disk.dev.id, () => this.#updateDisk(disk))]),
       ...this.#fans.map((fan) => [[fan.dev.entity], job(fan.dev.id, () => this.#updateFan(fan))]),
       ...this.#lines.map((line) => [
-        [line.cfg.rx, line.cfg.tx, isEntity(line.cfg.status) ? line.cfg.status : null],
+        [line.cfg.rx, line.cfg.tx, isStatusEntity(line.cfg.status) ? line.cfg.status : null],
         job(line.cfg.id, () => this.#updateLine(line)),
       ]),
     ];
@@ -1759,6 +1792,11 @@ class HaHomelabMap extends HTMLElement {
     if (!states) return;
     for (const id of this.#deps.keys()) {
       if (!Object.hasOwn(states, id)) warnOnce(`missing:${id}`, `entity '${id}' does not exist in Home Assistant – check the id in the card configuration`);
+    }
+    for (const { entity, attribute } of this.#attributeRefs) {
+      const base = states[entity];
+      if (!base || noData(base) || Object.hasOwn(base.attributes ?? {}, attribute)) continue;
+      warnOnce(`missing:${entity}:${attribute}`, `entity '${entity}' has no attribute '${attribute}' – check the name in the card configuration`);
     }
   }
 
@@ -1851,7 +1889,7 @@ class HaHomelabMap extends HTMLElement {
     svgEl("rect", { class: "frame", x, y, width: w, height: h, rx: BOX_RADIUS }, g);
     this.#applyTexture(g, dev, x, y, w, h);
     if (dev.status_entity) {
-      makeClickable(g, "entity", dev.status_entity);
+      makeClickable(g, "entity", entityOf(dev.status_entity));
       this.#frames.push({ dev, g, title: svgEl("title", {}, g) });
     }
     if (dev.type === "endpoint" && dev.icon) {
@@ -1895,7 +1933,7 @@ class HaHomelabMap extends HTMLElement {
 
   #drawPort(parent, { dev, x, y, w }, group) {
     const g = svgEl("g", { class: "port", "data-id": dev.id }, parent);
-    if (dev.entity) makeClickable(g, "entity", dev.entity);
+    if (dev.entity) makeClickable(g, "entity", entityOf(dev.entity));
     const color = dev.icon_color ?? group.icon_color;
     if (color !== undefined) this.#setIconColor(g, color);
     const title = svgEl("title", {}, g);
@@ -1910,7 +1948,7 @@ class HaHomelabMap extends HTMLElement {
   #drawPool(parent, { dev, x, y, w, h }) {
     const g = svgEl("g", { class: "pool", "data-id": dev.id }, parent);
     const entity = dev.usage_entity ?? dev.status_entity;
-    if (entity) makeClickable(g, "entity", entity);
+    if (entity) makeClickable(g, "entity", entityOf(entity));
     const title = svgEl("title", {}, g);
     const fill = dev.usage_entity ? svgEl("rect", { class: "pfill", x: x + 1, y: y + h - 1, width: Math.max(0, w - 2), height: 0, rx: 2 }, g) : null;
     if (fill) svgEl("rect", { class: "phatch", x: x + 1, y: y + 1, width: Math.max(0, w - 2), height: Math.max(0, h - 2), rx: 2, fill: "url(#hhm-hatch)" }, g);
@@ -1929,7 +1967,7 @@ class HaHomelabMap extends HTMLElement {
     const g = svgEl("g", { class: `disk ${dev.type}`, "data-id": dev.id }, parent);
     const title = svgEl("title", {}, g);
     const entity = dev.temperature ?? dev.status_entity;
-    if (entity) makeClickable(g, "entity", entity);
+    if (entity) makeClickable(g, "entity", entityOf(entity));
     const k = w / DISK.size[0];
     svgEl("rect", { class: "dbody", x, y, width: w, height: h, rx: 2.5 * k }, g);
     const disk = { dev, g, title, temp: null, spin: null };
@@ -1971,7 +2009,7 @@ class HaHomelabMap extends HTMLElement {
 
   #drawFan(parent, { dev, x, y, w, h, group }) {
     const g = svgEl("g", { class: `fan-item ${dev.type}`, "data-id": dev.id }, parent);
-    if (dev.entity) makeClickable(g, "entity", dev.entity);
+    if (dev.entity) makeClickable(g, "entity", entityOf(dev.entity));
     const title = svgEl("title", {}, g);
     const holes = [];
     if (dev.type === "fanpanel") {
@@ -2033,7 +2071,10 @@ class HaHomelabMap extends HTMLElement {
     const parts = [dev.label ?? dev.id];
     const unit = usage?.attributes?.unit_of_measurement;
     if (unit && unit !== "%") {
-      warnOnce(`pool-unit:${dev.usage_entity}`, `pool '${dev.id}': usage_entity '${dev.usage_entity}' is in ${unit}, expected a percentage (%)`);
+      warnOnce(
+        `pool-unit:${refName(dev.usage_entity)}`,
+        `pool '${dev.id}': usage_entity '${refName(dev.usage_entity)}' is in ${unit}, expected a percentage (%)`,
+      );
     }
     if (pool.fill) {
       const percent = Number.isFinite(used) ? Math.max(0, Math.min(100, used)) : 0;
@@ -2088,7 +2129,10 @@ class HaHomelabMap extends HTMLElement {
     }
     if (noData(state)) return "down";
     if (!dev.status_map) return DOWN_STATES.has(raw) ? "down" : "ok";
-    warnOnce(`map:${dev.id}`, `'${dev.status_entity}' is '${state.state}', which is not in the status_map of '${dev.id}' – shown as warn (reported once)`);
+    warnOnce(
+      `map:${dev.id}`,
+      `'${refName(dev.status_entity)}' is '${state.state}', which is not in the status_map of '${dev.id}' – shown as warn (reported once)`,
+    );
     return "warn";
   }
 
@@ -2186,7 +2230,7 @@ class HaHomelabMap extends HTMLElement {
     const g = svgEl("g", { class: "badge", "data-id": dev.id }, parent);
     if (dev.icon_color !== undefined) this.#setIconColor(g, dev.icon_color);
     if (dev.toggle) makeClickable(g, "toggle", dev.toggle);
-    else makeClickable(g, "entity", dev.entity);
+    else makeClickable(g, "entity", entityOf(dev.entity));
     const title = svgEl("title", {}, g);
     const frame = dev.show_border ? svgEl("rect", { class: "bframe", x, y, height: lineH + 2 * pad[1], rx: BOX_RADIUS }, g) : null;
     const content = svgEl("g", {}, g);
@@ -2291,11 +2335,11 @@ class HaHomelabMap extends HTMLElement {
     if (led.rect.getAttribute("fill") !== fill) led.rect.setAttribute("fill", fill);
   }
 
-  #checkUpState(entityId, state) {
+  #checkUpState(ref, state) {
     if (noData(state)) return;
     const raw = String(state.state).toLowerCase();
     if (UP_STATES.includes(raw) || DOWN_STATES.has(raw)) return;
-    warnOnce(`up:${entityId}`, `'${entityId}' is '${state.state}', which counts as down – up means ${UP_STATES.join(", ")}`);
+    warnOnce(`up:${refName(ref)}`, `'${refName(ref)}' is '${state.state}', which counts as down – up means ${UP_STATES.join(", ")}`);
   }
 
   #ledMoving(led) {
@@ -2324,7 +2368,7 @@ class HaHomelabMap extends HTMLElement {
       const display = show ? "" : "none";
       if (chip.count.g.style.display !== display) chip.count.g.style.display = display;
       chip.count.shown = show;
-      parts.push(`${raw?.attributes?.friendly_name || dev.small_entity}: ${raw ? raw.state : "missing"}`);
+      parts.push(`${raw?.attributes?.friendly_name || refName(dev.small_entity)}: ${raw ? raw.state : "missing"}`);
     }
     const text = parts.join(" · ");
     if (chip.title.textContent !== text) chip.title.textContent = text;
@@ -2344,6 +2388,15 @@ class HaHomelabMap extends HTMLElement {
     if (noData(state)) return { text: "—", template: reserve(dev.decimals ?? 0) };
     const num = parseNumber(state.state);
     let value;
+    if (isAttributeRef(dev.entity)) {
+      if (Number.isNaN(num)) {
+        const base = this.#state(dev.entity.entity);
+        const text = this.#hass.formatEntityAttributeValue ? this.#hass.formatEntityAttributeValue(base, dev.entity.attribute) : state.state;
+        return { text: String(text), template: "" };
+      }
+      const decimals = dev.decimals ?? (/\.(\d+)/.exec(state.state)?.[1].length || 0);
+      return { text: withUnit(format(num, decimals)), template: reserve(decimals) };
+    }
     if (Number.isNaN(num)) value = this.#hass.formatEntityState ? this.#hass.formatEntityState(state) : state.state;
     else if (dev.decimals !== undefined) value = format(num, dev.decimals);
     else if (this.#hass.formatEntityState) {
@@ -2370,7 +2423,7 @@ class HaHomelabMap extends HTMLElement {
     const changed = badge.text.textContent !== text;
     if (changed) badge.text.textContent = text;
     const state = this.#state(badge.dev.entity);
-    const name = state?.attributes?.friendly_name || badge.dev.entity;
+    const name = state?.attributes?.friendly_name || refName(badge.dev.entity);
     const hit = this.#threshold(badge.dev, state);
     const color = thresholdColor(hit);
     for (const node of [badge.text, badge.icon]) if (node && node.style.fill !== color) node.style.fill = color;
@@ -2542,20 +2595,20 @@ class HaHomelabMap extends HTMLElement {
     text.style.fontSize = `${size}px`;
     const spans = keys.map((key, i) => {
       const span = svgEl("tspan", { x: 0, y: offsets[i], class: "clickable" }, text);
-      span.dataset.entity = cfg[key];
+      span.dataset.entity = entityOf(cfg[key]);
       return { key, arrow: key === "rx" ? "↓" : "↑", span };
     });
     this.#rates.push({ cfg, spans, mode, gap, size });
   }
 
-  #rate(entityId) {
-    if (!entityId) return { value: NaN, text: "" };
-    const state = this.#state(entityId);
+  #rate(ref) {
+    if (!ref) return { value: NaN, text: "" };
+    const state = this.#state(ref);
     const value = toKBps(state);
     if (!Number.isNaN(value)) return { value, text: formatRate(value) };
     if (!Number.isFinite(toNumber(state))) return { value, text: "— (no data)" };
     const unit = state.attributes?.unit_of_measurement;
-    warnOnce(`unit:${entityId}:${unit}`, `'${entityId}' is in '${unit}', which is not a known rate unit – use e.g. bit/s, Mbit/s, kB/s or MB/s`);
+    warnOnce(`unit:${refName(ref)}:${unit}`, `'${refName(ref)}' is in '${unit}', which is not a known rate unit – use e.g. bit/s, Mbit/s, kB/s or MB/s`);
     return { value, text: `— (unknown unit '${unit}')` };
   }
 
@@ -2649,7 +2702,7 @@ class HaHomelabMap extends HTMLElement {
   #updateLine(line) {
     const { cfg, kind, flow, path } = line;
     const status = cfg.status ?? "active";
-    const down = kind === "data" && (status === "inactive" || (isEntity(status) && !this.#isUp(status)));
+    const down = kind === "data" && (status === "inactive" || (isStatusEntity(status) && !this.#isUp(status)));
     path.classList.toggle("down", down);
     const readings = { rx: this.#rate(cfg.rx), tx: this.#rate(cfg.tx) };
     const rx = readings.rx.value;
@@ -2657,7 +2710,7 @@ class HaHomelabMap extends HTMLElement {
     const metered = kind === "data" && Boolean(cfg.rx || cfg.tx);
     const blind = metered && ["rx", "tx"].every((key) => !cfg[key] || Number.isNaN(key === "rx" ? rx : tx));
     const parts = [cfg.id];
-    if (isEntity(status)) parts.push(down ? `down (${this.#state(status)?.state ?? "missing"})` : "up");
+    if (isStatusEntity(status)) parts.push(down ? `down (${this.#state(status)?.state ?? "missing"})` : "up");
     else if (status === "inactive") parts.push("inactive");
     for (const key of ["rx", "tx"]) if (cfg[key]) parts.push(`${key} ${readings[key].text}`);
     if (blind && flow) parts.push("animation stopped: no traffic data");

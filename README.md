@@ -23,6 +23,7 @@ You place everything yourself with pixel coordinates, so the map looks exactly l
 
 - **Racks and devices** – 19" racks with rackdevices placed by U (half-U heights and half-width devices side by side), free-standing devices and small endpoints; frames turn orange or red from any status entity.
 - **Live values** – badges with icons, fixed widths so rows never jump, and colour thresholds (e.g. CPU above 80 % orange, above 90 % red).
+- **Entities or attributes** – every value can come from an entity's state or from one of its attributes, for integrations that report e.g. a switch port's rates as attributes.
 - **Network cables** – datalines animated in your VLAN colours, faster with more traffic, direction from rx/tx, red and dashed when the link is down, optional rate labels; open-ended cables fade out "to the internet".
 - **Power cables** – animated gold dots from your UPS.
 - **Ports** – port icons coloured by link state: active, slower than expected, no cable, fault (no link where a cable is expected), disabled. Works great with the MikroTik Router integration; ports on unmanaged switches take a fixed state.

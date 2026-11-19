@@ -202,6 +202,37 @@ for (
     failed++;
   }
 }
+const A = (attribute, extra = {}) => ({ entity: "sensor.port1", attribute, ...extra });
+expect("attribute ref needs attribute", { items: [B({ entity: { entity: "sensor.port1" } })] }, "items[0].entity.attribute: required");
+expect(
+  "attribute ref unknown key",
+  { items: [B({ entity: A("rx", { attr: "x" }) })] },
+  "items[0].entity.attr: unknown property – allowed: entity, attribute, unit",
+);
+expect("attribute ref bad entity", { items: [B({ entity: A("rx", { entity: "port1" }) })] }, "items[0].entity.entity: expected an entity id");
+expect("attribute ref bad unit", { items: [B({ entity: A("rx", { unit: 5 }) })] }, "items[0].entity.unit: expected a unit");
+expect("entity as a list", { items: [B({ entity: ["sensor.a"] })] }, "items[0].entity: expected an entity id, or {entity, attribute}");
+expect("line rx attribute ref", { items: two, datalines: [L({ rx: A("") })] }, "datalines[0].rx.attribute: required");
+expect("line status text", { items: two, datalines: [L({ status: "sensor.port1" })] }, "or {entity, attribute}");
+try {
+  validateConfig({
+    items: [
+      D({ status_entity: A("status") }),
+      { type: "chip", id: "c", at: [0, 0], icon: "mdi:docker", status_entity: A("up"), update_entity: A("upd"), small_entity: A("n") },
+      { type: "pool", id: "p", at: [0, 0], size: [20, 20], usage_entity: A("used", { unit: "%" }) },
+      { type: "hdd", id: "h", at: [0, 0], temperature: A("temp", { unit: "°C" }) },
+      { type: "led", id: "le", at: [0, 0], color: "#fff", entity: A("up") },
+      { type: "fan", id: "f", at: [0, 0], entity: A("rpm") },
+      { type: "ports", id: "ps", at: [0, 0], items: [{ type: "port", id: "pp", at: [0, 0], entity: A("speed") }] },
+      D({ id: "b", at: [50, 0] }),
+    ],
+    datalines: [L({ status: A("link"), rx: A("rx", { unit: "Mbit/s" }), tx: A("tx") })],
+  });
+  print("ok   attribute refs accepted in every entity field");
+} catch (e) {
+  print(`FAIL attribute refs in every entity field: ${e.message}`);
+  failed++;
+}
 expect("rates_at bad", { items: two, datalines: [L({ rx: "sensor.r", rates_at: "middle" })] }, "rates_at: expected start, end or a percentage 0–100");
 expect("rates_at no sensors", { items: two, datalines: [L({ rates_at: "start" })] }, "rates_at: needs 'rx' and/or 'tx' to show");
 expect(
@@ -1499,6 +1530,86 @@ try {
     "an unknown rate unit is named, not shown as no data",
     `${title} / ${warned.some((m) => m.includes("'MBps'"))}`,
     "l · rx — (unknown unit 'MBps') · tx 8.0M / true",
+  );
+}
+{
+  WARNED.clear();
+  const ac = new CardClass();
+  const opened = [];
+  ac.dispatchEvent = (ev) => opened.push(ev.detail.entityId);
+  const A = (attribute, extra = {}) => ({ entity: "sensor.port1", attribute, ...extra });
+  ac.setConfig({
+    items: [...two, B({ entity: A("temp", { unit: "°C" }), icon: "none" }), B({ id: "b2", at: [0, 20], entity: A("missing"), icon: "none" })],
+    datalines: [L({ flow: "forward", status: A("link"), rx: A("rx_rate", { unit: "Mbit/s" }), tx: A("tx_rate") })],
+  });
+  const port = (attributes, state = "on") => ({ states: S({ "sensor.port1": { state, attributes: { friendly_name: "Port 1", ...attributes } } }) });
+  const title = () =>
+    ac.shadowRoot.querySelectorAll("path").find((p) => /\blnk\b/.test(p.attrs.class || "")).children.find((c) => c.tag === "title").textContent;
+  const texts = () =>
+    ac.shadowRoot.querySelectorAll("text").filter((t) => t.attrs.visibility !== "hidden" && !/rates/.test(t.attrs.class || "")).map((t) => t.textContent).join(
+      " | ",
+    );
+  const warned = captureWarnings(() => {
+    ac.hass = { locale: { language: "en" }, ...port({ link: "up", rx_rate: 8, tx_rate: "125", temp: 41.25 }) };
+  });
+  const first = `${title()} / ${texts()}`;
+  ac.hass = { locale: { language: "en" }, ...port({ link: "down", rx_rate: 16, tx_rate: "125", temp: 40 }) };
+  const second = `${title()} / ${texts()}`;
+  ac.hass = { locale: { language: "en" }, ...port({}, "unavailable") };
+  const third = `${title()} / ${texts()}`;
+  const badge = ac.shadowRoot.querySelectorAll("g").find((n) => /\bbadge\b/.test(n.attrs.class || ""));
+  const pc = new CardClass();
+  pc.setConfig({
+    items: [{
+      type: "pool",
+      id: "p",
+      at: [0, 0],
+      size: [20, 20],
+      usage_entity: A("used", { unit: "%" }),
+      items: [{ type: "hdd", id: "h", at: [2, 2], temperature: A("temp") }],
+    }],
+  });
+  pc.hass = port({ used: 50, temp: 40 });
+  const owned = pc.shadowRoot.querySelectorAll("g").filter((n) => n.dataset?.entity).map((n) => n.dataset.entity);
+  opened.push(...owned);
+  ac.shadowRoot.querySelectorAll("ha-card")[0].dispatch("click", { target: { closest: () => badge }, stopPropagation() {} });
+  check(
+    "attributes feed lines and badges, update on change, go blank when the entity is unavailable, and click opens the entity",
+    [first, second, third, opened.join(","), warned.filter((m) => m.includes("no attribute 'missing'")).length].join("\n"),
+    [
+      "l · up · rx 8.0M · tx 1.0M / 41.25 °C | —",
+      "l · down (down) · rx 16.0M · tx 1.0M / 40 °C | —",
+      "l · down (unavailable) · rx — (no data) · tx — (no data) · animation stopped: no traffic data / — | —",
+      "sensor.port1,sensor.port1,sensor.port1",
+      "1",
+    ].join("\n"),
+  );
+}
+{
+  WARNED.clear();
+  const A = (attribute, extra = {}) => ({ entity: "sensor.sw", attribute, ...extra });
+  const ac = new CardClass();
+  ac.setConfig({
+    items: [
+      D({ size: [80, 40], status_entity: A("health"), status_map: { ok: "ok", degraded: "warn" } }),
+      { type: "chip", id: "c", at: [0, 0], icon: "mdi:docker", status_entity: A("link"), update_entity: A("updates") },
+      PS([P({ entity: A("speed", { unit: "Mbit/s" }) })], { at: [20, 0], speed: "1Gbps" }),
+      B({ id: "b9", at: [0, 30], entity: A("mode"), icon: "none" }),
+    ],
+  });
+  const sw = (attributes) => ({ locale: { language: "en" }, states: S({ "sensor.sw": { state: "on", attributes } }) });
+  const byId = (id) => ac.shadowRoot.querySelectorAll("g").find((g) => g.attrs["data-id"] === id);
+  const titleOf = (id) => byId(id)?.children.find((n) => n.tag === "title")?.textContent ?? "";
+  const badgeText = () => ac.shadowRoot.querySelectorAll("text").filter((t) => t.attrs.visibility !== "hidden").map((t) => t.textContent).join(" | ");
+  const read = () => [titleOf("a"), byId("p1")?.attrs.class, titleOf("c"), badgeText()].join("\n");
+  ac.hass = sw({ health: "ok", link: "on", updates: 0, speed: 1000, mode: "auto" });
+  const good = read();
+  ac.hass = sw({ health: "degraded", link: "off", updates: 3, speed: 100, mode: "eco" });
+  const bad = read();
+  check(
+    "attributes drive device frames, chips, ports and text badges",
+    `${good}\n${bad}`,
+    ["a · ok", "port clickable up", "c · up", "auto", "a · degraded", "port clickable slow", "c · down (off) · update available", "eco"].join("\n"),
   );
 }
 {

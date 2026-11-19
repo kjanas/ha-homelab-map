@@ -8,6 +8,7 @@
 - [Lines](#lines): [where a line starts and ends](#where-a-line-starts-and-ends), [points](#points), [line_radius](#line_radius), [open ends](#open-ends)
 - [Datalines](#datalines): [vlans](#vlans), [flow](#flow), [status](#status), [rx and tx](#rx-and-tx), [rates](#rates)
 - [Powerlines](#powerlines)
+- [Values from attributes](#values-from-attributes)
 - [Switches](#switches)
 - [Pan and zoom](#pan-and-zoom)
 - [Font](#font)
@@ -348,7 +349,7 @@ items:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `entity` | **required** | The entity to show |
+| `entity` | **required** | The entity to show, or one of its attributes – see [Values from attributes](#values-from-attributes) |
 | `icon` | **required** | An MDI icon such as `mdi:thermometer`, or `none` for no icon |
 | `icon_color` | card `icon_color` | Colour of the icon – see [Icon colour](#icon_color). Thresholds still win when a limit is reached |
 | `units` | `true` | `true`: the entity's own unit. Your own text (`units: Mb/s`) replaces it. `none` hides it |
@@ -946,6 +947,7 @@ datalines:
 | `active` (default) | drawn and animated normally |
 | `inactive` | red and dashed, without animation – e.g. a planned or unplugged cable |
 | `binary_sensor.…` | normal while the sensor is `on`; red and dashed when it is `off`, unavailable or missing |
+| `{entity: …, attribute: …}` | the same, read from an attribute of any entity – see [Values from attributes](#values-from-attributes) |
 
 ```yaml
 type: custom:ha-homelab-map
@@ -980,6 +982,8 @@ tx: sensor.router_ether2_rx
 ```
 
 The unit is read from each sensor and converted (an unknown unit is reported once in the browser console): `bit/s`, `kbit/s`, `Mbit/s`, `Gbit/s`, `B/s`, `kB/s`, `MB/s`, `GB/s`, `KiB/s`, `MiB/s`, `GiB/s`, the short forms `bps`, `kbps`, `Mbps`, `Gbps` and `kb/s`, `Mb/s`, `Gb/s` for bits; bit units and `KiB/s`–`GiB/s` are also recognised in lower case (`mbit/s`, `mbps`). A sensor without a unit is read as kB/s; a sensor with any other unit shows `—`.
+
+If your integration reports the rates as attributes of one entity instead of separate sensors, see [Values from attributes](#values-from-attributes).
 
 ### Rates
 
@@ -1036,6 +1040,62 @@ powerlines:
 ```
 
 <img src="images/power.png" width="600" alt="power">
+
+## Values from attributes
+
+Some integrations don't create a sensor for every value: a switch, for example, may have one entity per port and report its traffic rates, link speed or PoE power as **attributes** of that entity. Every option that takes an entity also takes an attribute instead:
+
+```yaml
+rx: {entity: sensor.switch_port_1, attribute: rx_rate, unit: Mbit/s}
+```
+
+| Key | | Description |
+| --- | --- | --- |
+| `entity` | **required** | The entity that has the attribute |
+| `attribute` | **required** | The attribute's name, as shown in **Developer tools → States** |
+| `unit` | | The value's unit. Attributes don't have one, so without `unit` a badge shows none and `rx`/`tx` are read as kB/s |
+
+```yaml
+type: custom:ha-homelab-map
+font: JetBrains Mono
+vlans: {LAN: "#6c9cda"}
+items:
+  - type: device
+    id: switch
+    at: [0, 0]
+    size: [120, 44]
+    items:
+      - {type: label, id: switch_name, at: [8, 6], text: Switch, size: 11, bold: true}
+      - {type: badge, id: poe, at: [8, 26], entity: {entity: sensor.switch_port_1, attribute: poe_power, unit: W}, icon: "mdi:flash", decimals: 1}
+      - {type: badge, id: link, at: [60, 26], entity: {entity: sensor.switch_port_1, attribute: link_speed}, icon: "mdi:ethernet"}
+  - type: device
+    id: server
+    at: [300, 0]
+    size: [120, 44]
+    items:
+      - {type: label, id: server_name, at: [8, 6], text: Server, size: 11, bold: true}
+datalines:
+  - id: switch-server
+    start_device: switch
+    start_edge: right
+    end_device: server
+    end_edge: left
+    vlans: [LAN]
+    flow: dominant
+    status: {entity: sensor.switch_port_1, attribute: link}
+    rx: {entity: sensor.switch_port_1, attribute: rx_rate, unit: Mbit/s}
+    tx: {entity: sensor.switch_port_1, attribute: tx_rate, unit: Mbit/s}
+    rates_at: start
+```
+
+<img src="images/attributes.png" width="460" alt="attributes">
+
+- It works in every entity option: `entity` (badges, LEDs, ports, fans), `status_entity`, `update_entity`, `small_entity`, `usage_entity`, `temperature`, and a dataline's `status`, `rx` and `tx`.
+- The attribute's value is used exactly like an entity's state, so all the usual rules apply: thresholds, up and down states, port speeds, fan ranges.
+- Give `unit` for `rx`/`tx` (any of the [rate units](#rx-and-tx)), for a pool's `usage_entity` (`%`) and wherever a badge should show a unit. Badge `units` still overrides it.
+- A dataline `status` taken from an attribute can use any entity, not only a `binary_sensor`.
+- Clicking opens the entity's dialog.
+- While the entity is unavailable, the value counts as unavailable. An attribute the entity doesn't have counts as unknown (`—` on a badge) and is reported once in the browser console.
 
 ## Switches
 
@@ -1169,8 +1229,9 @@ ha-homelab-map: datalines[0].end_edge: expected one of top, right, bottom, left
 ha-homelab-map: datalines[0].flow: 'dominant' needs both 'rx' and 'tx'
 ha-homelab-map: datalines[0].end_device: 'c' is not a device – lines connect devices and ports only
 ha-homelab-map: datalines[0].points: an open end needs at least one point – the last point is where the line fades out
+ha-homelab-map: datalines[0].rx.attribute: required – the name of the attribute to read, such as rx_rate
 ```
 
 `items[0].items[2]` is the third item inside the first item – counting starts at 0.
 
-An entity id that does not exist in Home Assistant can't be caught while the card checks its configuration, so it is reported once in the browser console (`entity 'sensor.x' does not exist in Home Assistant`). On the map it looks like an unavailable entity: a red ring, a dark LED or `—`.
+An entity id that does not exist in Home Assistant can't be caught while the card checks its configuration, so it is reported once in the browser console (`entity 'sensor.x' does not exist in Home Assistant`); so is a missing attribute (`entity 'sensor.x' has no attribute 'rx_rate'`). On the map it looks like an unavailable entity: a red ring, a dark LED or `—`.
